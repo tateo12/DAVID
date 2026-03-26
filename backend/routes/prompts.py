@@ -10,9 +10,11 @@ router = APIRouter(prefix="/prompts", tags=["prompts"])
 def list_prompts(limit: int = Query(default=50, ge=1, le=500)) -> list[PromptSummary]:
     rows = fetch_rows(
         """
-        SELECT id, employee_id, risk_level, action, target_tool, created_at
-        FROM prompts
-        ORDER BY id DESC
+        SELECT p.id, p.employee_id, COALESCE(u.username, e.name) AS employee_name, p.risk_level, p.action, p.target_tool, p.prompt_text, p.created_at
+        FROM prompts p
+        LEFT JOIN employees e ON e.id = p.employee_id
+        LEFT JOIN users u ON u.employee_id = p.employee_id
+        ORDER BY p.id DESC
         LIMIT ?
         """,
         (limit,),

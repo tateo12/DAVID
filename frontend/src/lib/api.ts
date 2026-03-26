@@ -45,9 +45,11 @@ interface BackendEmployeeSummary {
 interface BackendPromptSummary {
   id: number;
   employee_id: number;
+  employee_name?: string | null;
   risk_level: BackendRiskLevel;
   action: string;
   target_tool?: string | null;
+  prompt_text?: string | null;
   created_at: string;
 }
 
@@ -167,8 +169,8 @@ export async function fetchPrompts(limit = 50): Promise<PromptRecord[]> {
       const riskScore = p.risk_level === "low" ? 25 : p.risk_level === "medium" ? 50 : p.risk_level === "high" ? 75 : 95;
       return {
         id: String(p.id),
-        prompt: p.target_tool ? `Prompt captured via ${p.target_tool}` : "Prompt captured",
-        employee_name: emp?.name ?? `Employee ${p.employee_id}`,
+        prompt: p.prompt_text || (p.target_tool ? `Prompt captured via ${p.target_tool}` : "Prompt captured"),
+        employee_name: p.employee_name || emp?.name || `Employee ${p.employee_id}`,
         employee_id: String(p.employee_id),
         department: emp?.department ?? "Unknown",
         risk_level: p.risk_level as RiskLevel,

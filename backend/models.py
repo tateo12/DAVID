@@ -184,9 +184,11 @@ class EmployeeLessonStatus(BaseModel):
 class PromptSummary(BaseModel):
     id: int
     employee_id: int
+    employee_name: str | None = None
     risk_level: RiskLevel
     action: ActionType
     target_tool: str | None
+    prompt_text: str | None = None
     created_at: str
 
 
