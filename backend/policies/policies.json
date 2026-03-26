@@ -1,0 +1,7 @@
+{
+  "global_default": {
+    "blocked_tools": ["unknown-ai.example", "shadowchat.ai"],
+    "forbidden_keywords": ["confidential", "internal-only", "customer list"],
+    "allow_code_paste_roles": ["engineer"]
+  }
+}

@@ -1,0 +1,72 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Sentinel Login</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 12px;
+        width: 320px;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+      h1 {
+        margin: 0 0 10px 0;
+        font-size: 16px;
+      }
+      label {
+        display: block;
+        margin-top: 8px;
+        margin-bottom: 4px;
+        font-size: 12px;
+      }
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        background: #1e293b;
+        color: #e2e8f0;
+      }
+      button {
+        width: 100%;
+        margin-top: 10px;
+        padding: 10px;
+        border: 0;
+        border-radius: 6px;
+        background: #3b82f6;
+        color: white;
+        cursor: pointer;
+      }
+      #status {
+        margin-top: 10px;
+        font-size: 12px;
+      }
+      .muted {
+        color: #94a3b8;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Sentinel Extension</h1>
+
+    <label for="apiBaseUrl">Backend URL</label>
+    <input id="apiBaseUrl" placeholder="http://localhost:8000" />
+
+    <label for="username">Username</label>
+    <input id="username" placeholder="employee1 or manager1" />
+
+    <label for="password">Password</label>
+    <input id="password" type="password" placeholder="demo123" />
+
+    <button id="loginBtn">Login</button>
+    <button id="logoutBtn">Logout</button>
+
+    <div id="status" class="muted">Not logged in.</div>
+
+    <script src="popup.js"></script>
+  </body>
+  </html>

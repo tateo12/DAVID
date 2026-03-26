@@ -1,0 +1,332 @@
+from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+
+class RiskLevel(str, Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+    critical = "critical"
+
+
+class ActionType(str, Enum):
+    allow = "allow"
+    block = "block"
+    redact = "redact"
+    quarantine = "quarantine"
+
+
+class DetectionLayer(str, Enum):
+    l1 = "L1_regex"
+    l2 = "L2_classifier"
+    l3 = "L3_llm"
+
+
+class DetectionType(str, Enum):
+    pii = "pii"
+    secret = "secret"
+    policy = "policy"
+    shadow_ai = "shadow_ai"
+
+
+class Detection(BaseModel):
+    type: DetectionType
+    subtype: str
+    severity: RiskLevel
+    detail: str
+    span: tuple[int, int]
+    confidence: float = Field(ge=0.0, le=1.0)
+    layer: DetectionLayer
+
+
+class AnalyzeRequest(BaseModel):
+    employee_id: int
+    prompt_text: str
+    target_tool: str | None = None
+    metadata: dict[str, Any] | None = None
+
+
+class AnalyzeResponse(BaseModel):
+    prompt_id: int
+    risk_level: RiskLevel
+    action: ActionType
+    detections: list[Detection]
+    coaching_tip: str | None = None
+    redacted_prompt: str | None = None
+    layer_used: DetectionLayer
+    confidence: float = Field(ge=0.0, le=1.0)
+    estimated_cost_usd: float = Field(ge=0.0)
+    skill_evaluation: "PromptSkillEvaluation | None" = None
+
+
+class MetricSnapshot(BaseModel):
+    threats_blocked: int
+    prompts_analyzed: int
+    active_employees: int
+    shadow_ai_events: int
+    estimated_cost_saved_usd: float
+
+
+class EmployeeSummary(BaseModel):
+    id: int
+    name: str
+    department: str
+    risk_score: float
+    total_prompts: int
+    ai_skill_score: float = 0.0
+
+
+class EmployeeDetail(EmployeeSummary):
+    recent_actions: dict[str, int]
+
+
+class PromptSkillEvaluation(BaseModel):
+    overall_score: float = Field(ge=0.0, le=1.0)
+    skill_class: str
+    dimension_scores: dict[str, float]
+    strengths: list[str]
+    improvements: list[str]
+    coaching_message: str
+
+
+class EmployeeSkillProfile(BaseModel):
+    employee_id: int
+    ai_skill_score: float
+    skill_class: str
+    prompts_evaluated: int
+    last_strengths: list[str]
+    last_improvements: list[str]
+    assigned_lessons: list[str]
+    updated_at: str
+
+
+class CompanySkillSnapshot(BaseModel):
+    average_skill_score: float
+    employees_tracked: int
+    low_skill_employees: int
+    high_skill_employees: int
+
+
+class SkillLesson(BaseModel):
+    id: int
+    skill_class: str
+    title: str
+    objective: str
+    content: str
+    is_active: bool
+
+
+class SkillLessonAssignRequest(BaseModel):
+    lesson_id: int
+
+
+class SkillLessonCompleteRequest(BaseModel):
+    lesson_id: int
+
+
+class EmployeeLessonStatus(BaseModel):
+    lesson_id: int
+    title: str
+    status: str
+    assigned_at: str
+    completed_at: str | None = None
+
+
+class PromptSummary(BaseModel):
+    id: int
+    employee_id: int
+    risk_level: RiskLevel
+    action: ActionType
+    target_tool: str | None
+    created_at: str
+
+
+class PromptDetail(PromptSummary):
+    prompt_text: str
+    redacted_prompt: str | None
+    detections: list[Detection]
+    coaching_tip: str | None
+
+
+class PolicyRecord(BaseModel):
+    id: int
+    name: str
+    role: str
+    rule_json: dict[str, Any]
+    updated_at: str
+
+
+class UpdatePolicyRequest(BaseModel):
+    rule_json: dict[str, Any]
+
+
+class WeeklyReportResponse(BaseModel):
+    week_start: str
+    week_end: str
+    summary: str
+    kpis: dict[str, Any]
+
+
+class ShadowAIEvent(BaseModel):
+    id: int
+    employee_id: int
+    tool_domain: str
+    risk_level: RiskLevel
+    created_at: str
+
+
+class AlertRecord(BaseModel):
+    id: int
+    alert_type: str
+    severity: RiskLevel
+    detail: str
+    is_active: bool
+    created_at: str
+
+
+class AgentRecord(BaseModel):
+    id: int
+    name: str
+    budget_usd: float
+    spend_usd: float
+    quality_score: float
+    success_rate: float
+
+
+class UpdateAgentBudgetRequest(BaseModel):
+    budget_usd: float = Field(gt=0.0)
+
+
+class AgentRunCreateRequest(BaseModel):
+    agent_id: int
+    task_type: str
+    cost_usd: float = Field(ge=0.0)
+    success: bool
+    latency_ms: int = Field(ge=0)
+    quality_score: float = Field(ge=0.0, le=1.0)
+    value_score: float = Field(ge=0.0, le=1.0)
+    metadata: dict[str, Any] | None = None
+
+
+class AgentRunRecord(BaseModel):
+    id: int
+    agent_id: int
+    task_type: str
+    cost_usd: float
+    success: bool
+    latency_ms: int
+    quality_score: float
+    value_score: float
+    created_at: str
+
+
+class AgentSummaryRecord(BaseModel):
+    id: int
+    name: str
+    budget_usd: float
+    spend_usd: float
+    remaining_budget_usd: float
+    success_rate_7d: float
+    avg_quality_7d: float
+    avg_value_7d: float
+    runs_7d: int
+    roi_proxy: float
+
+
+class AgentSummaryResponse(BaseModel):
+    agents: list[AgentSummaryRecord]
+    totals: dict[str, float]
+
+
+class AgentRebalanceChange(BaseModel):
+    agent_id: int
+    old_budget_usd: float
+    new_budget_usd: float
+    reason: str
+
+
+class AgentRebalanceResponse(BaseModel):
+    changes: list[AgentRebalanceChange]
+
+
+class ErrorResponse(BaseModel):
+    error: str
+    detail: str
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class AuthUser(BaseModel):
+    id: int
+    username: str
+    role: str
+    employee_id: int | None = None
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_at: str
+    user: AuthUser
+
+
+class ExtensionCaptureRequest(BaseModel):
+    prompt_text: str
+    target_tool: str | None = None
+    metadata: dict[str, Any] | None = None
+    employee_id: int | None = None
+
+
+class ExtensionTurnCaptureRequest(BaseModel):
+    prompt_text: str
+    ai_output_text: str
+    target_tool: str | None = None
+    conversation_id: str | None = None
+    turn_id: str | None = None
+    metadata: dict[str, Any] | None = None
+    employee_id: int | None = None
+
+
+class ExtensionTurnCaptureResponse(BaseModel):
+    prompt_analysis: AnalyzeResponse
+    output_analysis: AnalyzeResponse
+
+
+class AgentActionEventRequest(BaseModel):
+    agent_id: int
+    task_type: str
+    cost_usd: float = Field(ge=0.0)
+    success: bool
+    latency_ms: int = Field(ge=0)
+    quality_score: float = Field(ge=0.0, le=1.0)
+    value_score: float = Field(ge=0.0, le=1.0)
+    metadata: dict[str, Any] | None = None
+
+
+class CodeReviewSubmitRequest(BaseModel):
+    employee_id: int
+    code_text: str
+    target_tool: str | None = None
+    metadata: dict[str, Any] | None = None
+
+
+class DispatchResult(BaseModel):
+    generated_count: int
+    message: str
+
+
+class TickJobResult(BaseModel):
+    job_name: str
+    status: str
+    generated_count: int
+    detail: str
+
+
+class TickResponse(BaseModel):
+    ran_at: str
+    jobs: list[TickJobResult]
