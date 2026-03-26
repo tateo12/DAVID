@@ -1,28 +1,31 @@
 {
   "manifest_version": 3,
-  "name": "Sentinel AI Security",
-  "version": "1.0.0",
-  "description": "AI Security Supervisor — monitors and protects employee AI tool usage in real-time",
-  "permissions": ["activeTab", "storage"],
+  "name": "Sentinel Prompt Guard",
+  "version": "0.1.0",
+  "description": "Captures employee AI prompts and sends them to Sentinel backend for analysis.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Sentinel Prompt Guard"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [
-    "https://chatgpt.com/*",
+    "http://localhost:8000/*",
     "https://chat.openai.com/*",
     "https://claude.ai/*",
-    "http://localhost:8000/*"
+    "https://gemini.google.com/*"
   ],
   "content_scripts": [
     {
       "matches": [
-        "https://chatgpt.com/*",
         "https://chat.openai.com/*",
-        "https://claude.ai/*"
+        "https://claude.ai/*",
+        "https://gemini.google.com/*"
       ],
       "js": ["content.js"],
-      "css": ["styles.css"],
       "run_at": "document_idle"
     }
-  ],
-  "action": {
-    "default_popup": "popup.html"
-  }
+  ]
 }
