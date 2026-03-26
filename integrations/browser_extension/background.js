@@ -13,7 +13,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 async function handleCapture(payload, sender) {
   const state = await chrome.storage.local.get(["apiBaseUrl", "accessToken", "user"]);
-  const apiBaseUrl = (state.apiBaseUrl || "http://localhost:8000").replace(/\/$/, "");
+  const apiBaseUrl = (state.apiBaseUrl || "https://david-production-f999.up.railway.app").replace(/\/$/, "");
   const token = state.accessToken;
   const user = state.user;
 
@@ -55,7 +55,7 @@ async function handleCapture(payload, sender) {
 
 async function handleCaptureTurn(payload, sender) {
   const state = await chrome.storage.local.get(["apiBaseUrl", "accessToken", "user"]);
-  const apiBaseUrl = (state.apiBaseUrl || "http://localhost:8000").replace(/\/$/, "");
+  const apiBaseUrl = (state.apiBaseUrl || "https://david-production-f999.up.railway.app").replace(/\/$/, "");
   const token = state.accessToken;
   const user = state.user;
 

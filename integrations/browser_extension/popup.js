@@ -11,7 +11,7 @@ async function loadState() {
     "accessToken",
     "user",
   ]);
-  apiBaseUrlEl.value = state.apiBaseUrl || "http://localhost:8000";
+  apiBaseUrlEl.value = state.apiBaseUrl || "https://david-production-f999.up.railway.app";
   if (state.user) {
     statusEl.textContent = `Logged in as ${state.user.username} (${state.user.role})`;
     statusEl.className = "";
