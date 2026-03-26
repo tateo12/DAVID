@@ -163,6 +163,20 @@ def init_db() -> None:
                 FOREIGN KEY (agent_id) REFERENCES agent_budgets (id)
             );
 
+            CREATE TABLE IF NOT EXISTS agent_output_attributions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_id INTEGER NOT NULL,
+                run_id INTEGER,
+                output_ref TEXT NOT NULL,
+                revenue_impact_usd REAL NOT NULL DEFAULT 0,
+                cost_saved_usd REAL NOT NULL DEFAULT 0,
+                quality_outcome_score REAL NOT NULL DEFAULT 0,
+                metadata_json TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (agent_id) REFERENCES agent_budgets (id),
+                FOREIGN KEY (run_id) REFERENCES agent_runs (id)
+            );
+
             CREATE TABLE IF NOT EXISTS employee_skill_profiles (
                 employee_id INTEGER PRIMARY KEY,
                 ai_skill_score REAL NOT NULL DEFAULT 0.0,
@@ -183,6 +197,19 @@ def init_db() -> None:
                 dimension_scores_json TEXT NOT NULL,
                 strengths_json TEXT NOT NULL,
                 improvements_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (employee_id) REFERENCES employees (id),
+                FOREIGN KEY (prompt_id) REFERENCES prompts (id)
+            );
+
+            CREATE TABLE IF NOT EXISTS employee_interaction_memory (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                employee_id INTEGER NOT NULL,
+                prompt_id INTEGER NOT NULL,
+                risk_level TEXT NOT NULL,
+                action TEXT NOT NULL,
+                skill_score REAL NOT NULL DEFAULT 0,
+                skill_class TEXT NOT NULL DEFAULT 'developing',
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (employee_id) REFERENCES employees (id),
                 FOREIGN KEY (prompt_id) REFERENCES prompts (id)
@@ -224,6 +251,14 @@ def init_db() -> None:
                 interval_seconds INTEGER NOT NULL,
                 last_run_at TEXT,
                 enabled INTEGER NOT NULL DEFAULT 1
+            );
+
+            CREATE TABLE IF NOT EXISTS alert_notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                alert_id INTEGER NOT NULL,
+                notified_at TEXT NOT NULL,
+                UNIQUE(alert_id),
+                FOREIGN KEY (alert_id) REFERENCES alerts (id)
             );
             """
         )
@@ -473,7 +508,7 @@ def record_skill_evaluation(
     from engines.coaching_engine import skill_class_from_score
 
     profile = fetch_one(
-        "SELECT ai_skill_score, prompts_evaluated, assigned_lessons_json FROM employee_skill_profiles WHERE employee_id = ?",
+        "SELECT ai_skill_score, prompts_evaluated FROM employee_skill_profiles WHERE employee_id = ?",
         (employee_id,),
     )
     if not profile:
@@ -498,12 +533,16 @@ def record_skill_evaluation(
 
     previous_score = float(profile["ai_skill_score"] or 0.0)
     previous_count = int(profile["prompts_evaluated"] or 0)
-    assigned_lessons = json.loads(profile["assigned_lessons_json"] or "[]")
     new_count = previous_count + 1
     new_score = ((previous_score * previous_count) + overall_score) / new_count
     new_class = skill_class_from_score(new_score)
+    pending_rows = fetch_rows(
+        "SELECT lesson_id FROM employee_lessons WHERE employee_id = ? AND status = 'assigned' ORDER BY id DESC",
+        (employee_id,),
+    )
+    assigned_lessons = [str(r["lesson_id"]) for r in pending_rows]
     # Auto-assign one lesson matching the new class if none pending.
-    if not assigned_lessons:
+    if not pending_rows:
         lesson = fetch_one(
             "SELECT id FROM skill_lessons WHERE skill_class = ? AND is_active = 1 ORDER BY id LIMIT 1",
             (new_class,),
@@ -530,4 +569,22 @@ def record_skill_evaluation(
             _utc_now(),
             employee_id,
         ),
+    )
+
+
+def record_employee_interaction_memory(
+    employee_id: int,
+    prompt_id: int,
+    risk_level: str,
+    action: str,
+    skill_score: float,
+    skill_class: str,
+) -> None:
+    execute(
+        """
+        INSERT INTO employee_interaction_memory (
+            employee_id, prompt_id, risk_level, action, skill_score, skill_class, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (employee_id, prompt_id, risk_level, action, skill_score, skill_class, _utc_now()),
     )

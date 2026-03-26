@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { fetchWeeklyReport } from "@/lib/api";
 import { WeeklyReport } from "@/lib/types";
-import { Badge } from "@/components/ui/badge";
 import {
   AreaChart,
   Area,

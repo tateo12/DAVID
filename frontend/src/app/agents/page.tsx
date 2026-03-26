@@ -3,9 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { fetchAgents } from "@/lib/api";
 import { Agent, AgentStatus } from "@/lib/types";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Zap, Clock, DollarSign, Activity } from "lucide-react";
+import { Bot, Zap, Clock, DollarSign } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -174,8 +173,8 @@ export default function AgentsPage() {
                       color: "#f1f5f9",
                       fontSize: "12px",
                     }}
-                    formatter={(value: number, name: string) => [
-                      `$${value.toLocaleString()}`,
+                    formatter={(value, name) => [
+                      `$${Number(value).toLocaleString()}`,
                       name === "spend" ? "Current Spend" : "Budget",
                     ]}
                   />

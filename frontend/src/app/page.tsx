@@ -244,7 +244,7 @@ export default function DashboardPage() {
                       color: "#f1f5f9",
                       fontSize: "12px",
                     }}
-                    formatter={(value: number) => [`${value}%`, ""]}
+                    formatter={(value) => [`${Number(value)}%`, ""]}
                   />
                 </PieChart>
               </ResponsiveContainer>

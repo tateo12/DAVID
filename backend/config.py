@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     app_name: str = "Sentinel Backend"
     app_env: str = "dev"
     api_prefix: str = "/api"
-    allowed_origin: str = "http://localhost:3000"
+    allowed_origins: str = "http://localhost:3000"
 
     sqlite_path: str = "sentinel.db"
 
