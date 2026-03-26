@@ -1,0 +1,269 @@
+/* =============================================================
+   Sentinel AI Security — Chrome Extension Styles
+   All selectors prefixed #sentinel- or .sentinel- to avoid
+   conflicts with host page styles.
+   ============================================================= */
+
+/* ---------- Keyframes ---------- */
+
+@keyframes sentinel-slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes sentinel-fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes sentinel-fadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.95);
+  }
+}
+
+@keyframes sentinel-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 8px 4px rgba(56, 189, 248, 0.2);
+  }
+}
+
+@keyframes sentinel-dotPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ---------- Top Banner ---------- */
+
+#sentinel-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #f1f5f9;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.35), 0 0 20px rgba(56, 189, 248, 0.08);
+  animation: sentinel-slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+#sentinel-banner-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------- Status Dot ---------- */
+
+.sentinel-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-left: 6px;
+  flex-shrink: 0;
+  animation: sentinel-dotPulse 2s ease-in-out infinite;
+}
+
+.sentinel-status-dot-green {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+}
+
+.sentinel-status-dot-yellow {
+  background: #eab308;
+  box-shadow: 0 0 6px rgba(234, 179, 8, 0.6);
+}
+
+.sentinel-status-dot-red {
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+}
+
+/* ---------- Banner Close Button ---------- */
+
+#sentinel-banner-close {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 16px;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  line-height: 1;
+  padding: 0;
+}
+
+#sentinel-banner-close:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ---------- Spacer (pushes page content down) ---------- */
+
+#sentinel-spacer {
+  height: 36px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* ---------- Warning Overlay ---------- */
+
+#sentinel-warning-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 999998;
+  max-width: 400px;
+  min-width: 320px;
+  animation: sentinel-fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#sentinel-warning-container.sentinel-dismissing {
+  animation: sentinel-fadeOut 0.25s ease forwards;
+}
+
+.sentinel-warning-card {
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  border-left: 4px solid transparent;
+}
+
+.sentinel-warning-yellow .sentinel-warning-card {
+  border-left-color: #eab308;
+}
+
+.sentinel-warning-red .sentinel-warning-card {
+  border-left-color: #ef4444;
+}
+
+.sentinel-warning-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.sentinel-warning-title {
+  color: #f8fafc;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sentinel-warning-body {
+  color: #94a3b8;
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.sentinel-warning-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sentinel-btn-dismiss {
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sentinel-btn-dismiss:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #f1f5f9;
+}
+
+.sentinel-link-learn {
+  color: #38bdf8;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.sentinel-link-learn:hover {
+  color: #7dd3fc;
+  text-decoration: underline;
+}
+
+/* ---------- Warning severity icon colors ---------- */
+
+.sentinel-warning-yellow .sentinel-warning-title {
+  color: #fbbf24;
+}
+
+.sentinel-warning-red .sentinel-warning-title {
+  color: #f87171;
+}
+
+/* ---------- Progress bar (auto-dismiss timer) ---------- */
+
+.sentinel-warning-timer {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 0 0 12px 12px;
+  margin: 0 -20px -16px -20px;
+  overflow: hidden;
+  margin-top: 12px;
+}
+
+.sentinel-warning-timer-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8, #818cf8);
+  border-radius: 0 0 0 12px;
+  transition: width 0.3s linear;
+  width: 100%;
+}

@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Sentinel AI Security",
+  "version": "1.0.0",
+  "description": "AI Security Supervisor — monitors and protects employee AI tool usage in real-time",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://claude.ai/*",
+    "http://localhost:8000/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*"
+      ],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

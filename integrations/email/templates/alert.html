@@ -1,0 +1,233 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sentinel Security Alert</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f1f5f9; font-family:Arial, Helvetica, sans-serif; -webkit-font-smoothing:antialiased;">
+
+  <!-- Outer wrapper -->
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f1f5f9;">
+    <tr>
+      <td align="center" style="padding:24px 16px;">
+
+        <!-- Main container -->
+        <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px; width:100%; background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 4px 6px rgba(0,0,0,0.07);">
+
+          <!-- Red Header -->
+          <tr>
+            <td style="background-color:#ef4444; padding:6px 40px; text-align:center;">
+              <!-- Top accent bar -->
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color:#0f172a; padding:24px 40px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="text-align:center;">
+                    <table border="0" cellpadding="0" cellspacing="0" align="center">
+                      <tr>
+                        <td style="color:#ffffff; font-size:22px; font-weight:bold; letter-spacing:1px; text-align:center;">
+                          &#x26A0;&#xFE0F; SECURITY ALERT
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="text-align:center; padding-top:10px;">
+                          <table border="0" cellpadding="0" cellspacing="0" align="center">
+                            <tr>
+                              <td style="font-size:12px; font-weight:bold; color:#ffffff; background-color:{% if severity == 'critical' %}#ef4444{% elif severity == 'high' %}#ef4444{% elif severity == 'medium' %}#f59e0b{% else %}#3b82f6{% endif %}; padding:5px 16px; border-radius:12px; text-transform:uppercase; letter-spacing:1px;">
+                                {{ severity }}
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px 40px 12px 40px;">
+
+              <!-- Alert Summary -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="color:#0f172a; font-size:16px; line-height:24px; padding-bottom:24px;">
+                    A <strong style="color:#ef4444; text-transform:uppercase;">{{ severity }}</strong> security event was detected and requires your attention.
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Event Details Table -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:28px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+                <tr>
+                  <td style="background-color:#0f172a; padding:12px 20px; color:#ffffff; font-size:13px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">
+                    Event Details
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <!-- Employee -->
+                      <tr>
+                        <td style="padding:12px 20px; border-bottom:1px solid #f1f5f9; width:35%; color:#64748b; font-size:13px; font-weight:600; vertical-align:top;">
+                          Employee
+                        </td>
+                        <td style="padding:12px 20px; border-bottom:1px solid #f1f5f9; color:#0f172a; font-size:14px; font-weight:600;">
+                          {{ employee_name }} <span style="color:#64748b; font-weight:normal;">({{ department }})</span>
+                        </td>
+                      </tr>
+                      <!-- Time -->
+                      <tr>
+                        <td style="padding:12px 20px; border-bottom:1px solid #f1f5f9; color:#64748b; font-size:13px; font-weight:600; vertical-align:top;">
+                          Time
+                        </td>
+                        <td style="padding:12px 20px; border-bottom:1px solid #f1f5f9; color:#0f172a; font-size:14px;">
+                          {{ timestamp }}
+                        </td>
+                      </tr>
+                      <!-- Tool -->
+                      <tr>
+                        <td style="padding:12px 20px; border-bottom:1px solid #f1f5f9; color:#64748b; font-size:13px; font-weight:600; vertical-align:top;">
+                          AI Tool
+                        </td>
+                        <td style="padding:12px 20px; border-bottom:1px solid #f1f5f9; color:#0f172a; font-size:14px;">
+                          {{ target_tool }}
+                        </td>
+                      </tr>
+                      <!-- Action Taken -->
+                      <tr>
+                        <td style="padding:12px 20px; color:#64748b; font-size:13px; font-weight:600; vertical-align:top;">
+                          Action Taken
+                        </td>
+                        <td style="padding:12px 20px;">
+                          <table border="0" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="font-size:13px; font-weight:bold; color:#ffffff; background-color:{% if action_taken == 'Blocked' %}#ef4444{% elif action_taken == 'Auto-Redacted' %}#f59e0b{% else %}#3b82f6{% endif %}; padding:4px 12px; border-radius:4px;">
+                                {{ action_taken }}
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Detections Table -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:28px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+                <tr>
+                  <td style="background-color:#0f172a; padding:12px 20px; color:#ffffff; font-size:13px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">
+                    Detections
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <!-- Table Header -->
+                      <tr style="background-color:#f8fafc;">
+                        <td style="padding:10px 12px; font-size:11px; font-weight:bold; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0; width:22%;">
+                          Type
+                        </td>
+                        <td style="padding:10px 12px; font-size:11px; font-weight:bold; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0; width:20%;">
+                          Severity
+                        </td>
+                        <td style="padding:10px 12px; font-size:11px; font-weight:bold; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0; width:38%;">
+                          Detail
+                        </td>
+                        <td style="padding:10px 12px; font-size:11px; font-weight:bold; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0; width:20%; text-align:center;">
+                          Confidence
+                        </td>
+                      </tr>
+                      <!-- Detection Rows -->
+                      {% for detection in detections %}
+                      <tr>
+                        <td style="padding:10px 12px; font-size:13px; color:#0f172a; border-bottom:1px solid #f1f5f9; font-weight:600;">
+                          {{ detection.type }}
+                        </td>
+                        <td style="padding:10px 12px; border-bottom:1px solid #f1f5f9;">
+                          <table border="0" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="font-size:11px; font-weight:bold; color:#ffffff; background-color:{% if detection.severity == 'critical' %}#ef4444{% elif detection.severity == 'high' %}#ef4444{% elif detection.severity == 'medium' %}#f59e0b{% else %}#3b82f6{% endif %}; padding:2px 8px; border-radius:4px; text-transform:uppercase;">
+                                {{ detection.severity }}
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                        <td style="padding:10px 12px; font-size:13px; color:#475569; border-bottom:1px solid #f1f5f9;">
+                          {{ detection.detail }}
+                        </td>
+                        <td style="padding:10px 12px; font-size:13px; color:#0f172a; border-bottom:1px solid #f1f5f9; text-align:center; font-weight:600;">
+                          {{ detection.confidence }}%
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Prompt Excerpt -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:28px;">
+                <tr>
+                  <td style="color:#64748b; font-size:13px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; padding-bottom:8px;">
+                    Prompt Excerpt
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background-color:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:14px 18px; font-family:'Courier New', monospace; font-size:13px; color:#334155; line-height:20px;">
+                    {{ prompt_excerpt }}{% if prompt_truncated %}<span style="color:#94a3b8;"> ...</span>{% endif %}
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA Button -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:12px;">
+                <tr>
+                  <td align="center" style="padding:4px 0 16px 0;">
+                    <table border="0" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center" style="background-color:#3b82f6; border-radius:8px;">
+                          <a href="{{ dashboard_url }}" target="_blank" style="display:inline-block; padding:14px 36px; color:#ffffff; font-size:15px; font-weight:bold; text-decoration:none; letter-spacing:0.3px;">
+                            Review in Sentinel Dashboard &rarr;
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 40px 28px 40px; border-top:1px solid #e2e8f0;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="color:#94a3b8; font-size:12px; line-height:18px; text-align:center;">
+                    This is an automated security alert from <strong>Sentinel</strong><br />
+                    Do not reply to this email. For questions, contact your security team.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+        <!-- /Main container -->
+
+      </td>
+    </tr>
+  </table>
+  <!-- /Outer wrapper -->
+
+</body>
+</html>
