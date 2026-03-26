@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: sentinel-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ALLOWED_ORIGINS
+        value: http://localhost:3000
+      - key: ENABLE_L2
+        value: "false"
+      - key: ENABLE_L3
+        value: "false"
