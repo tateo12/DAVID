@@ -20,6 +20,10 @@ export const metadata: Metadata = {
   title: "Sentinel — AI Security Supervisor",
   description:
     "Enterprise AI security operations center. Monitor threats, manage policies, and supervise AI usage in real-time.",
+  icons: {
+    icon: "/sentinel_logo.png",
+    apple: "/sentinel_logo.png",
+  },
 };
 
 export default function RootLayout({

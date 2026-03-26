@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -13,7 +14,6 @@ import {
   FileBarChart,
   ChevronLeft,
   ChevronRight,
-  Shield,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -43,9 +43,14 @@ export function Sidebar() {
     >
       {/* Logo Area */}
       <div className="flex items-center gap-3 px-4 h-16 border-b border-sentinel-border shrink-0">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shrink-0">
-          <Shield className="w-5 h-5 text-white" />
-        </div>
+        <Image
+          src="/sentinel_logo.png"
+          alt="Sentinel"
+          width={32}
+          height={32}
+          className="shrink-0 rounded-full"
+          priority
+        />
         {expanded && (
           <span className="text-lg font-bold sentinel-gradient whitespace-nowrap overflow-hidden">
             Sentinel
