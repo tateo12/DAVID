@@ -1,6 +1,6 @@
 # Sentinel Integrations
 
-**Owner: Seth Knoop (ChatGPT + Copilot + Antigravity)**
+**Owner: Tate Henricksen Claude Code and Codex**
 
 ## Context for AI Assistants
 
@@ -25,10 +25,6 @@ This directory contains integrations, demo infrastructure, and content for Senti
 - Chrome extension simulator that shows Sentinel intercepting prompts on AI tool websites
 - Even a mockup/demo version is fine — this is for presentation impact
 - Shows a small overlay when an employee types a risky prompt
-- Starter implementation now includes:
-  - popup login to backend (`/api/auth/login`)
-  - employee/manager bearer session usage
-  - prompt capture relay to backend (`/api/extension/capture`)
 
 ### 4. Report Export (`exports/`)
 - PDF generation for weekly reports using a Python library
