@@ -8,12 +8,15 @@ import {
   Agent,
   WeeklyReport,
   RiskLevel,
+<<<<<<< HEAD
   EmployeeStatus,
   AutomationAnalysisResponse,
   AutomationOpportunity,
+=======
+>>>>>>> 9d92aec147f8933a83b59da8d4a34a0721e4a75c
 } from "./types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://david-production-f999.up.railway.app";
 const DEFAULT_EMPLOYEE_ID = 1;
 
 type BackendRiskLevel = "low" | "medium" | "high" | "critical";
@@ -109,7 +112,7 @@ export async function fetchMetrics(): Promise<Metrics> {
       active_employees_trend: 0,
     };
   } catch {
-    return mockMetrics;
+    return { threats_blocked: 0, threats_blocked_trend: 0, cost_saved: 0, cost_saved_trend: 0, shadow_ai_detected: 0, shadow_ai_trend: 0, active_employees: 0, active_employees_trend: 0 };
   }
 }
 
@@ -133,7 +136,7 @@ export async function analyzePrompt(prompt: string): Promise<AnalysisResult> {
       timestamp: new Date().toISOString(),
     };
   } catch {
-    return generateMockAnalysis(prompt);
+    return { id: "error", prompt, risk_level: "safe" as RiskLevel, risk_score: 0, categories: [], reasoning: "Backend unavailable", timestamp: new Date().toISOString() };
   }
 }
 
@@ -153,7 +156,7 @@ export async function fetchEmployees(): Promise<Employee[]> {
       risk_trend: [],
     }));
   } catch {
-    return mockEmployees;
+    return [];
   }
 }
 
@@ -181,7 +184,7 @@ export async function fetchPrompts(limit = 50): Promise<PromptRecord[]> {
       };
     });
   } catch {
-    return mockPrompts;
+    return [];
   }
 }
 
@@ -208,7 +211,7 @@ export async function fetchWeeklyReport(): Promise<WeeklyReport> {
       recommendations: [report.summary],
     };
   } catch {
-    return mockWeeklyReport;
+    return { id: "", week_start: "", week_end: "", generated_at: "", key_metrics: { total_prompts: 0, threats_blocked: 0, high_risk_users: 0, cost_saved: 0, avg_risk_score: 0 }, threat_trend: [], top_risks: [], recommendations: [] };
   }
 }
 
@@ -241,7 +244,7 @@ export async function fetchShadowAI(): Promise<ShadowAISummary> {
       }),
     };
   } catch {
-    return mockShadowAI;
+    return { total_flags: 0, unique_tools: 0, employees_involved: 0, flags: [] };
   }
 }
 
@@ -431,10 +434,11 @@ export async function fetchAgents(): Promise<Agent[]> {
       ...AGENT_AUTOMATION_PROFILES[agent.name],
     }));
   } catch {
-    return mockAgents;
+    return [];
   }
 }
 
+<<<<<<< HEAD
 export async function fetchAutomationAnalysis(): Promise<AutomationAnalysisResponse> {
   try {
     return await apiFetch<AutomationAnalysisResponse>("/api/reports/automation-analysis");
@@ -556,6 +560,9 @@ const mockPrompts: PromptRecord[] = Array.from({ length: 50 }, (_, i) => {
   };
 });
 
+=======
+// ===== Static Data =====
+>>>>>>> 9d92aec147f8933a83b59da8d4a34a0721e4a75c
 const mockPolicies: Policy[] = [
   {
     id: "pol-1",
@@ -621,6 +628,7 @@ const mockPolicies: Policy[] = [
 
 export { mockPolicies };
 
+<<<<<<< HEAD
 const mockShadowAI: ShadowAISummary = {
   total_flags: 23,
   unique_tools: 8,
@@ -743,3 +751,5 @@ const mockAutomationAnalysis: AutomationAnalysisResponse = {
     },
   ],
 };
+=======
+>>>>>>> 9d92aec147f8933a83b59da8d4a34a0721e4a75c
