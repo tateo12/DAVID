@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     openrouter_app_name: str = "Sentinel"
     l2_model_name: str = "nvidia/nemotron-nano-9b-v2:free"
     l3_model_name: str = "nvidia/nemotron-3-super-120b-a12b:free"
-    enable_l2: bool = False
-    enable_l3: bool = False
+    enable_l2: bool = True
+    enable_l3: bool = True
     l1_confidence_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
     l2_confidence_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
 

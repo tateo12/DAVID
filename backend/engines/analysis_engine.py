@@ -98,22 +98,8 @@ def _needs_l2_review(
     settings = get_settings()
     if not settings.enable_l2:
         return False
-
-    low_conf_hits = sum(1 for detection in detections if detection.confidence < settings.l1_confidence_threshold)
-    medium_only = bool(detections) and all(d.severity == RiskLevel.medium for d in detections)
-    long_unflagged_prompt = not detections and len(prompt_text.strip()) >= 180
-
-    if l1_confidence < settings.l1_confidence_threshold:
-        return True
-    if low_conf_hits > 0:
-        return True
-    if medium_only and (len(detections) <= 2 or attachment_count > 0):
-        return True
-    if risk_level == RiskLevel.medium and attachment_count > 0:
-        return True
-    if long_unflagged_prompt:
-        return True
-    return False
+    # Always run L2 — every prompt gets AI classification
+    return True
 
 
 def _needs_l3_review(
@@ -127,16 +113,14 @@ def _needs_l3_review(
     settings = get_settings()
     if not settings.enable_l3:
         return False
-
-    has_l2_signal = any(detection.layer == DetectionLayer.l2 for detection in detections)
-    high_ambiguity = confidence < settings.l2_confidence_threshold
-    changed_by_l2 = l2_applied and (l2_added_count > 0 or (l2_adjustment or "none") != "none")
-
-    if high_ambiguity:
+    # Run L3 on anything that isn't clearly safe
+    if detections:
         return True
-    if changed_by_l2 and risk_level in {RiskLevel.medium, RiskLevel.high, RiskLevel.critical}:
+    if l2_applied:
         return True
-    if has_l2_signal and risk_level in {RiskLevel.high, RiskLevel.critical}:
+    if risk_level != RiskLevel.low:
+        return True
+    if confidence < 0.95:
         return True
     return False
 

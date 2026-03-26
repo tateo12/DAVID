@@ -338,6 +338,8 @@ def _seed_defaults() -> None:
                 "INSERT INTO users (username, password, role, employee_id, created_at) VALUES (?, ?, ?, ?, ?)",
                 [
                     ("employee1", "demo123", "employee", 1, _utc_now()),
+                    ("employee2", "demo123", "employee", 2, _utc_now()),
+                    ("employee3", "demo123", "employee", 3, _utc_now()),
                     ("manager1", "demo123", "manager", None, _utc_now()),
                 ],
             )

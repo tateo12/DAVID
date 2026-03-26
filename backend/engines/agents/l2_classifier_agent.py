@@ -12,12 +12,15 @@ from models import Detection, DetectionLayer, DetectionType, RiskLevel
 class L2ClassifierAgent:
     name = "L2ClassifierAgent"
 
+    def _get_api_key(self) -> str:
+        settings = get_settings()
+        return settings.openrouter_api_key or os.getenv("API_SECRET_KEY", "")
+
     def _should_classify(self, detections: list[Detection], confidence: float) -> bool:
         settings = get_settings()
         if not settings.enable_l2:
             return False
-        api_key = settings.openrouter_api_key or os.getenv("OPENROUTER_API_KEY", "") or os.getenv("API_SECRET_KEY", "")
-        if not api_key:
+        if not self._get_api_key():
             return False
         return True
 
@@ -49,7 +52,7 @@ class L2ClassifierAgent:
             return L2ClassificationResult(applied=False)
 
         settings = get_settings()
-        api_key = settings.openrouter_api_key or os.getenv("OPENROUTER_API_KEY", "") or os.getenv("API_SECRET_KEY", "")
+        api_key = self._get_api_key()
 
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -65,10 +68,12 @@ class L2ClassifierAgent:
                     "content": (
                         "You are a lightweight security classifier for enterprise AI prompts. "
                         "Analyze the prompt and L1 regex detections. Identify any missed risks. "
-                        "Respond with strict JSON using keys: "
+                        "Respond with strict JSON only using keys: "
                         "missed_risks (array of {type, subtype, severity, detail}), "
                         "risk_adjustment (one of: none, upgrade, downgrade), "
-                        "rationale (short string)."
+                        "rationale (short string). "
+                        "Valid type values: pii, secret, policy, shadow_ai. "
+                        "Valid severity values: low, medium, high, critical."
                     ),
                 },
                 {
@@ -88,6 +93,7 @@ class L2ClassifierAgent:
             data = response.json()
             message = data["choices"][0]["message"]["content"]
             parsed = self._parse_json_content(message)
+
             additional: list[Detection] = []
             for risk in parsed.get("missed_risks", [])[:10]:
                 try:
@@ -102,6 +108,7 @@ class L2ClassifierAgent:
                     ))
                 except (ValueError, KeyError):
                     continue
+
             return L2ClassificationResult(
                 applied=True,
                 additional_detections=additional,

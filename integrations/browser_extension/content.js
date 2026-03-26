@@ -59,9 +59,14 @@ function captureDraftIfChanged(field) {
   });
 }
 
+let pendingPromptText = "";
+
 function captureSubmittedPrompt(field) {
-  const promptText = getPromptTextFromField(field).trim();
+  // Use pending text if available (captured before field was cleared)
+  const promptText = pendingPromptText || getPromptTextFromField(field).trim();
+  pendingPromptText = "";
   if (!promptText) return;
+  console.log("Sentinel: submitting prompt:", promptText.slice(0, 80));
   lastSubmittedPrompt = promptText;
   sendMessage("sentinel_capture_prompt", {
     prompt_text: promptText,
@@ -170,12 +175,25 @@ function startAutoCapture() {
   }
   console.log("Sentinel: found prompt field, listening for input");
 
-  // Capture on Enter key (listen on document to catch it regardless of focus)
+  // Continuously track the latest text in the field
+  const fieldObserver = new MutationObserver(() => {
+    const text = getPromptTextFromField(field).trim();
+    if (text) pendingPromptText = text;
+  });
+  fieldObserver.observe(field, { childList: true, subtree: true, characterData: true });
+  field.addEventListener("input", () => {
+    const text = getPromptTextFromField(field).trim();
+    if (text) pendingPromptText = text;
+  });
+
+  // Capture on Enter key — use pendingPromptText since field may clear instantly
   document.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
+      // Snapshot current text before ProseMirror clears it
       const text = getPromptTextFromField(field).trim();
-      if (text) {
-        console.log("Sentinel: Enter pressed, capturing prompt");
+      if (text) pendingPromptText = text;
+      if (pendingPromptText) {
+        console.log("Sentinel: Enter pressed, capturing:", pendingPromptText.slice(0, 80));
         captureSubmittedPrompt(field);
       }
     }
@@ -189,8 +207,13 @@ function startAutoCapture() {
     if (!btn) return;
     const text = `${btn.innerText || ""} ${btn.getAttribute?.("aria-label") || ""} ${btn.getAttribute?.("data-testid") || ""}`.toLowerCase();
     if (text.includes("send") || text.includes("submit")) {
-      console.log("Sentinel: send button clicked, capturing prompt");
-      captureSubmittedPrompt(field);
+      // Snapshot current text before field clears
+      const fieldText = getPromptTextFromField(field).trim();
+      if (fieldText) pendingPromptText = fieldText;
+      if (pendingPromptText) {
+        console.log("Sentinel: send clicked, capturing:", pendingPromptText.slice(0, 80));
+        captureSubmittedPrompt(field);
+      }
     }
   }, true);
 

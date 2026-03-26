@@ -12,12 +12,15 @@ from models import ActionType, Detection, RiskLevel
 class L3JudgmentAgent:
     name = "L3JudgmentAgent"
 
+    def _get_api_key(self) -> str:
+        settings = get_settings()
+        return settings.openrouter_api_key or os.getenv("API_SECRET_KEY", "")
+
     def _should_escalate(self, risk_level: RiskLevel, detections: list[Detection]) -> bool:
         settings = get_settings()
         if not settings.enable_l3:
             return False
-        api_key = settings.openrouter_api_key or os.getenv("OPENROUTER_API_KEY", "") or os.getenv("API_SECRET_KEY", "")
-        if not api_key:
+        if not self._get_api_key():
             return False
         return risk_level in {RiskLevel.medium, RiskLevel.high, RiskLevel.critical} or len(detections) == 0
 
@@ -50,7 +53,7 @@ class L3JudgmentAgent:
             return L3JudgmentResult(applied=False)
 
         settings = get_settings()
-        api_key = settings.openrouter_api_key or os.getenv("OPENROUTER_API_KEY", "") or os.getenv("API_SECRET_KEY", "")
+        api_key = self._get_api_key()
 
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -65,6 +68,8 @@ class L3JudgmentAgent:
                     "role": "system",
                     "content": (
                         "You are a security adjudication model for enterprise AI prompt safety. "
+                        "You receive a prompt, its current risk assessment, and all detections. "
+                        "Make a final judgment on the correct risk level and action. "
                         "Respond with strict JSON only using keys: risk_level, action, confidence, rationale. "
                         "Allowed risk_level: low, medium, high, critical. "
                         "Allowed action: allow, redact, quarantine, block."
@@ -72,14 +77,12 @@ class L3JudgmentAgent:
                 },
                 {
                     "role": "user",
-                    "content": json.dumps(
-                        {
-                            "prompt_text": prompt_text[:8000],
-                            "l1_risk_level": risk_level.value,
-                            "l1_action": action.value,
-                            "detections": self._detection_summary(detections),
-                        }
-                    ),
+                    "content": json.dumps({
+                        "prompt_text": prompt_text[:8000],
+                        "l1_risk_level": risk_level.value,
+                        "l1_action": action.value,
+                        "detections": self._detection_summary(detections),
+                    }),
                 },
             ],
         }
@@ -94,9 +97,11 @@ class L3JudgmentAgent:
             data = response.json()
             message = data["choices"][0]["message"]["content"]
             parsed = self._parse_json_content(message)
+
             parsed_risk = RiskLevel(str(parsed.get("risk_level", risk_level.value)))
             parsed_action = ActionType(str(parsed.get("action", action.value)))
             parsed_confidence = max(0.0, min(1.0, float(parsed.get("confidence", 0.8))))
+
             return L3JudgmentResult(
                 applied=True,
                 risk_level=parsed_risk,

@@ -445,6 +445,145 @@ def seed_agent_demo_data() -> DispatchResult:
     )
 
 
+@router.post("/seed-prompts", response_model=DispatchResult)
+def seed_prompt_demo_data() -> DispatchResult:
+    """Populate prompts via the full analysis pipeline so coaching & emails have data."""
+
+    SEED_PROMPTS = [
+        # ── PII hits ────────────────────────────────────────────────
+        {
+            "employee_id": 1,
+            "prompt_text": (
+                "Can you help me draft an email to John Smith? His SSN is 123-45-6789 "
+                "and his phone number is 555-867-5309. I need to verify his identity for "
+                "the onboarding paperwork before Friday."
+            ),
+            "target_tool": "ChatGPT",
+        },
+        {
+            "employee_id": 2,
+            "prompt_text": (
+                "Please look up the customer record for jane.doe@acmecorp.com and cross-reference "
+                "with the credit card ending 4532-1234-5678-9012 from last month's transactions."
+            ),
+            "target_tool": "ChatGPT",
+        },
+        {
+            "employee_id": 3,
+            "prompt_text": (
+                "Summarize the support ticket from the customer at mike.jones@example.org who called "
+                "from 415-555-0198 about their billing issue."
+            ),
+            "target_tool": "ChatGPT",
+        },
+        # ── Secret exposure ─────────────────────────────────────────
+        {
+            "employee_id": 1,
+            "prompt_text": (
+                "Debug this connection issue. The API key is sk-abc123def456ghi789jklmno and "
+                "the password = 'Pr0dDBpass!99'. It keeps timing out after 30 seconds."
+            ),
+            "target_tool": "GitHub Copilot",
+        },
+        {
+            "employee_id": 1,
+            "prompt_text": (
+                "Write a deployment script that uses token = 'ghp_29aXkL9mNqRsTuVwXyZ0123456789AB' "
+                "to authenticate with the container registry."
+            ),
+            "target_tool": "ChatGPT",
+        },
+        # ── Policy violations ───────────────────────────────────────
+        {
+            "employee_id": 2,
+            "prompt_text": (
+                "Summarize the confidential Q4 strategy deck and extract the key revenue targets. "
+                "Also pull out the private roadmap items for the board presentation."
+            ),
+            "target_tool": "ChatGPT",
+        },
+        {
+            "employee_id": 3,
+            "prompt_text": (
+                "Draft a response for the internal-only product review. The customer list from "
+                "the enterprise segment should be referenced for context."
+            ),
+            "target_tool": "ChatGPT",
+        },
+        # ── Shadow AI ───────────────────────────────────────────────
+        {
+            "employee_id": 2,
+            "prompt_text": (
+                "Help me write a sales follow-up email for the Acme Corp deal. "
+                "Make it persuasive but professional."
+            ),
+            "target_tool": "shadowchat.ai",
+        },
+        {
+            "employee_id": 3,
+            "prompt_text": (
+                "Translate this support article into Spanish and simplify for a non-technical audience."
+            ),
+            "target_tool": "myfreegpt.net",
+        },
+        # ── Clean / low-risk prompts (show variety) ─────────────────
+        {
+            "employee_id": 1,
+            "prompt_text": (
+                "Refactor this Python function to use list comprehensions instead of for loops. "
+                "Keep the same return type and add type hints."
+            ),
+            "target_tool": "GitHub Copilot",
+        },
+        {
+            "employee_id": 2,
+            "prompt_text": "Summarize the benefits of our enterprise plan in three bullet points.",
+            "target_tool": "ChatGPT",
+        },
+        {
+            "employee_id": 3,
+            "prompt_text": (
+                "Write a polite response to a customer who is asking about our refund policy. "
+                "Tone: friendly, professional. Max 150 words."
+            ),
+            "target_tool": "ChatGPT",
+        },
+        # ── Mixed detections ────────────────────────────────────────
+        {
+            "employee_id": 1,
+            "prompt_text": (
+                "Review this config file: password = 'admin123' and check if the confidential "
+                "deployment keys are rotated. The admin email is ops-team@internal.acme.io."
+            ),
+            "target_tool": "GitHub Copilot",
+        },
+        {
+            "employee_id": 2,
+            "prompt_text": (
+                "I need to send a report to 650-555-0142 about the private roadmap changes "
+                "we discussed in the internal-only planning meeting."
+            ),
+            "target_tool": "ChatGPT",
+        },
+    ]
+
+    count = 0
+    for seed in SEED_PROMPTS:
+        analyze_prompt(
+            AnalyzeRequest(
+                employee_id=seed["employee_id"],
+                prompt_text=seed["prompt_text"],
+                target_tool=seed["target_tool"],
+            )
+        )
+        count += 1
+
+    return DispatchResult(
+        generated_count=count,
+        message=f"Seeded {count} prompts through the full analysis pipeline.",
+    )
+
+
 @router.post("/reset")
 def reset_all_data() -> dict:
     """Wipe all transactional data, keep employees and config."""
