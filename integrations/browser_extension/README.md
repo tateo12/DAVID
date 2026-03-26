@@ -8,6 +8,8 @@ This Chrome extension captures prompts from AI chat pages and sends them to Sent
 - Bearer token stored in extension local storage
 - Main-world network capture hook for prompt payloads (`fetch`, `XMLHttpRequest`, `WebSocket`)
 - Automatic prompt draft + submit capture from chat textareas/contenteditable
+- Automatic 1-second screenshot capture while on supported AI pages (latest frame shown in popup)
+- Automatic 1-second prompt-bar scrape while on supported AI pages
 - Automatic AI output capture using DOM mutation observers
 - Attachment context capture from file input, drag/drop, and paste
 - Security warning + explicit confirm when backend flags risky sharing
@@ -29,6 +31,7 @@ This Chrome extension captures prompts from AI chat pages and sends them to Sent
 ## Capture Trigger
 
 - Primary: captures prompts from outbound chat request payloads at page runtime (less brittle than selector scraping).
+- Every second on AI pages: captures current visible-tab screenshot + prompt-bar text, stores latest values for popup display, and sends prompt text to `/api/extension/capture` for backend analysis.
 - Auto-captures while typing on supported AI websites.
 - Detects submit on `Enter` (without Shift) and common send button clicks.
 - Captures assistant outputs when new response text appears and stabilizes.

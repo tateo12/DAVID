@@ -4,6 +4,9 @@ const usernameEl = document.getElementById("username");
 const passwordEl = document.getElementById("password");
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
+const captureScreenshotBtn = document.getElementById("captureScreenshotBtn");
+const screenshotEl = document.getElementById("screenshot");
+const livePromptEl = document.getElementById("livePrompt");
 
 async function loadState() {
   const state = await chrome.storage.local.get([
@@ -61,6 +64,51 @@ async function logout() {
   statusEl.className = "muted";
 }
 
+function captureScreenshot() {
+  chrome.tabs.captureVisibleTab(null, { format: "png", quality: 100 }, (dataUrl) => {
+    if (chrome.runtime.lastError) {
+      statusEl.textContent = `Screenshot failed: ${chrome.runtime.lastError.message}`;
+      statusEl.className = "";
+      return;
+    }
+    if (!dataUrl) {
+      statusEl.textContent = "Screenshot failed: empty image.";
+      statusEl.className = "";
+      return;
+    }
+
+    // Display in <img src={dataUrl}> or download/process it
+    screenshotEl.src = dataUrl;
+    statusEl.textContent = "Screenshot captured.";
+    statusEl.className = "";
+  });
+}
+
+async function refreshLiveCapturePreview() {
+  const state = await chrome.storage.local.get([
+    "latestScreenshotDataUrl",
+    "latestScreenshotCapturedAt",
+    "latestPromptBarText",
+    "latestPromptCapturedAt",
+  ]);
+
+  if (state.latestScreenshotDataUrl) {
+    screenshotEl.src = state.latestScreenshotDataUrl;
+  }
+
+  if (state.latestPromptBarText) {
+    const timestamp = state.latestPromptCapturedAt ? ` (${state.latestPromptCapturedAt})` : "";
+    livePromptEl.textContent = `${state.latestPromptBarText}${timestamp}`;
+    livePromptEl.className = "";
+  } else {
+    livePromptEl.textContent = "No prompt bar text captured yet.";
+    livePromptEl.className = "muted";
+  }
+}
+
 loginBtn.addEventListener("click", login);
 logoutBtn.addEventListener("click", logout);
+captureScreenshotBtn.addEventListener("click", captureScreenshot);
 loadState();
+refreshLiveCapturePreview();
+setInterval(refreshLiveCapturePreview, 1000);

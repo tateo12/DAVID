@@ -10,6 +10,11 @@ let submitInFlight = false;
 let bridgeInstalled = false;
 let pageHookInjected = false;
 let lastNetworkPromptHash = "";
+let autoCaptureTimer = null;
+let autoCaptureInFlight = false;
+let lastAutoPromptHash = "";
+let promptFieldListenersInstalled = false;
+let promptFieldElement = null;
 
 const MAX_ATTACHMENT_COUNT = 5;
 const MAX_ATTACHMENT_PREVIEW_CHARS = 4000;
@@ -44,6 +49,21 @@ function getPromptTextFromField(field) {
   if (!field) return "";
   if (field.tagName.toLowerCase() === "textarea") return field.value || "";
   return field.innerText || "";
+}
+
+function getPromptTextForAutoScrape() {
+  const field = getPromptField();
+  const directText = getPromptTextFromField(field).trim();
+  if (directText) return directText;
+
+  const fallbackNodes = document.querySelectorAll(
+    "textarea, [contenteditable='true'], [role='textbox'], [data-testid*='prompt'], [placeholder*='message']"
+  );
+  for (const node of fallbackNodes) {
+    const text = (node.value || node.innerText || "").trim();
+    if (text) return text;
+  }
+  return "";
 }
 
 function injectPageHook() {
@@ -376,12 +396,58 @@ function captureOutputIfChanged() {
   });
 }
 
-function startAutoCapture() {
-  injectPageHook();
-  installPageHookBridge();
+async function runAutoCaptureTick() {
+  if (autoCaptureInFlight) return;
+  autoCaptureInFlight = true;
+  try {
+    const promptText = getPromptTextForAutoScrape();
+    const screenshotResult = await sendMessage("sentinel_capture_screenshot", {
+      page_url: window.location.href,
+    });
 
+    await chrome.storage.local.set({
+      latestPromptBarText: promptText,
+      latestPromptCapturedAt: new Date().toISOString(),
+      latestPromptPageUrl: window.location.href,
+      latestCaptureMethod: "auto_1s_promptbar",
+    });
+
+    if (!promptText) return;
+
+    const autoHash = hashText(promptText);
+    if (autoHash === lastAutoPromptHash) return;
+    lastAutoPromptHash = autoHash;
+
+    await sendMessage("sentinel_capture_prompt", {
+      prompt_text: promptText,
+      target_tool: inferTargetTool(),
+      page_url: window.location.href,
+      attachments: latestAttachments,
+      metadata: {
+        event_type: "auto_promptbar_capture_1s",
+        capture_method: "promptbar_scrape_l2_l3",
+        screenshot_captured: Boolean(screenshotResult?.captured_at),
+        screenshot_captured_at: screenshotResult?.captured_at || null,
+      },
+    });
+  } finally {
+    autoCaptureInFlight = false;
+  }
+}
+
+function startAutoCaptureEverySecond() {
+  if (autoCaptureTimer) return;
+  autoCaptureTimer = setInterval(runAutoCaptureTick, 1000);
+  runAutoCaptureTick();
+}
+
+function ensurePromptFieldListeners() {
   const field = getPromptField();
   if (!field) return;
+  if (promptFieldListenersInstalled && promptFieldElement === field) return;
+
+  promptFieldElement = field;
+  promptFieldListenersInstalled = true;
 
   field.addEventListener("input", () => captureDraftIfChanged(field));
 
@@ -410,10 +476,20 @@ function startAutoCapture() {
       });
     }
   });
+}
+
+function startAutoCapture() {
+  injectPageHook();
+  installPageHookBridge();
+  ensurePromptFieldListeners();
+  startAutoCaptureEverySecond();
 
   document.addEventListener(
     "click",
     (event) => {
+      ensurePromptFieldListeners();
+      const field = getPromptField();
+      if (!field) return;
       const sendControl = getSendButtonCandidate(event.target);
       if (!sendControl) return;
       if (bypassNextSendClick) {
@@ -453,6 +529,7 @@ function startAutoCapture() {
   });
 
   const observer = new MutationObserver(() => {
+    ensurePromptFieldListeners();
     if (outputDebounceTimer) {
       clearTimeout(outputDebounceTimer);
     }

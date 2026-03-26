@@ -8,12 +8,9 @@ import {
   Agent,
   WeeklyReport,
   RiskLevel,
-<<<<<<< HEAD
   EmployeeStatus,
   AutomationAnalysisResponse,
   AutomationOpportunity,
-=======
->>>>>>> 9d92aec147f8933a83b59da8d4a34a0721e4a75c
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://david-production-f999.up.railway.app";
@@ -421,24 +418,27 @@ const AGENT_AUTOMATION_PROFILES: Record<string, Partial<Agent>> = {
 export async function fetchAgents(): Promise<Agent[]> {
   try {
     const agents = await apiFetch<BackendAgent[]>("/api/agents");
-    return agents.map((agent) => ({
-      id: String(agent.id),
-      name: agent.name,
-      description: `Quality ${(agent.quality_score * 100).toFixed(0)}% / Success ${(agent.success_rate * 100).toFixed(0)}%`,
-      api_spend: agent.spend_usd,
-      api_budget: agent.budget_usd,
-      requests_today: 0,
-      avg_latency_ms: 0,
-      status: agent.success_rate > 0.6 ? "online" : "degraded",
-      model: "Managed by backend",
-      ...AGENT_AUTOMATION_PROFILES[agent.name],
-    }));
+    if (agents.length > 0) {
+      return agents.map((agent) => ({
+        id: String(agent.id),
+        name: agent.name,
+        description: `Quality ${(agent.quality_score * 100).toFixed(0)}% / Success ${(agent.success_rate * 100).toFixed(0)}%`,
+        api_spend: agent.spend_usd,
+        api_budget: agent.budget_usd,
+        requests_today: 0,
+        avg_latency_ms: 0,
+        status: agent.success_rate > 0.6 ? "online" : "degraded",
+        model: "Managed by backend",
+        ...AGENT_AUTOMATION_PROFILES[agent.name],
+      }));
+    }
+
+    return mockAgents;
   } catch {
-    return [];
+    return mockAgents;
   }
 }
 
-<<<<<<< HEAD
 export async function fetchAutomationAnalysis(): Promise<AutomationAnalysisResponse> {
   try {
     return await apiFetch<AutomationAnalysisResponse>("/api/reports/automation-analysis");
@@ -559,10 +559,6 @@ const mockPrompts: PromptRecord[] = Array.from({ length: 50 }, (_, i) => {
     timestamp: new Date(Date.now() - i * 600_000).toISOString(),
   };
 });
-
-=======
-// ===== Static Data =====
->>>>>>> 9d92aec147f8933a83b59da8d4a34a0721e4a75c
 const mockPolicies: Policy[] = [
   {
     id: "pol-1",
@@ -628,7 +624,6 @@ const mockPolicies: Policy[] = [
 
 export { mockPolicies };
 
-<<<<<<< HEAD
 const mockShadowAI: ShadowAISummary = {
   total_flags: 23,
   unique_tools: 8,
@@ -646,12 +641,42 @@ const mockShadowAI: ShadowAISummary = {
 };
 
 const mockAgents: Agent[] = [
-  { id: "agent-1", name: "CodeGuard", description: "Code review and security analysis agent", api_spend: 1847.50, api_budget: 3000, requests_today: 456, avg_latency_ms: 234, status: "online", model: "GPT-4o", ...AGENT_AUTOMATION_PROFILES["CodeGuard"] },
-  { id: "agent-2", name: "DocuMind", description: "Documentation and knowledge base agent", api_spend: 892.30, api_budget: 1500, requests_today: 234, avg_latency_ms: 189, status: "online", model: "Claude 3.5 Sonnet", ...AGENT_AUTOMATION_PROFILES["DocuMind"] },
-  { id: "agent-3", name: "SalesBot", description: "Sales intelligence and outreach agent", api_spend: 2150.00, api_budget: 2500, requests_today: 567, avg_latency_ms: 312, status: "degraded", model: "GPT-4o", ...AGENT_AUTOMATION_PROFILES["SalesBot"] },
-  { id: "agent-4", name: "DataPipe", description: "Data transformation and ETL agent", api_spend: 3200.00, api_budget: 4000, requests_today: 890, avg_latency_ms: 156, status: "online", model: "GPT-4o-mini", ...AGENT_AUTOMATION_PROFILES["DataPipe"] },
-  { id: "agent-5", name: "HelpDesk AI", description: "Customer support automation agent", api_spend: 1100.00, api_budget: 2000, requests_today: 345, avg_latency_ms: 278, status: "online", model: "Claude 3.5 Haiku", ...AGENT_AUTOMATION_PROFILES["HelpDesk AI"] },
-  { id: "agent-6", name: "MarketingGen", description: "Content generation and campaign agent", api_spend: 780.00, api_budget: 1000, requests_today: 123, avg_latency_ms: 445, status: "offline", model: "GPT-4o", ...AGENT_AUTOMATION_PROFILES["MarketingGen"] },
+  {
+    id: "agent-1",
+    name: "CodeGuard",
+    description: "Pull request security review and remediation assistant",
+    api_spend: 1860.4,
+    api_budget: 3200,
+    requests_today: 428,
+    avg_latency_ms: 238,
+    status: "online",
+    model: "Claude 3.5 Sonnet",
+    ...AGENT_AUTOMATION_PROFILES["CodeGuard"],
+  },
+  {
+    id: "agent-2",
+    name: "DataPipe",
+    description: "CSV to warehouse ETL mapping and normalization agent",
+    api_spend: 1048.15,
+    api_budget: 1900,
+    requests_today: 512,
+    avg_latency_ms: 172,
+    status: "online",
+    model: "GPT-4o-mini",
+    ...AGENT_AUTOMATION_PROFILES["DataPipe"],
+  },
+  {
+    id: "agent-3",
+    name: "HelpDesk AI",
+    description: "Tier-1 support triage and knowledge-base responder",
+    api_spend: 1346.8,
+    api_budget: 1500,
+    requests_today: 683,
+    avg_latency_ms: 329,
+    status: "degraded",
+    model: "Claude 3 Haiku",
+    ...AGENT_AUTOMATION_PROFILES["HelpDesk AI"],
+  },
 ];
 
 const mockWeeklyReport: WeeklyReport = {
@@ -751,5 +776,3 @@ const mockAutomationAnalysis: AutomationAnalysisResponse = {
     },
   ],
 };
-=======
->>>>>>> 9d92aec147f8933a83b59da8d4a34a0721e4a75c

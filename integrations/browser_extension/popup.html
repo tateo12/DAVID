@@ -45,6 +45,28 @@
         margin-top: 10px;
         font-size: 12px;
       }
+      #screenshot {
+        display: block;
+        width: 100%;
+        margin-top: 10px;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        background: #020617;
+      }
+      #livePrompt {
+        margin-top: 10px;
+        padding: 8px;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        background: #1e293b;
+        color: #e2e8f0;
+        min-height: 54px;
+        max-height: 110px;
+        overflow: auto;
+        font-size: 12px;
+        line-height: 1.35;
+        white-space: pre-wrap;
+      }
       .muted {
         color: #94a3b8;
       }
@@ -64,8 +86,11 @@
 
     <button id="loginBtn">Login</button>
     <button id="logoutBtn">Logout</button>
+    <button id="captureScreenshotBtn">Capture Screenshot</button>
 
     <div id="status" class="muted">Not logged in.</div>
+    <img id="screenshot" alt="Screenshot preview" />
+    <div id="livePrompt" class="muted">No prompt bar text captured yet.</div>
 
     <script src="popup.js"></script>
   </body>
