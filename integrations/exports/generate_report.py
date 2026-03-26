@@ -587,11 +587,76 @@ def load_data(args: argparse.Namespace) -> dict[str, Any]:
                 file=sys.stderr,
             )
             sys.exit(1)
-        resp = httpx.get(args.api, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        print(f"Fetched data from {args.api}")
-        return data
+        base = args.api.rstrip("/")
+        # Support passing either host root or direct weekly endpoint.
+        if base.endswith("/api/reports/weekly"):
+            weekly = httpx.get(base, timeout=15)
+            weekly.raise_for_status()
+            weekly_data = weekly.json()
+            root = base[: -len("/api/reports/weekly")]
+        else:
+            root = base
+            weekly = httpx.get(f"{root}/api/reports/weekly", timeout=15)
+            weekly.raise_for_status()
+            weekly_data = weekly.json()
+
+        metrics = httpx.get(f"{root}/api/metrics", timeout=15)
+        metrics.raise_for_status()
+        metrics_data = metrics.json()
+
+        employees = httpx.get(f"{root}/api/employees", timeout=15)
+        employees.raise_for_status()
+        employees_data = employees.json()
+
+        prompts = httpx.get(f"{root}/api/prompts?limit=200", timeout=15)
+        prompts.raise_for_status()
+        prompts_data = prompts.json()
+
+        # Convert live backend payloads to report structure expected by this generator.
+        detection_breakdown = {"PII": 0, "Secrets": 0, "Policy Violations": 0, "Shadow AI": 0}
+        high_risk_count = 0
+        for p in prompts_data:
+            risk = p.get("risk_level", "low")
+            if risk in {"high", "critical"}:
+                high_risk_count += 1
+            tool = str(p.get("target_tool") or "").lower()
+            if any(x in tool for x in ["shadow", "unknown-ai", "myfreegpt", "otter", "copy.ai"]):
+                detection_breakdown["Shadow AI"] += 1
+
+        top_employees = sorted(
+            employees_data,
+            key=lambda e: float(e.get("risk_score", 0.0)),
+            reverse=True,
+        )[:5]
+        top_risk = [
+            {
+                "name": e.get("name", "Unknown"),
+                "department": e.get("department", "Unknown"),
+                "risk_score": round(float(e.get("risk_score", 0.0)) * 100),
+                "incidents": int(float(e.get("total_prompts", 0)) * float(e.get("risk_score", 0.0))),
+            }
+            for e in top_employees
+        ]
+
+        transformed = {
+            "period": {
+                "start": weekly_data.get("week_start", "N/A"),
+                "end": weekly_data.get("week_end", "N/A"),
+            },
+            "kpis": {
+                "total_prompts": int(metrics_data.get("prompts_analyzed", 0)),
+                "threats_blocked": int(metrics_data.get("threats_blocked", 0)),
+                "cost_saved": int(float(metrics_data.get("estimated_cost_saved_usd", 0.0))),
+                "shadow_ai_events": int(metrics_data.get("shadow_ai_events", 0)),
+            },
+            "department_threats": {},
+            "daily_trend": [],
+            "top_risk_employees": top_risk,
+            "detection_breakdown": detection_breakdown | {"Policy Violations": high_risk_count},
+            "compliance": {"soc2": "Compliant", "gdpr": "Compliant", "ccpa": "Action Required"},
+        }
+        print(f"Fetched live API data from {root}")
+        return transformed
 
     print("Using built-in sample data")
     return SAMPLE_DATA

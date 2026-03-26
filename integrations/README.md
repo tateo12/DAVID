@@ -10,9 +10,10 @@ This directory contains integrations, demo infrastructure, and content for Senti
 
 ### 1. Demo Data (`demo/`)
 - `sample_prompts.json` — 50+ realistic employee prompts covering: safe usage, PII leaks, secret exposure, policy violations, shadow AI, and edge cases
-- `seed_data.py` — Script to populate the database with demo employees, departments, and historical data
-- `simulate_traffic.py` — Script that sends prompts to the backend API to simulate live activity during demo
+- `seed_data.py` — Script that replays sample prompts through backend API events (`/api/ops/events/employee-prompt`) and runs scheduler tick
+- `simulate_traffic.py` — Async traffic script for live prompt events and ops tick
 - `desktop_connector_mock.py` — Mock desktop AI connector that posts Copilot-style prompt/output turns into Sentinel
+- `api_client.py` — Shared minimal API client for integration scripts
 
 ### 2. Email Templates (`email/templates/`)
 - `coaching.html` — Email sent to employees when flagged (friendly, constructive tone)
@@ -32,6 +33,7 @@ This directory contains integrations, demo infrastructure, and content for Senti
 ### 4. Report Export (`exports/`)
 - PDF generation for weekly reports using a Python library
 - Executive-friendly formatting with charts and KPIs
+- `generate_report.py --api http://localhost:8000` now transforms live Sentinel API responses into report format
 
 ## Stack
 
