@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { fetchWeeklyReport, fetchAutomationAnalysis } from "@/lib/api";
-import { WeeklyReport, AutomationAnalysisResponse } from "@/lib/types";
+import { WeeklyReport, AutomationAnalysisResponse, AutomationOpportunity } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import {
   AreaChart,
