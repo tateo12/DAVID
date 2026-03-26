@@ -1,0 +1,64 @@
+{
+  "frameworks": {
+    "SOC2": {
+      "controls": [
+        {
+          "id": "CC6.1",
+          "name": "Logical Access Controls",
+          "sentinel_coverage": "Role-based policy enforcement restricts AI tool access by department",
+          "evidence": "Policy engine logs all access decisions with role context"
+        },
+        {
+          "id": "CC6.3",
+          "name": "Access Removal",
+          "sentinel_coverage": "Shadow AI detection flags unauthorized tool usage for removal",
+          "evidence": "Shadow AI detection logs with timestamps and employee IDs"
+        },
+        {
+          "id": "CC7.1",
+          "name": "System Monitoring",
+          "sentinel_coverage": "All employee AI prompts analyzed and logged in real-time",
+          "evidence": "Full prompt audit trail with detection results and actions taken"
+        },
+        {
+          "id": "CC7.2",
+          "name": "Anomaly Detection",
+          "sentinel_coverage": "3-tier detection engine identifies security anomalies in AI usage",
+          "evidence": "Detection engine results with severity classifications"
+        }
+      ]
+    },
+    "GDPR": {
+      "controls": [
+        {
+          "id": "Art.5",
+          "name": "Data Minimization",
+          "sentinel_coverage": "Auto-redaction removes personal data before it reaches AI tools",
+          "evidence": "Redaction logs showing original vs. sanitized prompts"
+        },
+        {
+          "id": "Art.17",
+          "name": "Right to Erasure",
+          "sentinel_coverage": "Prompt data retention controls with configurable deletion periods",
+          "evidence": "Data retention policy settings and deletion logs"
+        },
+        {
+          "id": "Art.32",
+          "name": "Security of Processing",
+          "sentinel_coverage": "PII detection prevents personal data from leaving the organization via AI tools",
+          "evidence": "PII detection results and blocking actions"
+        }
+      ]
+    },
+    "CCPA": {
+      "controls": [
+        {
+          "id": "1798.100",
+          "name": "Consumer Data Protection",
+          "sentinel_coverage": "Customer PII detection and blocking before AI tool submission",
+          "evidence": "Consumer data detection logs with action records"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "roles": {
+    "engineering": {
+      "department": "Engineering",
+      "approved_tools": ["claude", "github_copilot"],
+      "restrictions": {
+        "block_patterns": ["credentials", "api_keys", "connection_strings", "internal_endpoints"],
+        "allow_code": true,
+        "allow_customer_data": false,
+        "max_risk_tolerance": "medium"
+      }
+    },
+    "sales": {
+      "department": "Sales",
+      "approved_tools": ["chatgpt", "claude"],
+      "restrictions": {
+        "block_patterns": ["customer_names", "deal_sizes", "pipeline_data", "competitive_analysis"],
+        "allow_code": false,
+        "allow_customer_data": false,
+        "max_risk_tolerance": "low"
+      }
+    },
+    "marketing": {
+      "department": "Marketing",
+      "approved_tools": ["chatgpt", "claude", "midjourney"],
+      "restrictions": {
+        "block_patterns": ["revenue_figures", "unreleased_products", "internal_metrics"],
+        "allow_code": false,
+        "allow_customer_data": false,
+        "max_risk_tolerance": "low"
+      }
+    },
+    "hr": {
+      "department": "Human Resources",
+      "approved_tools": ["claude"],
+      "restrictions": {
+        "block_patterns": ["employee_data", "salary", "performance_reviews", "interview_notes", "ssn"],
+        "allow_code": false,
+        "allow_customer_data": false,
+        "max_risk_tolerance": "low"
+      }
+    },
+    "finance": {
+      "department": "Finance",
+      "approved_tools": ["claude"],
+      "restrictions": {
+        "block_patterns": ["financial_data", "revenue", "projections", "audit_findings", "account_numbers"],
+        "allow_code": false,
+        "allow_customer_data": false,
+        "max_risk_tolerance": "low"
+      }
+    },
+    "executive": {
+      "department": "Executive",
+      "approved_tools": ["claude"],
+      "restrictions": {
+        "block_patterns": ["ma_data", "board_minutes", "strategic_plans", "all_pii", "all_secrets"],
+        "allow_code": false,
+        "allow_customer_data": false,
+        "max_risk_tolerance": "low"
+      }
+    }
+  }
+}
