@@ -1,17 +1,9 @@
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (
-    !message?.type ||
-    !["sentinel_capture_prompt", "sentinel_capture_turn", "sentinel_capture_screenshot"].includes(message.type)
-  ) {
+  if (!message?.type || !["sentinel_capture_prompt", "sentinel_capture_turn"].includes(message.type)) {
     return false;
   }
 
-  const handler =
-    message.type === "sentinel_capture_turn"
-      ? handleCaptureTurn
-      : message.type === "sentinel_capture_screenshot"
-        ? handleCaptureScreenshot
-        : handleCapture;
+  const handler = message.type === "sentinel_capture_turn" ? handleCaptureTurn : handleCapture;
   handler(message.payload, sender)
     .then((result) => sendResponse({ ok: true, result }))
     .catch((error) => sendResponse({ ok: false, error: String(error) }));
@@ -148,36 +140,4 @@ async function handleCaptureTurn(payload, sender) {
     throw new Error(body.detail || "Turn capture failed");
   }
   return body;
-}
-
-function captureVisibleTabPng(windowId) {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.captureVisibleTab(windowId || null, { format: "png", quality: 100 }, (dataUrl) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      if (!dataUrl) {
-        reject(new Error("Empty screenshot data."));
-        return;
-      }
-      resolve(dataUrl);
-    });
-  });
-}
-
-async function handleCaptureScreenshot(payload, sender) {
-  const windowId = sender?.tab?.windowId || null;
-  const dataUrl = await captureVisibleTabPng(windowId);
-  const nowIso = new Date().toISOString();
-  await chrome.storage.local.set({
-    latestScreenshotDataUrl: dataUrl,
-    latestScreenshotCapturedAt: nowIso,
-    latestScreenshotPageUrl: payload?.page_url || sender?.tab?.url || null,
-  });
-  return {
-    data_url: dataUrl,
-    captured_at: nowIso,
-    page_url: payload?.page_url || sender?.tab?.url || null,
-  };
 }

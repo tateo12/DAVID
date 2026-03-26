@@ -274,6 +274,7 @@ def init_db() -> None:
             );
             """
         )
+    _seed_defaults()
 
 
 def _seed_defaults() -> None:
