@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { fetchWeeklyReport } from "@/lib/api";
-import { WeeklyReport } from "@/lib/types";
+import { fetchWeeklyReport, fetchAutomationAnalysis } from "@/lib/api";
+import { WeeklyReport, AutomationAnalysisResponse, AutomationOpportunity } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
 import {
   AreaChart,
   Area,
@@ -30,6 +31,8 @@ import {
   AlertTriangle,
   Lightbulb,
   Calendar,
+  Cpu,
+  Info,
 } from "lucide-react";
 import { RiskGauge } from "@/components/risk-gauge";
 
@@ -43,11 +46,13 @@ function formatDate(iso: string) {
 
 export default function ReportsPage() {
   const [report, setReport] = useState<WeeklyReport | null>(null);
+  const [automation, setAutomation] = useState<AutomationAnalysisResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchWeeklyReport().then((data) => {
-      setReport(data);
+    Promise.all([fetchWeeklyReport(), fetchAutomationAnalysis()]).then(([rep, aut]) => {
+      setReport(rep);
+      setAutomation(aut);
       setLoading(false);
     });
   }, []);
@@ -278,6 +283,78 @@ export default function ReportsPage() {
           ))}
         </div>
       </section>
+
+      {/* Automation ROI & Cost-Benefit Analysis */}
+      {automation && (
+        <section>
+          <h2 className="text-lg font-semibold text-sentinel-text-primary mb-4 flex items-center gap-2">
+            <Cpu className="w-5 h-5 text-sentinel-blue" />
+            Automation ROI & Cost-Benefit Analysis
+          </h2>
+          <div className="glass-card rounded-xl overflow-hidden mb-4">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-sentinel-border hover:bg-transparent">
+                  <TableHead className="text-sentinel-text-secondary font-medium">Task Type</TableHead>
+                  <TableHead className="text-sentinel-text-secondary font-medium text-right">Human Cost</TableHead>
+                  <TableHead className="text-sentinel-text-secondary font-medium text-right">AI Cost</TableHead>
+                  <TableHead className="text-sentinel-text-secondary font-medium text-right">Human Time</TableHead>
+                  <TableHead className="text-sentinel-text-secondary font-medium text-right">AI Time</TableHead>
+                  <TableHead className="text-sentinel-text-secondary font-medium text-center">Recommendation</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {automation.opportunities.map((opp, i) => (
+                  <React.Fragment key={i}>
+                    <TableRow className="border-sentinel-border/50 hover:bg-sentinel-surface-hover/50 transition-colors">
+                      <TableCell className="text-sm font-medium text-sentinel-text-primary">
+                        {opp.task_type}
+                      </TableCell>
+                      <TableCell className="text-sm text-sentinel-text-secondary text-right">
+                        ${opp.human_cost.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-sm text-sentinel-text-secondary text-right">
+                        ${opp.ai_cost.toFixed(3)}
+                      </TableCell>
+                      <TableCell className="text-sm text-sentinel-text-secondary text-right">
+                        {(opp.human_time_sec / 60).toFixed(0)}m
+                      </TableCell>
+                      <TableCell className="text-sm text-sentinel-text-secondary text-right">
+                        {opp.ai_time_sec < 60 ? `${opp.ai_time_sec.toFixed(1)}s` : `${(opp.ai_time_sec / 60).toFixed(1)}m`}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge
+                          variant="outline"
+                          className={
+                            opp.automation_status === "Automate"
+                              ? "bg-sentinel-green/10 text-sentinel-green border-sentinel-green/30"
+                              : opp.automation_status === "Human-in-Loop"
+                              ? "bg-sentinel-amber/10 text-sentinel-amber border-sentinel-amber/30"
+                              : "bg-sentinel-text-secondary/10 text-sentinel-text-secondary border-sentinel-text-secondary/30"
+                          }
+                        >
+                          {opp.automation_status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow className="border-sentinel-border/50 hover:bg-transparent bg-sentinel-surface-hover/20">
+                      <TableCell colSpan={6} className="py-3 px-4">
+                        <div className="flex items-start gap-2">
+                          <Info className="w-4 h-4 text-sentinel-blue shrink-0 mt-0.5" />
+                          <div className="text-xs text-sentinel-text-secondary/90 leading-relaxed">
+                            <span className="font-semibold text-sentinel-text-primary/80 mr-1">Management Insight:</span>
+                            {opp.management_insight}
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  </React.Fragment>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </section>
+      )}
 
       {/* Report Footer */}
       <div className="flex flex-col items-center gap-3 py-8 border-t border-sentinel-border/30">
