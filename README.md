@@ -19,6 +19,33 @@ npm install
 npm run dev  # Runs on localhost:3000
 ```
 
+## Demo Prep (End-to-End)
+
+Use this sequence so `frontend`, `backend`, and `integrations` all reflect live data:
+
+```bash
+# 1) Start backend
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+
+# 2) Start frontend (new terminal)
+cd frontend
+npm install
+# optional: copy .env.local.example to .env.local and set NEXT_PUBLIC_API_BASE
+npm run dev
+
+# 3) Seed realistic demo data (new terminal)
+cd integrations/demo
+python seed_data.py --url http://localhost:8000 --limit 120
+
+# 4) Optional live traffic for the presentation
+python simulate_traffic.py --url http://localhost:8000 --count 20 --min-delay 1 --max-delay 2
+
+# 5) Demo readiness check
+python demo_ready_check.py --url http://localhost:8000 --analyze
+```
+
 ## Architecture
 
 ```
