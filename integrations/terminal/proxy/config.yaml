@@ -1,0 +1,67 @@
+# =============================================================================
+# Sentinel HTTPS Proxy Configuration
+# =============================================================================
+# This file configures the mitmproxy addon that monitors AI API traffic
+# for sensitive data leakage. Place alongside sentinel_proxy.py.
+
+# Sentinel backend API URL (for event reporting)
+sentinel_api: http://localhost:8000
+
+# Enforcement mode:
+#   log-only  — scan and log, never modify traffic
+#   warn      — scan, log, and annotate responses with warning headers
+#   block     — scan, log, and block requests with critical risk
+mode: warn
+
+# ---------------------------------------------------------------------------
+# AI API domains to monitor
+# All other HTTPS traffic passes through untouched.
+# ---------------------------------------------------------------------------
+monitored_domains:
+  - api.openai.com
+  - api.anthropic.com
+  - api.mistral.ai
+  - generativelanguage.googleapis.com
+  - api.cohere.ai
+  - api.together.xyz
+  - api.replicate.com
+  - api.perplexity.ai
+  - api.deepseek.com
+
+# ---------------------------------------------------------------------------
+# Approved AI tools (company policy)
+# Domains in monitored_domains but NOT in approved_tools are flagged as
+# "shadow AI" — unauthorized AI usage.
+# ---------------------------------------------------------------------------
+approved_tools:
+  - api.anthropic.com
+  - api.openai.com
+
+# ---------------------------------------------------------------------------
+# Risk-based actions
+# Maps risk level -> action: pass | warn | block
+# ---------------------------------------------------------------------------
+risk_actions:
+  low: pass
+  medium: warn
+  high: warn
+  critical: block
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+log_file: ~/.sentinel/proxy.log
+log_level: INFO
+
+# ---------------------------------------------------------------------------
+# Token cost estimates (USD per 1K tokens, used for rough cost tracking)
+# ---------------------------------------------------------------------------
+cost_per_1k_tokens:
+  api.openai.com: 0.03
+  api.anthropic.com: 0.015
+  api.mistral.ai: 0.004
+  generativelanguage.googleapis.com: 0.005
+  api.cohere.ai: 0.005
+  api.together.xyz: 0.002
+  api.deepseek.com: 0.001
+  default: 0.01

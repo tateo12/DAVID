@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { fetchAgents } from "@/lib/api";
-import { Agent, AgentStatus } from "@/lib/types";
+import { fetchAgents, fetchAutomationAnalysis } from "@/lib/api";
+import { Agent, AgentStatus, AutomationAnalysisResponse } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Zap, Clock, DollarSign } from "lucide-react";
+import { Bot, Zap, Clock, DollarSign, BrainCircuit } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -31,11 +31,13 @@ function getSpendColor(spend: number, budget: number): string {
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [automation, setAutomation] = useState<AutomationAnalysisResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchAgents().then((data) => {
-      setAgents(data);
+    Promise.all([fetchAgents(), fetchAutomationAnalysis()]).then(([ag, aut]) => {
+      setAgents(ag);
+      setAutomation(aut);
       setLoading(false);
     });
   }, []);
@@ -72,7 +74,7 @@ export default function AgentsPage() {
               const status = statusConfig[agent.status];
 
               return (
-                <div key={agent.id} className="glass-card p-5 rounded-xl">
+                <div key={agent.id} className="glass-card p-5 rounded-xl flex flex-col h-full">
                   {/* Header */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -139,6 +141,48 @@ export default function AgentsPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Automation Profile Divider */}
+                  {agent.automation_tasks && agent.automation_tasks.length > 0 && (
+                    <div className="pt-4 mt-auto border-t border-sentinel-border/40 space-y-5">
+                      {agent.automation_tasks.map((task, idx) => (
+                        <div key={idx} className={idx > 0 ? "pt-4 border-t border-sentinel-border/20" : ""}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] uppercase tracking-widest text-sentinel-text-secondary font-semibold line-clamp-1 mr-2" title={task.task_type}>
+                              {task.task_type}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={
+                                task.automation_status === "Automate"
+                                  ? "bg-sentinel-green/10 text-sentinel-green border-sentinel-green/30 text-[9px] h-4 py-0 shrink-0"
+                                  : task.automation_status === "Human-in-Loop"
+                                  ? "bg-sentinel-amber/10 text-sentinel-amber border-sentinel-amber/30 text-[9px] h-4 py-0 shrink-0"
+                                  : "bg-sentinel-text-secondary/10 text-sentinel-text-secondary border-sentinel-text-secondary/30 text-[9px] h-4 py-0 shrink-0"
+                              }
+                            >
+                              {task.automation_status}
+                            </Badge>
+                          </div>
+                          <p className="text-[11px] leading-relaxed text-sentinel-text-secondary/90 mb-3">
+                            {task.management_insight}
+                          </p>
+                          <div className="grid grid-cols-2 gap-2 p-2 rounded bg-sentinel-surface-hover/30 border border-sentinel-border/50">
+                            <div>
+                              <div className="text-[9px] text-sentinel-text-secondary uppercase tracking-wider mb-0.5">Human</div>
+                              <div className="text-[11px] text-sentinel-text-primary font-medium">${task.human_cost?.toFixed(2)} / {((task.human_time_sec ?? 0) / 60).toFixed(0)}m</div>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-sentinel-text-secondary uppercase tracking-wider mb-0.5">Agent</div>
+                              <div className="text-[11px] text-sentinel-text-primary font-medium">
+                                <span className="text-sentinel-green">${task.ai_cost?.toFixed(3)}</span> / <span className="text-sentinel-green">{(task.ai_time_sec ?? 0) < 60 ? `${task.ai_time_sec?.toFixed(1)}s` : `${((task.ai_time_sec ?? 0) / 60).toFixed(1)}m`}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}

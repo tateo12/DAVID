@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException
 
-from database import execute, fetch_one, fetch_rows
+from database import execute, fetch_one, fetch_rows, get_conn
 from engines.analysis_engine import analyze_prompt
 from models import (
     AgentActionEventRequest,
@@ -227,6 +227,24 @@ def review_engineer_code_submit(payload: CodeReviewSubmitRequest) -> AnalyzeResp
             metadata={"event_type": "engineer_code_submit", **(payload.metadata or {})},
         )
     )
+
+
+@router.post("/reset")
+def reset_all_data() -> dict:
+    """Wipe all transactional data, keep employees and config."""
+    with get_conn() as conn:
+        for table in [
+            "prompts", "detections", "alerts", "shadow_ai_events",
+            "captured_turns", "agent_runs", "weekly_reports",
+            "auth_sessions", "system_messages", "employee_skill_events",
+            "employee_lessons",
+        ]:
+            conn.execute(f"DELETE FROM {table}")
+        conn.execute("UPDATE employees SET risk_score = 0")
+        conn.execute("UPDATE agent_budgets SET spend_usd = 0")
+        conn.execute("UPDATE employee_skill_profiles SET ai_skill_score = 0.5, prompts_evaluated = 0, last_strengths_json = '[]', last_improvements_json = '[]', assigned_lessons_json = '[]'")
+        conn.execute("UPDATE system_jobs SET last_run_at = NULL")
+    return {"status": "ok", "message": "All data wiped"}
 
 
 @router.post("/tick", response_model=TickResponse)
