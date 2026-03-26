@@ -1,4 +1,5 @@
 import json
+import random
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException
@@ -226,6 +227,221 @@ def review_engineer_code_submit(payload: CodeReviewSubmitRequest) -> AnalyzeResp
             target_tool=payload.target_tool or "code_submit_hook",
             metadata={"event_type": "engineer_code_submit", **(payload.metadata or {})},
         )
+    )
+
+
+@router.post("/seed-agents", response_model=DispatchResult)
+def seed_agent_demo_data() -> DispatchResult:
+    """Populate agent tables with realistic demo data for the last 7 days."""
+
+    # ── Agent definitions ────────────────────────────────────────────
+    # Each tuple: (name, budget, task_types, avg_cost_range, avg_latency_range,
+    #              quality_range, value_range, success_weight, runs_target)
+    AGENTS = [
+        {
+            "name": "CodeGuard",
+            "budget_usd": 50.0,
+            "tasks": ["code_review", "vulnerability_scan", "dependency_audit"],
+            "cost": (0.02, 0.18),
+            "latency": (800, 4500),
+            "quality": (0.78, 0.96),
+            "value": (0.70, 0.95),
+            "success_pct": 0.92,
+            "runs": 28,
+        },
+        {
+            "name": "DocuMind",
+            "budget_usd": 35.0,
+            "tasks": ["doc_generation", "summary", "knowledge_extract"],
+            "cost": (0.01, 0.08),
+            "latency": (400, 2200),
+            "quality": (0.82, 0.98),
+            "value": (0.75, 0.92),
+            "success_pct": 0.95,
+            "runs": 25,
+        },
+        {
+            "name": "SalesBot",
+            "budget_usd": 40.0,
+            "tasks": ["lead_scoring", "email_draft", "objection_handling", "proposal_gen"],
+            "cost": (0.03, 0.22),
+            "latency": (600, 3800),
+            "quality": (0.60, 0.88),
+            "value": (0.55, 0.85),
+            "success_pct": 0.78,
+            "runs": 32,
+        },
+        {
+            "name": "DataPipe",
+            "budget_usd": 60.0,
+            "tasks": ["etl_transform", "anomaly_detect", "schema_migration", "data_validation"],
+            "cost": (0.05, 0.35),
+            "latency": (1200, 8000),
+            "quality": (0.70, 0.92),
+            "value": (0.65, 0.90),
+            "success_pct": 0.84,
+            "runs": 22,
+        },
+        {
+            "name": "HelpDesk AI",
+            "budget_usd": 30.0,
+            "tasks": ["ticket_triage", "response_draft", "escalation_check"],
+            "cost": (0.005, 0.06),
+            "latency": (200, 1500),
+            "quality": (0.85, 0.97),
+            "value": (0.80, 0.96),
+            "success_pct": 0.96,
+            "runs": 30,
+        },
+        {
+            "name": "MarketingGen",
+            "budget_usd": 25.0,
+            "tasks": ["copy_generation", "ab_test_variant", "social_post", "seo_optimize"],
+            "cost": (0.02, 0.15),
+            "latency": (500, 3000),
+            "quality": (0.55, 0.82),
+            "value": (0.50, 0.78),
+            "success_pct": 0.72,
+            "runs": 20,
+        },
+    ]
+
+    now = datetime.now(timezone.utc)
+    total_runs = 0
+
+    with get_conn() as conn:
+        for agent_def in AGENTS:
+            # Upsert agent into agent_budgets
+            existing = conn.execute(
+                "SELECT id FROM agent_budgets WHERE name = ?", (agent_def["name"],)
+            ).fetchone()
+
+            if existing:
+                agent_id = existing["id"]
+                conn.execute(
+                    "UPDATE agent_budgets SET budget_usd = ? WHERE id = ?",
+                    (agent_def["budget_usd"], agent_id),
+                )
+            else:
+                cur = conn.execute(
+                    "INSERT INTO agent_budgets (name, budget_usd, spend_usd, quality_score, success_rate) VALUES (?, ?, 0, 0.8, 0.8)",
+                    (agent_def["name"], agent_def["budget_usd"]),
+                )
+                agent_id = cur.lastrowid
+
+            # Clear old seeded runs for this agent so endpoint is idempotent
+            conn.execute("DELETE FROM agent_runs WHERE agent_id = ?", (agent_id,))
+
+            # Generate runs spread across the last 7 days
+            num_runs = agent_def["runs"] + random.randint(-3, 3)
+            cost_lo, cost_hi = agent_def["cost"]
+            lat_lo, lat_hi = agent_def["latency"]
+            q_lo, q_hi = agent_def["quality"]
+            v_lo, v_hi = agent_def["value"]
+
+            total_cost = 0.0
+            quality_sum = 0.0
+            success_count = 0
+
+            for i in range(num_runs):
+                # Spread timestamps across 7 days with some clustering
+                hours_ago = random.uniform(0.5, 168)  # 0.5h to 7 days
+                run_time = now - timedelta(hours=hours_ago)
+
+                cost = round(random.uniform(cost_lo, cost_hi), 4)
+                latency = random.randint(lat_lo, lat_hi)
+                quality = round(random.uniform(q_lo, q_hi), 3)
+                value = round(random.uniform(v_lo, v_hi), 3)
+                success = 1 if random.random() < agent_def["success_pct"] else 0
+                task = random.choice(agent_def["tasks"])
+
+                conn.execute(
+                    """
+                    INSERT INTO agent_runs (
+                        agent_id, task_type, cost_usd, success, latency_ms,
+                        quality_score, value_score, metadata_json, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        agent_id,
+                        task,
+                        cost,
+                        success,
+                        latency,
+                        quality,
+                        value,
+                        json.dumps({"seeded": True, "run_index": i}),
+                        run_time.isoformat(),
+                    ),
+                )
+                total_cost += cost
+                quality_sum += quality
+                success_count += success
+                total_runs += 1
+
+            # Update the rollup stats on agent_budgets
+            avg_quality = round(quality_sum / max(num_runs, 1), 3)
+            success_rate = round(success_count / max(num_runs, 1), 3)
+            conn.execute(
+                "UPDATE agent_budgets SET spend_usd = ?, quality_score = ?, success_rate = ? WHERE id = ?",
+                (round(total_cost, 2), avg_quality, success_rate, agent_id),
+            )
+
+        # ── Seed a few agent-related alerts ──────────────────────────
+        # Budget warning for DataPipe (highest spender)
+        conn.execute(
+            "INSERT INTO alerts (alert_type, severity, detail, is_active, created_at) VALUES (?, ?, ?, 1, ?)",
+            (
+                "agent_budget_warning",
+                "medium",
+                "Agent DataPipe has used 87% of its weekly budget ($52.20 / $60.00). Consider reviewing task volume.",
+                (now - timedelta(hours=6)).isoformat(),
+            ),
+        )
+        # SalesBot quality degradation
+        conn.execute(
+            "INSERT INTO alerts (alert_type, severity, detail, is_active, created_at) VALUES (?, ?, ?, 1, ?)",
+            (
+                "agent_quality_drop",
+                "medium",
+                "Agent SalesBot quality score dropped below 0.70 threshold over the last 24 hours. Success rate: 78%.",
+                (now - timedelta(hours=14)).isoformat(),
+            ),
+        )
+        # MarketingGen low success rate
+        conn.execute(
+            "INSERT INTO alerts (alert_type, severity, detail, is_active, created_at) VALUES (?, ?, ?, 1, ?)",
+            (
+                "agent_low_success",
+                "high",
+                "Agent MarketingGen success rate fell to 72% — below the 75% minimum. 6 failed tasks in the last 48 hours.",
+                (now - timedelta(hours=3)).isoformat(),
+            ),
+        )
+        # HelpDesk AI positive alert
+        conn.execute(
+            "INSERT INTO alerts (alert_type, severity, detail, is_active, created_at) VALUES (?, ?, ?, 1, ?)",
+            (
+                "agent_performance_excellent",
+                "low",
+                "Agent HelpDesk AI sustained 96% success rate with highest quality scores. Budget rebalance recommendation: +10%.",
+                (now - timedelta(hours=24)).isoformat(),
+            ),
+        )
+        # CodeGuard budget overrun near-miss
+        conn.execute(
+            "INSERT INTO alerts (alert_type, severity, detail, is_active, created_at) VALUES (?, ?, ?, 1, ?)",
+            (
+                "agent_budget_warning",
+                "low",
+                "Agent CodeGuard approaching 75% budget utilization. Current spend trending within normal range.",
+                (now - timedelta(hours=48)).isoformat(),
+            ),
+        )
+
+    return DispatchResult(
+        generated_count=total_runs,
+        message=f"Seeded {len(AGENTS)} agents with {total_runs} runs and 5 alerts.",
     )
 
 

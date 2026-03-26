@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_settings
 from database import init_db
-from routes import agents, alerts, analyze, auth, employees, extension, metrics, operations, policies, prompts, reports, shadow_ai
+from routes import agents, alerts, analyze, auth, emails, employees, extension, metrics, operations, policies, prompts, reports, shadow_ai
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name)
@@ -39,3 +39,4 @@ app.include_router(shadow_ai.router, prefix=settings.api_prefix)
 app.include_router(alerts.router, prefix=settings.api_prefix)
 app.include_router(agents.router, prefix=settings.api_prefix)
 app.include_router(operations.router, prefix=settings.api_prefix)
+app.include_router(emails.router, prefix=settings.api_prefix)
