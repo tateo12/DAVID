@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Async traffic simulator for the Sentinel API.
 
-Reads sample_prompts.json and sends prompts to the /api/analyze endpoint
-either all at once (burst mode) or one at a time with random delays (drip mode).
+Reads sample_prompts.json and sends events through the extension/ops endpoints
+so integrations and backend always-on workflows cooperate.
 """
 
 from __future__ import annotations
@@ -122,11 +122,16 @@ async def send_prompt(
     dry_run: bool = False,
 ) -> None:
     """Send a single prompt to the API and display the result."""
-    endpoint = f"{url.rstrip('/')}/api/analyze"
+    endpoint = f"{url.rstrip('/')}/api/ops/events/employee-prompt"
     payload = {
         "employee_id": prompt.get("employee_id", 1),
         "prompt_text": prompt.get("text", ""),
-        "target_tool": prompt.get("target_tool", "Claude"),
+        "target_tool": str(prompt.get("target_tool", "Claude")).lower(),
+        "metadata": {
+            "source": "simulate_traffic",
+            "category": prompt.get("category", "unknown"),
+            "department": prompt.get("department", "unknown"),
+        },
     }
 
     if dry_run:
@@ -160,6 +165,22 @@ async def send_prompt(
             f"  [WARN] HTTP error: {exc}",
             YELLOW,
         ))
+
+
+async def trigger_ops_tick(client: httpx.AsyncClient, url: str) -> None:
+    endpoint = f"{url.rstrip('/')}/api/ops/tick"
+    try:
+        resp = await client.post(endpoint, timeout=30.0)
+        if resp.status_code == 200:
+            body = resp.json()
+            jobs = body.get("jobs", [])
+            ran = [j["job_name"] for j in jobs if j.get("status") == "ran"]
+            if ran:
+                print(colorize(f"Ops tick ran jobs: {', '.join(ran)}", CYAN))
+        else:
+            print(colorize(f"[WARN] Ops tick returned HTTP-{resp.status_code}", YELLOW))
+    except httpx.HTTPError as exc:
+        print(colorize(f"[WARN] Failed to trigger ops tick: {exc}", YELLOW))
 
 
 async def burst_mode(
@@ -261,6 +282,8 @@ async def async_main() -> None:
                 max_delay=args.max_delay,
                 dry_run=args.dry_run,
             )
+        if not args.dry_run:
+            await trigger_ops_tick(client, args.url)
 
     # Summary
     print()
