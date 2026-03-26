@@ -442,8 +442,9 @@ export async function fetchAgents(): Promise<Agent[]> {
 export async function fetchAutomationAnalysis(): Promise<AutomationAnalysisResponse> {
   try {
     return await apiFetch<AutomationAnalysisResponse>("/api/reports/automation-analysis");
-  } catch {
-    return { opportunities: [] };
+  } catch (error) {
+    console.error("Failed to fetch automation analysis, falling back to mock:", error);
+    return mockAutomationAnalysis;
   }
 }
 

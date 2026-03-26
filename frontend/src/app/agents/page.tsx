@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import { fetchAgents, fetchAutomationAnalysis } from "@/lib/api";
-import { Agent, AgentStatus } from "@/lib/types";
+import { Agent, AgentStatus, AutomationAnalysisResponse } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Zap, Clock, DollarSign } from "lucide-react";
+import { Bot, Zap, Clock, DollarSign, BrainCircuit } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -31,11 +31,13 @@ function getSpendColor(spend: number, budget: number): string {
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [automation, setAutomation] = useState<AutomationAnalysisResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([fetchAgents(), fetchAutomationAnalysis()]).then(([ag]) => {
+    Promise.all([fetchAgents(), fetchAutomationAnalysis()]).then(([ag, aut]) => {
       setAgents(ag);
+      setAutomation(aut);
       setLoading(false);
     });
   }, []);
