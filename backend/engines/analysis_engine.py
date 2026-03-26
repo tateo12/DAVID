@@ -1,4 +1,11 @@
-from database import create_alert, create_prompt_record, execute, fetch_one, record_skill_evaluation
+from database import (
+    create_alert,
+    create_prompt_record,
+    execute,
+    fetch_one,
+    record_employee_interaction_memory,
+    record_skill_evaluation,
+)
 from detectors.pii_detector import detect_pii
 from detectors.policy_detector import detect_policy_violations
 from detectors.secrets_detector import detect_secrets
@@ -85,6 +92,14 @@ def analyze_prompt(payload: AnalyzeRequest) -> AnalyzeResponse:
         dimension_scores=skill.dimension_scores,
         strengths=skill.strengths,
         improvements=skill.improvements,
+    )
+    record_employee_interaction_memory(
+        employee_id=payload.employee_id,
+        prompt_id=prompt_id,
+        risk_level=risk_level.value,
+        action=action.value,
+        skill_score=skill.overall_score,
+        skill_class=skill.skill_class,
     )
 
     if tool_domain and shadow_hits:

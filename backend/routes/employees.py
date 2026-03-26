@@ -7,6 +7,8 @@ from models import (
     CompanySkillSnapshot,
     EmployeeDetail,
     EmployeeLessonStatus,
+    EmployeeMemoryEvent,
+    EmployeeMemorySnapshot,
     EmployeeSkillProfile,
     EmployeeSummary,
     SkillLesson,
@@ -140,6 +142,14 @@ def assign_skill_lesson(employee_id: int, payload: SkillLessonAssignRequest) -> 
         "INSERT INTO employee_lessons (employee_id, lesson_id, status, assigned_at) VALUES (?, ?, 'assigned', datetime('now'))",
         (employee_id, payload.lesson_id),
     )
+    pending = fetch_rows(
+        "SELECT lesson_id FROM employee_lessons WHERE employee_id = ? AND status = 'assigned' ORDER BY id DESC",
+        (employee_id,),
+    )
+    execute(
+        "UPDATE employee_skill_profiles SET assigned_lessons_json = ? WHERE employee_id = ?",
+        (json.dumps([str(r["lesson_id"]) for r in pending]), employee_id),
+    )
     inserted = fetch_one(
         "SELECT assigned_at, completed_at FROM employee_lessons WHERE employee_id = ? AND lesson_id = ? AND status = 'assigned' ORDER BY id DESC LIMIT 1",
         (employee_id, payload.lesson_id),
@@ -170,6 +180,14 @@ def complete_skill_lesson(employee_id: int, payload: SkillLessonCompleteRequest)
         "UPDATE employee_lessons SET status = 'completed', completed_at = datetime('now') WHERE employee_id = ? AND lesson_id = ?",
         (employee_id, payload.lesson_id),
     )
+    pending = fetch_rows(
+        "SELECT lesson_id FROM employee_lessons WHERE employee_id = ? AND status = 'assigned' ORDER BY id DESC",
+        (employee_id,),
+    )
+    execute(
+        "UPDATE employee_skill_profiles SET assigned_lessons_json = ? WHERE employee_id = ?",
+        (json.dumps([str(r["lesson_id"]) for r in pending]), employee_id),
+    )
     completed = fetch_one(
         "SELECT completed_at FROM employee_lessons WHERE employee_id = ? AND lesson_id = ? ORDER BY id DESC LIMIT 1",
         (employee_id, payload.lesson_id),
@@ -196,3 +214,56 @@ def list_employee_lessons(employee_id: int) -> list[EmployeeLessonStatus]:
         (employee_id,),
     )
     return [EmployeeLessonStatus(**dict(row)) for row in rows]
+
+
+@router.get("/{employee_id}/memory", response_model=EmployeeMemorySnapshot)
+def get_employee_memory_snapshot(employee_id: int) -> EmployeeMemorySnapshot:
+    employee = fetch_one("SELECT id FROM employees WHERE id = ?", (employee_id,))
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    stats = fetch_one(
+        """
+        SELECT
+            COUNT(*) AS interactions_30d,
+            COALESCE(AVG(CASE risk_level
+                WHEN 'critical' THEN 1.0
+                WHEN 'high' THEN 0.75
+                WHEN 'medium' THEN 0.5
+                ELSE 0.2 END), 0.0) AS avg_risk_score_30d,
+            COALESCE(AVG(skill_score), 0.0) AS avg_skill_score_30d
+        FROM employee_interaction_memory
+        WHERE employee_id = ? AND created_at >= datetime('now', '-30 day')
+        """,
+        (employee_id,),
+    )
+    latest = fetch_one(
+        """
+        SELECT skill_class
+        FROM employee_interaction_memory
+        WHERE employee_id = ?
+        ORDER BY id DESC LIMIT 1
+        """,
+        (employee_id,),
+    )
+    return EmployeeMemorySnapshot(
+        employee_id=employee_id,
+        interactions_30d=int(stats["interactions_30d"] or 0),
+        avg_risk_score_30d=round(float(stats["avg_risk_score_30d"] or 0.0), 3),
+        avg_skill_score_30d=round(float(stats["avg_skill_score_30d"] or 0.0), 3),
+        latest_skill_class=(latest["skill_class"] if latest else "developing"),
+    )
+
+
+@router.get("/{employee_id}/memory/events", response_model=list[EmployeeMemoryEvent])
+def list_employee_memory_events(employee_id: int, limit: int = 50) -> list[EmployeeMemoryEvent]:
+    rows = fetch_rows(
+        """
+        SELECT id, employee_id, prompt_id, risk_level, action, skill_score, skill_class, created_at
+        FROM employee_interaction_memory
+        WHERE employee_id = ?
+        ORDER BY id DESC
+        LIMIT ?
+        """,
+        (employee_id, max(1, min(limit, 200))),
+    )
+    return [EmployeeMemoryEvent(**dict(row)) for row in rows]

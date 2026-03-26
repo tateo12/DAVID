@@ -134,6 +134,8 @@ def _chart_department_threats(data: dict[str, int]) -> str | None:
     """Horizontal bar chart — threats by department."""
     if not _HAS_MATPLOTLIB:
         return None
+    if not data:
+        return None
 
     departments = list(data.keys())
     counts = list(data.values())
@@ -186,6 +188,8 @@ def _chart_department_threats(data: dict[str, int]) -> str | None:
 def _chart_daily_trend(trend: list[dict[str, Any]]) -> str | None:
     """Line chart with area fill — daily threats over 7 days."""
     if not _HAS_MATPLOTLIB:
+        return None
+    if not trend:
         return None
 
     dates = [entry["date"][-5:] for entry in trend]  # MM-DD
@@ -612,16 +616,44 @@ def load_data(args: argparse.Namespace) -> dict[str, Any]:
         prompts.raise_for_status()
         prompts_data = prompts.json()
 
+        alerts = httpx.get(f"{root}/api/alerts", timeout=15)
+        alerts.raise_for_status()
+        alerts_data = alerts.json()
+
         # Convert live backend payloads to report structure expected by this generator.
         detection_breakdown = {"PII": 0, "Secrets": 0, "Policy Violations": 0, "Shadow AI": 0}
         high_risk_count = 0
+        dept_threats: dict[str, int] = {}
+        by_day: dict[str, int] = {}
+        employee_department = {int(e.get("id", 0)): str(e.get("department", "Unknown")) for e in employees_data}
         for p in prompts_data:
             risk = p.get("risk_level", "low")
             if risk in {"high", "critical"}:
                 high_risk_count += 1
+                dept = employee_department.get(int(p.get("employee_id", 0)), "Unknown")
+                dept_threats[dept] = dept_threats.get(dept, 0) + 1
+                created = str(p.get("created_at", ""))[:10]
+                if created:
+                    by_day[created] = by_day.get(created, 0) + 1
             tool = str(p.get("target_tool") or "").lower()
             if any(x in tool for x in ["shadow", "unknown-ai", "myfreegpt", "otter", "copy.ai"]):
                 detection_breakdown["Shadow AI"] += 1
+            try:
+                detail = httpx.get(f"{root}/api/prompts/{p.get('id')}", timeout=15)
+                if detail.status_code == 200:
+                    for det in detail.json().get("detections", []):
+                        dt = str(det.get("type", "")).lower()
+                        if dt == "pii":
+                            detection_breakdown["PII"] += 1
+                        elif dt == "secret":
+                            detection_breakdown["Secrets"] += 1
+                        elif dt == "policy":
+                            detection_breakdown["Policy Violations"] += 1
+                        elif dt == "shadow_ai":
+                            detection_breakdown["Shadow AI"] += 1
+            except Exception:
+                # Report generation should continue even if detail lookup fails.
+                pass
 
         top_employees = sorted(
             employees_data,
@@ -638,6 +670,19 @@ def load_data(args: argparse.Namespace) -> dict[str, Any]:
             for e in top_employees
         ]
 
+        sorted_days = sorted(by_day.keys())[-7:]
+        daily_trend = [{"date": day, "threats": by_day[day]} for day in sorted_days]
+        if not daily_trend:
+            daily_trend = [{"date": weekly_data.get("week_end", "N/A"), "threats": high_risk_count}]
+
+        # Simple evidence-based compliance view for demo narrative.
+        critical_alerts = sum(1 for a in alerts_data if str(a.get("severity", "")).lower() == "critical")
+        compliance = {
+            "soc2": "Action Required" if critical_alerts > 0 else "Compliant",
+            "gdpr": "Action Required" if detection_breakdown["PII"] > 0 else "Compliant",
+            "ccpa": "Action Required" if high_risk_count > 0 else "Compliant",
+        }
+
         transformed = {
             "period": {
                 "start": weekly_data.get("week_start", "N/A"),
@@ -649,11 +694,11 @@ def load_data(args: argparse.Namespace) -> dict[str, Any]:
                 "cost_saved": int(float(metrics_data.get("estimated_cost_saved_usd", 0.0))),
                 "shadow_ai_events": int(metrics_data.get("shadow_ai_events", 0)),
             },
-            "department_threats": {},
-            "daily_trend": [],
+            "department_threats": dept_threats or {"Unknown": high_risk_count},
+            "daily_trend": daily_trend,
             "top_risk_employees": top_risk,
-            "detection_breakdown": detection_breakdown | {"Policy Violations": high_risk_count},
-            "compliance": {"soc2": "Compliant", "gdpr": "Compliant", "ccpa": "Action Required"},
+            "detection_breakdown": detection_breakdown,
+            "compliance": compliance,
         }
         print(f"Fetched live API data from {root}")
         return transformed
