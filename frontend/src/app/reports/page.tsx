@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { fetchWeeklyReport } from "@/lib/api";
 import { WeeklyReport } from "@/lib/types";
-import { Badge } from "@/components/ui/badge";
 import {
   AreaChart,
   Area,

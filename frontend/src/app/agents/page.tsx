@@ -3,9 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { fetchAgents } from "@/lib/api";
 import { Agent, AgentStatus } from "@/lib/types";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Zap, Clock, DollarSign, Activity } from "lucide-react";
+import { Bot, Zap, Clock, DollarSign } from "lucide-react";
 import {
   BarChart,
   Bar,

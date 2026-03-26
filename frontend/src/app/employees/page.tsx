@@ -20,7 +20,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Search, ArrowUpDown, X } from "lucide-react";
+import { Search, ArrowUpDown } from "lucide-react";
 
 const statusStyles: Record<EmployeeStatus, string> = {
   active: "bg-sentinel-green/15 text-sentinel-green border-sentinel-green/30",
@@ -64,7 +64,7 @@ export default function EmployeesPage() {
   };
 
   const filtered = useMemo(() => {
-    let list = employees.filter(
+    const list = employees.filter(
       (e) =>
         e.name.toLowerCase().includes(search.toLowerCase()) ||
         e.department.toLowerCase().includes(search.toLowerCase()) ||
