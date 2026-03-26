@@ -1,0 +1,203 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sentinel Security Coaching</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f1f5f9; font-family:Arial, Helvetica, sans-serif; -webkit-font-smoothing:antialiased;">
+
+  <!-- Outer wrapper -->
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f1f5f9;">
+    <tr>
+      <td align="center" style="padding:24px 16px;">
+
+        <!-- Main container -->
+        <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px; width:100%; background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 4px 6px rgba(0,0,0,0.07);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#0f172a; padding:28px 40px; text-align:center;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="color:#ffffff; font-size:24px; font-weight:bold; text-align:center; letter-spacing:0.5px;">
+                    &#x1F6E1;&#xFE0F; Sentinel Security Coaching
+                  </td>
+                </tr>
+                <tr>
+                  <td style="color:#94a3b8; font-size:13px; text-align:center; padding-top:6px;">
+                    Helping you stay secure, one prompt at a time
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:36px 40px 12px 40px;">
+
+              <!-- Greeting -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="color:#0f172a; font-size:18px; font-weight:bold; padding-bottom:16px;">
+                    Hi {{ employee_name }},
+                  </td>
+                </tr>
+                <tr>
+                  <td style="color:#475569; font-size:15px; line-height:24px; padding-bottom:24px;">
+                    We noticed a potential <strong style="color:#0f172a;">{{ detection_type }}</strong> in a recent prompt you submitted to <strong style="color:#0f172a;">{{ target_tool }}</strong>. Don't worry &mdash; this is a coaching moment, not a warning.
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Detection Details Box -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; margin-bottom:24px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="color:#0f172a; font-size:14px; font-weight:bold; padding-bottom:14px; text-transform:uppercase; letter-spacing:0.5px;">
+                          What We Detected
+                        </td>
+                      </tr>
+                      <!-- Severity Badge -->
+                      <tr>
+                        <td style="padding-bottom:12px;">
+                          <table border="0" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="font-size:12px; font-weight:bold; color:#ffffff; background-color:{% if severity == 'critical' %}#ef4444{% elif severity == 'high' %}#ef4444{% elif severity == 'medium' %}#f59e0b{% else %}#3b82f6{% endif %}; padding:4px 12px; border-radius:12px; text-transform:uppercase; letter-spacing:0.5px;">
+                                {{ severity }} severity
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <!-- Detection Type -->
+                      <tr>
+                        <td style="padding-bottom:10px;">
+                          <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td style="color:#64748b; font-size:13px; width:100px; vertical-align:top; padding-bottom:4px;">Type:</td>
+                              <td style="color:#0f172a; font-size:14px; font-weight:600; vertical-align:top;">{{ detection_type }}</td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <!-- Prompt Excerpt -->
+                      <tr>
+                        <td style="padding-bottom:4px;">
+                          <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td style="color:#64748b; font-size:13px; padding-bottom:6px;">Your prompt excerpt:</td>
+                            </tr>
+                            <tr>
+                              <td style="background-color:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:12px 16px; font-family:'Courier New', monospace; font-size:13px; color:#334155; line-height:20px;">
+                                {{ prompt_excerpt }}
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Coaching Section -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-left:4px solid #3b82f6; margin-bottom:24px;">
+                <tr>
+                  <td style="padding:16px 20px; background-color:#eff6ff; border-radius:0 8px 8px 0;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="color:#1e40af; font-size:15px; font-weight:bold; padding-bottom:8px;">
+                          &#x1F4A1; Here's how to stay safe:
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="color:#1e40af; font-size:14px; line-height:22px;">
+                          {{ coaching_tip }}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Safe Alternative Box -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border:2px solid #22c55e; border-radius:8px; margin-bottom:24px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="color:#15803d; font-size:15px; font-weight:bold; padding-bottom:10px;">
+                          &#x2705; Try this instead:
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="background-color:#f0fdf4; border-radius:6px; padding:12px 16px; font-family:'Courier New', monospace; font-size:13px; color:#166534; line-height:20px;">
+                          {{ safe_prompt_example }}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Helpful Links -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:24px;">
+                <tr>
+                  <td style="color:#475569; font-size:14px; line-height:22px;">
+                    &#x1F4DA; <strong>Learn more:</strong> Review our
+                    <a href="{{ policy_url }}" style="color:#3b82f6; text-decoration:underline; font-weight:600;">AI Usage Security Policy</a>
+                    for detailed guidelines on safe prompt practices.
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Encouraging Closing -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f8fafc; border-radius:8px; margin-bottom:12px;">
+                <tr>
+                  <td style="padding:20px 24px; text-align:center;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="font-size:20px; padding-bottom:8px; text-align:center;">&#x1F64C;</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#475569; font-size:14px; line-height:22px; text-align:center;">
+                          <strong style="color:#0f172a;">We're here to help, not to penalize.</strong><br />
+                          Great security habits protect everyone &mdash; and you're doing great by learning!
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 40px 28px 40px; border-top:1px solid #e2e8f0;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="color:#94a3b8; font-size:12px; line-height:18px; text-align:center;">
+                    &#x1F6E1;&#xFE0F; <strong>Sentinel AI Security</strong> | Acme Corp<br />
+                    This is an automated coaching message. Questions? Contact your security team.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+        <!-- /Main container -->
+
+      </td>
+    </tr>
+  </table>
+  <!-- /Outer wrapper -->
+
+</body>
+</html>

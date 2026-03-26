@@ -12,7 +12,13 @@ from database import execute, fetch_one, fetch_rows
 
 router = APIRouter(prefix="/emails", tags=["emails"])
 
-TEMPLATE_DIR = Path(__file__).resolve().parent.parent.parent / "integrations" / "email" / "templates"
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_BACKEND_ROOT = Path(__file__).resolve().parent.parent
+TEMPLATE_DIR = (
+    _PROJECT_ROOT / "integrations" / "email" / "templates"
+    if (_PROJECT_ROOT / "integrations" / "email" / "templates").is_dir()
+    else _BACKEND_ROOT / "email_templates"
+)
 
 
 def _utc_now() -> str:
