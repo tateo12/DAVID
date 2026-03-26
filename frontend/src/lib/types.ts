@@ -102,6 +102,9 @@ export interface Agent {
   avg_latency_ms: number;
   status: AgentStatus;
   model: string;
+
+  // Automation Profile
+  automation_tasks?: AutomationOpportunity[];
 }
 
 // ===== Reports =====
@@ -125,4 +128,21 @@ export interface WeeklyReport {
     flagged_prompts: number;
   }[];
   recommendations: string[];
+}
+
+// ===== Automation Analysis =====
+export interface AutomationOpportunity {
+  task_type: string;
+  human_cost: number;
+  ai_cost: number;
+  cost_deficit: number;
+  human_time_sec: number;
+  ai_time_sec: number;
+  time_deficit: number;
+  automation_status: "Automate" | "Human-in-Loop" | "Human-Driven" | string;
+  management_insight: string;
+}
+
+export interface AutomationAnalysisResponse {
+  opportunities: AutomationOpportunity[];
 }

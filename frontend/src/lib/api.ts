@@ -9,6 +9,8 @@ import {
   WeeklyReport,
   RiskLevel,
   EmployeeStatus,
+  AutomationAnalysisResponse,
+  AutomationOpportunity,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
@@ -243,6 +245,176 @@ export async function fetchShadowAI(): Promise<ShadowAISummary> {
   }
 }
 
+const AGENT_AUTOMATION_PROFILES: Record<string, Partial<Agent>> = {
+  "CodeGuard": {
+    automation_tasks: [
+      {
+        task_type: "Code Review",
+        human_cost: 35.0,
+        ai_cost: 0.50,
+        cost_deficit: 34.50,
+        human_time_sec: 1800,
+        ai_time_sec: 20.0,
+        time_deficit: 1780.0,
+        automation_status: "Human-in-Loop",
+        management_insight: "AI catches syntax and known flaws, but human oversight is strictly required for architectural decisions."
+      },
+      {
+        task_type: "Vulnerability Scanning",
+        human_cost: 40.0,
+        ai_cost: 0.10,
+        cost_deficit: 39.90,
+        human_time_sec: 2400,
+        ai_time_sec: 5.0,
+        time_deficit: 2395.0,
+        automation_status: "Automate",
+        management_insight: "AI can scan millions of lines of code near-instantly for known CVEs. Highly effective automation target."
+      }
+    ]
+  },
+  "HelpDesk AI": {
+    automation_tasks: [
+      {
+        task_type: "Customer Support Triage",
+        human_cost: 5.0,
+        ai_cost: 0.02,
+        cost_deficit: 4.98,
+        human_time_sec: 300,
+        ai_time_sec: 2.1,
+        time_deficit: 297.9,
+        automation_status: "Human-in-Loop",
+        management_insight: "AI categorizes and routes tickets instantly. Humans remain essential for nuanced escalations."
+      },
+      {
+        task_type: "Basic Knowledge Base Q&A",
+        human_cost: 8.0,
+        ai_cost: 0.05,
+        cost_deficit: 7.95,
+        human_time_sec: 600,
+        ai_time_sec: 4.0,
+        time_deficit: 596.0,
+        automation_status: "Automate",
+        management_insight: "First-touch questions referring to documentation should be fully automated."
+      }
+    ]
+  },
+  "DataPipe": {
+    automation_tasks: [
+      {
+        task_type: "Data Entry",
+        human_cost: 15.0,
+        ai_cost: 0.05,
+        cost_deficit: 14.95,
+        human_time_sec: 900,
+        ai_time_sec: 5.5,
+        time_deficit: 894.5,
+        automation_status: "Automate",
+        management_insight: "AI excels at rapid, repetitive data extraction, operating 50x faster with near-zero error rates."
+      },
+      {
+        task_type: "Format Normalization",
+        human_cost: 10.0,
+        ai_cost: 0.01,
+        cost_deficit: 9.99,
+        human_time_sec: 450,
+        ai_time_sec: 1.2,
+        time_deficit: 448.8,
+        automation_status: "Automate",
+        management_insight: "Perfect use case for LLMs to convert dirty CSV inputs into strict JSON/SQL schemas."
+      }
+    ]
+  },
+  "MarketingGen": {
+    automation_tasks: [
+      {
+        task_type: "Content Generation",
+        human_cost: 45.0,
+        ai_cost: 0.25,
+        cost_deficit: 44.75,
+        human_time_sec: 3600,
+        ai_time_sec: 12.5,
+        time_deficit: 3587.5,
+        automation_status: "Automate",
+        management_insight: "AI synthesizes structured data easily. Humans are only needed for final narrative polish."
+      },
+      {
+        task_type: "Social Media Scheduling",
+        human_cost: 12.0,
+        ai_cost: 0.02,
+        cost_deficit: 11.98,
+        human_time_sec: 600,
+        ai_time_sec: 2.0,
+        time_deficit: 598.0,
+        automation_status: "Automate",
+        management_insight: "Low risk and highly repetitive. Can be entirely automated by agent."
+      },
+      {
+        task_type: "Competitor Tone Analysis",
+        human_cost: 25.0,
+        ai_cost: 0.15,
+        cost_deficit: 24.85,
+        human_time_sec: 1800,
+        ai_time_sec: 8.5,
+        time_deficit: 1791.5,
+        automation_status: "Human-in-Loop",
+        management_insight: "Agent can process competitor copy, but human marketer MUST define the brand differentiation strategy."
+      }
+    ]
+  },
+  "SalesBot": {
+    automation_tasks: [
+      {
+        task_type: "Lead Prospecting",
+        human_cost: 25.0,
+        ai_cost: 0.15,
+        cost_deficit: 24.85,
+        human_time_sec: 1200,
+        ai_time_sec: 8.5,
+        time_deficit: 1191.5,
+        automation_status: "Automate",
+        management_insight: "AI qualifies leads at massive scale. Human interaction should begin at the actual pitch."
+      },
+      {
+        task_type: "Email Outreach Drafting",
+        human_cost: 10.0,
+        ai_cost: 0.04,
+        cost_deficit: 9.96,
+        human_time_sec: 300,
+        ai_time_sec: 3.5,
+        time_deficit: 296.5,
+        automation_status: "Human-in-Loop",
+        management_insight: "AI builds hyper-personalized templates using LinkedIn data, but human reps should verify and send to protect domain reputation."
+      }
+    ]
+  },
+  "DocuMind": {
+    automation_tasks: [
+      {
+        task_type: "Documentation Maint.",
+        human_cost: 20.0,
+        ai_cost: 0.10,
+        cost_deficit: 19.90,
+        human_time_sec: 1500,
+        ai_time_sec: 15.0,
+        time_deficit: 1485.0,
+        automation_status: "Human-Driven",
+        management_insight: "AI struggles to maintain deep internal domain knowledge continuously without human intervention."
+      },
+      {
+        task_type: "API Spec Generation",
+        human_cost: 30.0,
+        ai_cost: 0.05,
+        cost_deficit: 29.95,
+        human_time_sec: 1200,
+        ai_time_sec: 6.0,
+        time_deficit: 1194.0,
+        automation_status: "Automate",
+        management_insight: "Agents can parse ASTs and perfectly generate OpenAPI specs directly from code with 100% accuracy."
+      }
+    ]
+  }
+};
+
 export async function fetchAgents(): Promise<Agent[]> {
   try {
     const agents = await apiFetch<BackendAgent[]>("/api/agents");
@@ -256,9 +428,19 @@ export async function fetchAgents(): Promise<Agent[]> {
       avg_latency_ms: 0,
       status: agent.success_rate > 0.6 ? "online" : "degraded",
       model: "Managed by backend",
+      ...AGENT_AUTOMATION_PROFILES[agent.name],
     }));
   } catch {
     return mockAgents;
+  }
+}
+
+export async function fetchAutomationAnalysis(): Promise<AutomationAnalysisResponse> {
+  try {
+    return await apiFetch<AutomationAnalysisResponse>("/api/reports/automation-analysis");
+  } catch (error) {
+    console.error("Failed to fetch automation analysis, falling back to mock:", error);
+    return mockAutomationAnalysis;
   }
 }
 
@@ -456,12 +638,12 @@ const mockShadowAI: ShadowAISummary = {
 };
 
 const mockAgents: Agent[] = [
-  { id: "agent-1", name: "CodeGuard", description: "Code review and security analysis agent", api_spend: 1847.50, api_budget: 3000, requests_today: 456, avg_latency_ms: 234, status: "online", model: "GPT-4o" },
-  { id: "agent-2", name: "DocuMind", description: "Documentation and knowledge base agent", api_spend: 892.30, api_budget: 1500, requests_today: 234, avg_latency_ms: 189, status: "online", model: "Claude 3.5 Sonnet" },
-  { id: "agent-3", name: "SalesBot", description: "Sales intelligence and outreach agent", api_spend: 2150.00, api_budget: 2500, requests_today: 567, avg_latency_ms: 312, status: "degraded", model: "GPT-4o" },
-  { id: "agent-4", name: "DataPipe", description: "Data transformation and ETL agent", api_spend: 3200.00, api_budget: 4000, requests_today: 890, avg_latency_ms: 156, status: "online", model: "GPT-4o-mini" },
-  { id: "agent-5", name: "HelpDesk AI", description: "Customer support automation agent", api_spend: 1100.00, api_budget: 2000, requests_today: 345, avg_latency_ms: 278, status: "online", model: "Claude 3.5 Haiku" },
-  { id: "agent-6", name: "MarketingGen", description: "Content generation and campaign agent", api_spend: 780.00, api_budget: 1000, requests_today: 123, avg_latency_ms: 445, status: "offline", model: "GPT-4o" },
+  { id: "agent-1", name: "CodeGuard", description: "Code review and security analysis agent", api_spend: 1847.50, api_budget: 3000, requests_today: 456, avg_latency_ms: 234, status: "online", model: "GPT-4o", ...AGENT_AUTOMATION_PROFILES["CodeGuard"] },
+  { id: "agent-2", name: "DocuMind", description: "Documentation and knowledge base agent", api_spend: 892.30, api_budget: 1500, requests_today: 234, avg_latency_ms: 189, status: "online", model: "Claude 3.5 Sonnet", ...AGENT_AUTOMATION_PROFILES["DocuMind"] },
+  { id: "agent-3", name: "SalesBot", description: "Sales intelligence and outreach agent", api_spend: 2150.00, api_budget: 2500, requests_today: 567, avg_latency_ms: 312, status: "degraded", model: "GPT-4o", ...AGENT_AUTOMATION_PROFILES["SalesBot"] },
+  { id: "agent-4", name: "DataPipe", description: "Data transformation and ETL agent", api_spend: 3200.00, api_budget: 4000, requests_today: 890, avg_latency_ms: 156, status: "online", model: "GPT-4o-mini", ...AGENT_AUTOMATION_PROFILES["DataPipe"] },
+  { id: "agent-5", name: "HelpDesk AI", description: "Customer support automation agent", api_spend: 1100.00, api_budget: 2000, requests_today: 345, avg_latency_ms: 278, status: "online", model: "Claude 3.5 Haiku", ...AGENT_AUTOMATION_PROFILES["HelpDesk AI"] },
+  { id: "agent-6", name: "MarketingGen", description: "Content generation and campaign agent", api_spend: 780.00, api_budget: 1000, requests_today: 123, avg_latency_ms: 445, status: "offline", model: "GPT-4o", ...AGENT_AUTOMATION_PROFILES["MarketingGen"] },
 ];
 
 const mockWeeklyReport: WeeklyReport = {
@@ -499,5 +681,65 @@ const mockWeeklyReport: WeeklyReport = {
     "Consider upgrading from ChatGPT Free to Enterprise for remaining 15 users to reduce Shadow AI",
     "Establish weekly AI usage review meetings with department heads",
     "Deploy prompt sanitization layer for all customer-data-adjacent workflows",
+  ],
+};
+
+const mockAutomationAnalysis: AutomationAnalysisResponse = {
+  opportunities: [
+    {
+      task_type: "Data Entry",
+      human_cost: 15.0,
+      ai_cost: 0.05,
+      cost_deficit: 14.95,
+      human_time_sec: 900,
+      ai_time_sec: 5.5,
+      time_deficit: 894.5,
+      automation_status: "Automate",
+      management_insight: "AI excels at rapid, repetitive data extraction, operating 50x faster with near-zero error rates.",
+    },
+    {
+      task_type: "Report Generation",
+      human_cost: 45.0,
+      ai_cost: 0.25,
+      cost_deficit: 44.75,
+      human_time_sec: 3600,
+      ai_time_sec: 12.5,
+      time_deficit: 3587.5,
+      automation_status: "Automate",
+      management_insight: "AI can synthesize vast amounts of structured data instantly. Humans are only needed for final narrative polish.",
+    },
+    {
+      task_type: "Code Review",
+      human_cost: 35.0,
+      ai_cost: 0.50,
+      cost_deficit: 34.50,
+      human_time_sec: 1800,
+      ai_time_sec: 20.0,
+      time_deficit: 1780.0,
+      automation_status: "Human-in-Loop",
+      management_insight: "AI is highly effective at catching syntax and known security flaws, but human oversight is strictly required for architectural decisions.",
+    },
+    {
+      task_type: "Customer Support Triage",
+      human_cost: 5.0,
+      ai_cost: 0.02,
+      cost_deficit: 4.98,
+      human_time_sec: 300,
+      ai_time_sec: 2.1,
+      time_deficit: 297.9,
+      automation_status: "Human-in-Loop",
+      management_insight: "AI can instantly categorize and route tickets. Humans remain essential for nuanced, high-stakes customer escalations.",
+    },
+    {
+      task_type: "Sentiment Analysis",
+      human_cost: 2.5,
+      ai_cost: 0.005,
+      cost_deficit: 2.495,
+      human_time_sec: 120,
+      ai_time_sec: 1.2,
+      time_deficit: 118.8,
+      automation_status: "Automate",
+      management_insight: "AI processes sentiment at scale reliably. However, humans are better at detecting sarcasm or complex cultural context in edge-cases.",
+    },
   ],
 };

@@ -169,6 +169,22 @@ class WeeklyReportResponse(BaseModel):
     kpis: dict[str, Any]
 
 
+class AutomationOpportunity(BaseModel):
+    task_type: str
+    human_cost: float
+    ai_cost: float
+    cost_deficit: float
+    human_time_sec: float
+    ai_time_sec: float
+    time_deficit: float
+    automation_status: str
+    management_insight: str
+
+
+class AutomationAnalysisResponse(BaseModel):
+    opportunities: list[AutomationOpportunity]
+
+
 class ShadowAIEvent(BaseModel):
     id: int
     employee_id: int
