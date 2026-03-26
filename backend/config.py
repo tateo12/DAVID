@@ -1,5 +1,5 @@
 from functools import lru_cache
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     sqlite_path: str = "sentinel.db"
 
     anthropic_api_key: str = ""
-    openrouter_api_key: str = ""
+    openrouter_api_key: str = Field(default="", validation_alias=AliasChoices("OPENROUTER_API_KEY", "API_SECRET_KEY"))
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_site_url: str = "http://localhost:3000"
     openrouter_app_name: str = "Sentinel"

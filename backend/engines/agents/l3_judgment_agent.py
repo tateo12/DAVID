@@ -16,7 +16,7 @@ class L3JudgmentAgent:
         settings = get_settings()
         if not settings.enable_l3:
             return False
-        api_key = settings.openrouter_api_key or os.getenv("OPENROUTER_API_KEY", "")
+        api_key = settings.openrouter_api_key or os.getenv("OPENROUTER_API_KEY", "") or os.getenv("API_SECRET_KEY", "")
         if not api_key:
             return False
         return risk_level in {RiskLevel.medium, RiskLevel.high, RiskLevel.critical} or len(detections) == 0
@@ -50,7 +50,7 @@ class L3JudgmentAgent:
             return L3JudgmentResult(applied=False)
 
         settings = get_settings()
-        api_key = settings.openrouter_api_key or os.getenv("OPENROUTER_API_KEY", "")
+        api_key = settings.openrouter_api_key or os.getenv("OPENROUTER_API_KEY", "") or os.getenv("API_SECRET_KEY", "")
 
         headers = {
             "Authorization": f"Bearer {api_key}",

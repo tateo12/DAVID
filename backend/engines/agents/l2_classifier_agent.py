@@ -16,7 +16,7 @@ class L2ClassifierAgent:
         settings = get_settings()
         if not settings.enable_l2:
             return False
-        api_key = settings.openrouter_api_key or os.getenv("OPENROUTER_API_KEY", "")
+        api_key = settings.openrouter_api_key or os.getenv("OPENROUTER_API_KEY", "") or os.getenv("API_SECRET_KEY", "")
         if not api_key:
             return False
         return True
@@ -49,7 +49,7 @@ class L2ClassifierAgent:
             return L2ClassificationResult(applied=False)
 
         settings = get_settings()
-        api_key = settings.openrouter_api_key or os.getenv("OPENROUTER_API_KEY", "")
+        api_key = settings.openrouter_api_key or os.getenv("OPENROUTER_API_KEY", "") or os.getenv("API_SECRET_KEY", "")
 
         headers = {
             "Authorization": f"Bearer {api_key}",

@@ -1,4 +1,6 @@
 # Environment
+.env
+.env.*
 !.env.example
 
 # Python
