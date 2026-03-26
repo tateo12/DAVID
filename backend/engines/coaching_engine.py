@@ -1,4 +1,4 @@
-from models import ActionType, Detection, PromptSkillEvaluation, RiskLevel
+from models import ActionType, Detection, IntentAssessment, PromptSkillEvaluation, RiskLevel
 
 
 def skill_class_from_score(score: float) -> str:
@@ -117,3 +117,49 @@ def coaching_tip(action: ActionType, detections: list[Detection], skill: PromptS
             f"Skill coaching: {skill.coaching_message}"
         )
     return f"Review policy guidelines before sharing internal or customer information with AI tools. Skill coaching: {skill.coaching_message}"
+
+
+def assess_intent_and_recommendations(
+    prompt_text: str,
+    detections: list[Detection],
+    attachment_count: int = 0,
+) -> tuple[IntentAssessment, list[str], list[str]]:
+    lowered = prompt_text.lower().strip()
+    objective_markers = ["summarize", "draft", "analyze", "rewrite", "explain", "compare", "classify", "generate"]
+    has_objective = any(marker in lowered for marker in objective_markers)
+
+    high_or_critical = [d for d in detections if d.severity in {RiskLevel.high, RiskLevel.critical}]
+    pii_or_secrets = [d for d in detections if d.subtype.startswith("ssn") or d.type.value in {"pii", "secret"}]
+
+    objective_clarity = "clear" if has_objective and len(prompt_text.split()) >= 8 else "unclear"
+    oversharing_risk = "high" if (attachment_count > 0 and pii_or_secrets) or len(high_or_critical) > 0 else "low"
+
+    reasons: list[str] = []
+    if high_or_critical:
+        reasons.append("High-severity sensitive patterns were detected in your prompt or attachment text.")
+    if pii_or_secrets:
+        reasons.append("Personal data or credential-like content appears in the content being shared.")
+    if attachment_count > 1:
+        reasons.append("Multiple attachments increase exposure risk if full files are shared.")
+    if not reasons and detections:
+        reasons.append("Potential policy-sensitive content was detected.")
+
+    alternatives: list[str] = []
+    if pii_or_secrets:
+        alternatives.append("Share a redacted excerpt with placeholders instead of real identifiers.")
+    if attachment_count:
+        alternatives.append("Upload only the minimal section needed for the task, not the whole document.")
+    if objective_clarity == "unclear":
+        alternatives.append("Rewrite the prompt with a clear outcome and constraints before attaching data.")
+    alternatives.append("Use a synthetic sample that preserves structure without exposing production data.")
+
+    recommendation = alternatives[0] if alternatives else "Limit shared data to the minimum needed for the task."
+    return (
+        IntentAssessment(
+            objective_clarity=objective_clarity,
+            oversharing_risk=oversharing_risk,
+            recommendation=recommendation,
+        ),
+        reasons[:4],
+        alternatives[:4],
+    )

@@ -11,6 +11,47 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
+const SUPPORTED_HOSTS = new Set(["chatgpt.com", "chat.openai.com", "claude.ai", "gemini.google.com"]);
+
+function isSupportedAiUrl(url) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return SUPPORTED_HOSTS.has(parsed.host.toLowerCase());
+  } catch (_error) {
+    return false;
+  }
+}
+
+async function injectPageHook(tabId) {
+  if (!tabId) return;
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["page_hook.js"],
+      world: "MAIN",
+    });
+  } catch (error) {
+    console.debug("Sentinel page hook injection failed:", String(error));
+  }
+}
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status !== "complete") return;
+  if (!isSupportedAiUrl(tab?.url)) return;
+  injectPageHook(tabId);
+});
+
+chrome.tabs.onActivated.addListener(async ({ tabId }) => {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!isSupportedAiUrl(tab?.url)) return;
+    injectPageHook(tabId);
+  } catch (_error) {
+    // Ignore tab read races.
+  }
+});
+
 async function handleCapture(payload, sender) {
   const state = await chrome.storage.local.get(["apiBaseUrl", "accessToken", "user"]);
   const apiBaseUrl = (state.apiBaseUrl || "http://localhost:8000").replace(/\/$/, "");
@@ -24,6 +65,9 @@ async function handleCapture(payload, sender) {
   const enrichedPayload = {
     prompt_text: payload.prompt_text,
     target_tool: payload.target_tool,
+    attachments: Array.isArray(payload.attachments) ? payload.attachments : [],
+    warning_confirmed: Boolean(payload.warning_confirmed),
+    warning_context_id: payload.warning_context_id || null,
     metadata: {
       source: "browser_extension",
       page_url: payload.page_url,
@@ -67,6 +111,7 @@ async function handleCaptureTurn(payload, sender) {
     prompt_text: payload.prompt_text,
     ai_output_text: payload.ai_output_text,
     target_tool: payload.target_tool,
+    attachments: Array.isArray(payload.attachments) ? payload.attachments : [],
     conversation_id: payload.conversation_id,
     turn_id: payload.turn_id,
     metadata: {

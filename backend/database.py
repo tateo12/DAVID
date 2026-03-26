@@ -149,6 +149,18 @@ def init_db() -> None:
                 FOREIGN KEY (output_prompt_id) REFERENCES prompts (id)
             );
 
+            CREATE TABLE IF NOT EXISTS extension_warning_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                employee_id INTEGER NOT NULL,
+                warning_context_id TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                risk_level TEXT NOT NULL,
+                target_tool TEXT,
+                details_json TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (employee_id) REFERENCES employees (id)
+            );
+
             CREATE TABLE IF NOT EXISTS agent_runs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 agent_id INTEGER NOT NULL,
@@ -476,6 +488,32 @@ def create_captured_turn_record(
             prompt_prompt_id,
             output_prompt_id,
             json.dumps(metadata or {}),
+            _utc_now(),
+        ),
+    )
+
+
+def create_extension_warning_event(
+    employee_id: int,
+    warning_context_id: str,
+    event_type: str,
+    risk_level: str,
+    target_tool: str | None,
+    details: dict[str, Any] | None,
+) -> int:
+    return execute(
+        """
+        INSERT INTO extension_warning_events (
+            employee_id, warning_context_id, event_type, risk_level, target_tool, details_json, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            employee_id,
+            warning_context_id,
+            event_type,
+            risk_level,
+            target_tool,
+            json.dumps(details or {}),
             _utc_now(),
         ),
     )

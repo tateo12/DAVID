@@ -1,7 +1,10 @@
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
+MAX_EXTRACTED_TEXT_CHARS = 12000
 
 
 class RiskLevel(str, Enum):
@@ -39,12 +42,51 @@ class Detection(BaseModel):
     span: tuple[int, int]
     confidence: float = Field(ge=0.0, le=1.0)
     layer: DetectionLayer
+    source: str | None = None
+
+
+class AttachmentContext(BaseModel):
+    filename: str
+    mime_type: str
+    size_bytes: int = Field(ge=0)
+    extracted_text: str = ""
+    source: str | None = None
+    extraction_status: str | None = None
+    last_modified_ms: int | None = None
+
+    @field_validator("mime_type")
+    @classmethod
+    def validate_mime_type(cls, value: str) -> str:
+        if "/" not in value:
+            raise ValueError("mime_type must be a valid MIME value like type/subtype")
+        return value
+
+    @field_validator("size_bytes")
+    @classmethod
+    def validate_size_bytes(cls, value: int) -> int:
+        if value > MAX_ATTACHMENT_BYTES:
+            raise ValueError(f"attachment exceeds max size of {MAX_ATTACHMENT_BYTES} bytes")
+        return value
+
+    @field_validator("extracted_text")
+    @classmethod
+    def validate_extracted_text(cls, value: str) -> str:
+        if len(value) > MAX_EXTRACTED_TEXT_CHARS:
+            raise ValueError(f"extracted_text exceeds max length of {MAX_EXTRACTED_TEXT_CHARS} chars")
+        return value
+
+
+class IntentAssessment(BaseModel):
+    objective_clarity: str
+    oversharing_risk: str
+    recommendation: str
 
 
 class AnalyzeRequest(BaseModel):
     employee_id: int
     prompt_text: str
     target_tool: str | None = None
+    attachments: list[AttachmentContext] = Field(default_factory=list)
     metadata: dict[str, Any] | None = None
 
 
@@ -59,6 +101,11 @@ class AnalyzeResponse(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     estimated_cost_usd: float = Field(ge=0.0)
     skill_evaluation: "PromptSkillEvaluation | None" = None
+    requires_confirmation: bool = False
+    warning_context_id: str | None = None
+    warning_reasons: list[str] = Field(default_factory=list)
+    safer_alternatives: list[str] = Field(default_factory=list)
+    intent_assessment: IntentAssessment | None = None
 
 
 class MetricSnapshot(BaseModel):
@@ -328,6 +375,9 @@ class LoginResponse(BaseModel):
 class ExtensionCaptureRequest(BaseModel):
     prompt_text: str
     target_tool: str | None = None
+    attachments: list[AttachmentContext] = Field(default_factory=list)
+    warning_confirmed: bool = False
+    warning_context_id: str | None = None
     metadata: dict[str, Any] | None = None
     employee_id: int | None = None
 
@@ -336,6 +386,7 @@ class ExtensionTurnCaptureRequest(BaseModel):
     prompt_text: str
     ai_output_text: str
     target_tool: str | None = None
+    attachments: list[AttachmentContext] = Field(default_factory=list)
     conversation_id: str | None = None
     turn_id: str | None = None
     metadata: dict[str, Any] | None = None
