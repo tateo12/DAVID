@@ -11,7 +11,7 @@ import {
   EmployeeStatus,
 } from "./types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://david-production-f999.up.railway.app";
 const DEFAULT_EMPLOYEE_ID = 1;
 
 type BackendRiskLevel = "low" | "medium" | "high" | "critical";
