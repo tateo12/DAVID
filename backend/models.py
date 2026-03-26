@@ -251,6 +251,56 @@ class AgentRebalanceResponse(BaseModel):
     changes: list[AgentRebalanceChange]
 
 
+class AgentAttributionCreateRequest(BaseModel):
+    agent_id: int
+    run_id: int | None = None
+    output_ref: str
+    revenue_impact_usd: float = Field(default=0.0)
+    cost_saved_usd: float = Field(default=0.0)
+    quality_outcome_score: float = Field(ge=0.0, le=1.0)
+    metadata: dict[str, Any] | None = None
+
+
+class AgentAttributionRecord(BaseModel):
+    id: int
+    agent_id: int
+    run_id: int | None
+    output_ref: str
+    revenue_impact_usd: float
+    cost_saved_usd: float
+    quality_outcome_score: float
+    created_at: str
+
+
+class AgentMemorySnapshot(BaseModel):
+    agent_id: int
+    run_count_30d: int
+    spend_30d_usd: float
+    revenue_impact_30d_usd: float
+    cost_saved_30d_usd: float
+    net_value_30d_usd: float
+    profitability_index: float
+
+
+class EmployeeMemoryEvent(BaseModel):
+    id: int
+    employee_id: int
+    prompt_id: int
+    risk_level: str
+    action: str
+    skill_score: float
+    skill_class: str
+    created_at: str
+
+
+class EmployeeMemorySnapshot(BaseModel):
+    employee_id: int
+    interactions_30d: int
+    avg_risk_score_30d: float
+    avg_skill_score_30d: float
+    latest_skill_class: str
+
+
 class ErrorResponse(BaseModel):
     error: str
     detail: str

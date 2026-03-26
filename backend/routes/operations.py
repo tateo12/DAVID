@@ -192,6 +192,7 @@ def dispatch_security_notices() -> DispatchResult:
         FROM alerts
         WHERE is_active = 1
           AND created_at >= datetime('now', '-1 day')
+          AND id NOT IN (SELECT alert_id FROM alert_notifications)
         ORDER BY id DESC
         """
     )
@@ -205,6 +206,7 @@ def dispatch_security_notices() -> DispatchResult:
             body=row["detail"],
             related_entity=f"alert:{row['id']}",
         )
+        execute("INSERT OR IGNORE INTO alert_notifications (alert_id, notified_at) VALUES (?, ?)", (row["id"], _utc_now()))
         count += 1
     return DispatchResult(generated_count=count, message="Security notices queued.")
 

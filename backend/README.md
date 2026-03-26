@@ -46,6 +46,8 @@ All return JSON. CORS enabled for localhost:3000.
 - `GET /api/employees` — Employee list with risk scores
 - `GET /api/employees/{id}` — Single employee detail
 - `GET /api/employees/{id}/skill` — Employee prompt-skill profile (score, strengths, improvement areas)
+- `GET /api/employees/{id}/memory` — 30-day employee memory snapshot (risk/skill interaction trend)
+- `GET /api/employees/{id}/memory/events` — Event-level interaction memory for employee
 - `GET /api/employees/skills/company` — Company-wide AI skill snapshot
 - `GET /api/employees/skills/lessons` — Active micro-lessons by skill class
 - `GET /api/employees/{id}/skill/lessons` — Assigned/completed lessons for employee
@@ -75,7 +77,9 @@ All return JSON. CORS enabled for localhost:3000.
 ### Agents
 - `GET /api/agents` — Agent list with budgets
 - `POST /api/agents/runs` — Log per-run cost/quality/success telemetry
+- `POST /api/agents/attributions` — Attribute output profitability (revenue impact + cost saved) to agent
 - `GET /api/agents/summary` — Manager-facing 7-day performance and ROI proxy
+- `GET /api/agents/{id}/memory` — 30-day memory depot snapshot for agent spend/value/profitability
 - `POST /api/agents/rebalance` — Auto-adjust budgets from recent performance
 - `PUT /api/agents/{id}/budget` — Update agent budget
 

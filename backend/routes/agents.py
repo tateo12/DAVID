@@ -5,6 +5,9 @@ from fastapi import APIRouter, HTTPException
 from config import get_settings
 from database import create_alert, execute, fetch_one, fetch_rows
 from models import (
+    AgentAttributionCreateRequest,
+    AgentAttributionRecord,
+    AgentMemorySnapshot,
     AgentRebalanceChange,
     AgentRebalanceResponse,
     AgentRecord,
@@ -102,6 +105,43 @@ def log_agent_run(payload: AgentRunCreateRequest) -> AgentRunRecord:
     )
 
 
+@router.post("/attributions", response_model=AgentAttributionRecord)
+def create_agent_attribution(payload: AgentAttributionCreateRequest) -> AgentAttributionRecord:
+    agent = fetch_one("SELECT id FROM agent_budgets WHERE id = ?", (payload.agent_id,))
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    if payload.run_id is not None:
+        run = fetch_one("SELECT id FROM agent_runs WHERE id = ? AND agent_id = ?", (payload.run_id, payload.agent_id))
+        if not run:
+            raise HTTPException(status_code=404, detail="Agent run not found for attribution")
+
+    attribution_id = execute(
+        """
+        INSERT INTO agent_output_attributions (
+            agent_id, run_id, output_ref, revenue_impact_usd, cost_saved_usd, quality_outcome_score, metadata_json, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        """,
+        (
+            payload.agent_id,
+            payload.run_id,
+            payload.output_ref,
+            payload.revenue_impact_usd,
+            payload.cost_saved_usd,
+            payload.quality_outcome_score,
+            json.dumps(payload.metadata or {}),
+        ),
+    )
+    row = fetch_one(
+        """
+        SELECT id, agent_id, run_id, output_ref, revenue_impact_usd, cost_saved_usd, quality_outcome_score, created_at
+        FROM agent_output_attributions
+        WHERE id = ?
+        """,
+        (attribution_id,),
+    )
+    return AgentAttributionRecord(**dict(row))
+
+
 @router.get("/summary", response_model=AgentSummaryResponse)
 def agents_summary() -> AgentSummaryResponse:
     rows = fetch_rows(
@@ -131,7 +171,18 @@ def agents_summary() -> AgentSummaryResponse:
         spend = float(row["spend_usd"])
         value = float(row["avg_value_7d"])
         quality = float(row["avg_quality_7d"])
-        roi_proxy = 0.0 if spend <= 0 else (value * quality) / spend
+        attribution = fetch_one(
+            """
+            SELECT
+                COALESCE(SUM(revenue_impact_usd), 0) AS revenue_impact,
+                COALESCE(SUM(cost_saved_usd), 0) AS cost_saved
+            FROM agent_output_attributions
+            WHERE agent_id = ? AND created_at >= datetime('now', '-7 day')
+            """,
+            (row["id"],),
+        )
+        net_value = float(attribution["revenue_impact"] or 0.0) + float(attribution["cost_saved"] or 0.0)
+        roi_proxy = 0.0 if spend <= 0 else (max(value, 0.01) * quality + net_value) / spend
         agents.append(
             AgentSummaryRecord(
                 id=row["id"],
@@ -159,6 +210,47 @@ def agents_summary() -> AgentSummaryResponse:
     )
 
 
+@router.get("/{agent_id}/memory", response_model=AgentMemorySnapshot)
+def get_agent_memory(agent_id: int) -> AgentMemorySnapshot:
+    agent = fetch_one("SELECT id FROM agent_budgets WHERE id = ?", (agent_id,))
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    run_stats = fetch_one(
+        """
+        SELECT
+            COUNT(*) AS run_count,
+            COALESCE(SUM(cost_usd), 0) AS spend_30d
+        FROM agent_runs
+        WHERE agent_id = ? AND created_at >= datetime('now', '-30 day')
+        """,
+        (agent_id,),
+    )
+    value_stats = fetch_one(
+        """
+        SELECT
+            COALESCE(SUM(revenue_impact_usd), 0) AS revenue_impact_30d,
+            COALESCE(SUM(cost_saved_usd), 0) AS cost_saved_30d
+        FROM agent_output_attributions
+        WHERE agent_id = ? AND created_at >= datetime('now', '-30 day')
+        """,
+        (agent_id,),
+    )
+    spend = float(run_stats["spend_30d"] or 0.0)
+    revenue = float(value_stats["revenue_impact_30d"] or 0.0)
+    saved = float(value_stats["cost_saved_30d"] or 0.0)
+    net_value = revenue + saved
+    profitability_index = 0.0 if spend <= 0 else net_value / spend
+    return AgentMemorySnapshot(
+        agent_id=agent_id,
+        run_count_30d=int(run_stats["run_count"] or 0),
+        spend_30d_usd=round(spend, 2),
+        revenue_impact_30d_usd=round(revenue, 2),
+        cost_saved_30d_usd=round(saved, 2),
+        net_value_30d_usd=round(net_value, 2),
+        profitability_index=round(profitability_index, 4),
+    )
+
+
 @router.post("/rebalance", response_model=AgentRebalanceResponse)
 def rebalance_agent_budgets() -> AgentRebalanceResponse:
     rows = fetch_rows(
@@ -180,7 +272,23 @@ def rebalance_agent_budgets() -> AgentRebalanceResponse:
     changes: list[AgentRebalanceChange] = []
     for row in rows:
         old_budget = float(row["budget_usd"])
-        score = (float(row["avg_quality"]) * 0.4) + (float(row["avg_value"]) * 0.35) + (float(row["success_rate"]) * 0.25)
+        attribution = fetch_one(
+            """
+            SELECT
+                COALESCE(SUM(revenue_impact_usd), 0) AS revenue_impact,
+                COALESCE(SUM(cost_saved_usd), 0) AS cost_saved
+            FROM agent_output_attributions
+            WHERE agent_id = ? AND created_at >= datetime('now', '-7 day')
+            """,
+            (row["id"],),
+        )
+        profit_signal = float(attribution["revenue_impact"] or 0.0) + float(attribution["cost_saved"] or 0.0)
+        score = (
+            (float(row["avg_quality"]) * 0.35)
+            + (float(row["avg_value"]) * 0.25)
+            + (float(row["success_rate"]) * 0.2)
+            + (0.2 if profit_signal > 0 else 0.0)
+        )
         if score >= 0.75:
             new_budget = old_budget * 1.1
             reason = "Strong recent quality/value/success performance."
