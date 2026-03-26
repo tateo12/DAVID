@@ -59,6 +59,16 @@ class AnalyzeResponse(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     estimated_cost_usd: float = Field(ge=0.0)
     skill_evaluation: "PromptSkillEvaluation | None" = None
+    orchestration_report: list["AgentExecutionReport"] = Field(default_factory=list)
+    orchestration_metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentExecutionReport(BaseModel):
+    agent_name: str
+    status: str
+    elapsed_ms: int = Field(ge=0)
+    decisions: dict[str, Any] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class MetricSnapshot(BaseModel):

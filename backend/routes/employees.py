@@ -115,7 +115,12 @@ def list_skill_lessons(skill_class: str | None = None) -> list[SkillLesson]:
         rows = fetch_rows(
             "SELECT id, skill_class, title, objective, content, is_active FROM skill_lessons WHERE is_active = 1 ORDER BY id"
         )
-    return [SkillLesson(**dict(row), is_active=bool(row["is_active"])) for row in rows]
+    lessons: list[SkillLesson] = []
+    for row in rows:
+        lesson_data = dict(row)
+        lesson_data["is_active"] = bool(lesson_data["is_active"])
+        lessons.append(SkillLesson(**lesson_data))
+    return lessons
 
 
 @router.post("/{employee_id}/skill/lessons/assign", response_model=EmployeeLessonStatus)

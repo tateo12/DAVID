@@ -23,6 +23,14 @@ def test_analyze_contract() -> None:
             "confidence",
             "estimated_cost_usd",
             "skill_evaluation",
+            "orchestration_report",
+            "orchestration_metadata",
         ]:
             assert key in body
         assert "skill_class" in body["skill_evaluation"]
+        assert isinstance(body["orchestration_report"], list)
+        assert len(body["orchestration_report"]) >= 3
+        report_names = {entry["agent_name"] for entry in body["orchestration_report"]}
+        assert "PolicyEnforcementAgent" in report_names
+        assert "EmployeeSupervisionCoachSecurityAgent" in report_names
+        assert "AgentSupervisionBudgetProfitabilityAgent" in report_names
