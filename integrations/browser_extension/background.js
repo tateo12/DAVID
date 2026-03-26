@@ -1,55 +1,23 @@
+console.log("Sentinel: background service worker started");
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log("Sentinel: received message", message?.type);
   if (!message?.type || !["sentinel_capture_prompt", "sentinel_capture_turn"].includes(message.type)) {
     return false;
   }
 
   const handler = message.type === "sentinel_capture_turn" ? handleCaptureTurn : handleCapture;
   handler(message.payload, sender)
-    .then((result) => sendResponse({ ok: true, result }))
-    .catch((error) => sendResponse({ ok: false, error: String(error) }));
+    .then((result) => {
+      console.log("Sentinel: capture success");
+      sendResponse({ ok: true, result });
+    })
+    .catch((error) => {
+      console.error("Sentinel: capture error", String(error));
+      sendResponse({ ok: false, error: String(error) });
+    });
 
   return true;
-});
-
-const SUPPORTED_HOSTS = new Set(["chatgpt.com", "chat.openai.com", "claude.ai", "gemini.google.com"]);
-
-function isSupportedAiUrl(url) {
-  if (!url) return false;
-  try {
-    const parsed = new URL(url);
-    return SUPPORTED_HOSTS.has(parsed.host.toLowerCase());
-  } catch (_error) {
-    return false;
-  }
-}
-
-async function injectPageHook(tabId) {
-  if (!tabId) return;
-  try {
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      files: ["page_hook.js"],
-      world: "MAIN",
-    });
-  } catch (error) {
-    console.debug("Sentinel page hook injection failed:", String(error));
-  }
-}
-
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status !== "complete") return;
-  if (!isSupportedAiUrl(tab?.url)) return;
-  injectPageHook(tabId);
-});
-
-chrome.tabs.onActivated.addListener(async ({ tabId }) => {
-  try {
-    const tab = await chrome.tabs.get(tabId);
-    if (!isSupportedAiUrl(tab?.url)) return;
-    injectPageHook(tabId);
-  } catch (_error) {
-    // Ignore tab read races.
-  }
 });
 
 async function handleCapture(payload, sender) {
