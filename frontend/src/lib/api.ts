@@ -8,6 +8,7 @@ import {
   Agent,
   WeeklyReport,
   RiskLevel,
+  EmployeeStatus,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
@@ -325,7 +326,7 @@ const mockEmployees: Employee[] = Array.from({ length: 24 }, (_, i) => {
     total_prompts: Math.floor(Math.random() * 500) + 20,
     flagged_prompts: Math.floor(Math.random() * 15),
     last_active: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-    status: riskScore > 75 ? "suspended" : riskScore > 50 ? "active" : "active",
+    status: (riskScore > 75 ? "suspended" : "active") as EmployeeStatus,
     risk_trend: Array.from({ length: 7 }, () => Math.floor(Math.random() * 100)),
   };
 }).sort((a, b) => b.risk_score - a.risk_score);

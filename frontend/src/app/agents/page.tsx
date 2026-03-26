@@ -173,8 +173,8 @@ export default function AgentsPage() {
                       color: "#f1f5f9",
                       fontSize: "12px",
                     }}
-                    formatter={(value: number, name: string) => [
-                      `$${value.toLocaleString()}`,
+                    formatter={(value, name) => [
+                      `$${Number(value).toLocaleString()}`,
                       name === "spend" ? "Current Spend" : "Budget",
                     ]}
                   />
