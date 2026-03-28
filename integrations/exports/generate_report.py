@@ -3,14 +3,12 @@
 Sentinel Weekly Security Report — PDF Generator
 
 Generates a branded PDF report with KPI summaries, charts, tables,
-and compliance status from either a JSON file, the backend API,
-or built-in sample data.
+and compliance status from a JSON file or the live backend API.
 
 Usage:
-    python generate_report.py                           # uses sample data
-    python generate_report.py --json data.json          # reads from file
-    python generate_report.py --api http://host/api/... # fetches from API
-    python generate_report.py --output my_report.pdf    # custom output name
+    python generate_report.py --json data.json
+    python generate_report.py --api http://localhost:8000
+    python generate_report.py --output my_report.pdf
 """
 
 from __future__ import annotations
@@ -76,55 +74,6 @@ DARK_TEXT = (30, 41, 59)  # #1e293b
 GREEN = (34, 197, 94)
 RED = (239, 68, 68)
 AMBER = (245, 158, 11)
-
-# ---------------------------------------------------------------------------
-# Sample data
-# ---------------------------------------------------------------------------
-SAMPLE_DATA: dict[str, Any] = {
-    "period": {"start": "2026-03-19", "end": "2026-03-26"},
-    "kpis": {
-        "total_prompts": 2847,
-        "threats_blocked": 143,
-        "cost_saved": 12450,
-        "shadow_ai_events": 23,
-    },
-    "department_threats": {
-        "Engineering": 42,
-        "Sales": 38,
-        "Marketing": 21,
-        "HR": 18,
-        "Finance": 15,
-        "Executive": 9,
-    },
-    "daily_trend": [
-        {"date": "2026-03-20", "threats": 18},
-        {"date": "2026-03-21", "threats": 24},
-        {"date": "2026-03-22", "threats": 15},
-        {"date": "2026-03-23", "threats": 31},
-        {"date": "2026-03-24", "threats": 22},
-        {"date": "2026-03-25", "threats": 19},
-        {"date": "2026-03-26", "threats": 14},
-    ],
-    "top_risk_employees": [
-        {"name": "Marcus Chen", "department": "Engineering", "risk_score": 78, "incidents": 12},
-        {"name": "Sarah Williams", "department": "Sales", "risk_score": 71, "incidents": 9},
-        {"name": "David Park", "department": "Finance", "risk_score": 65, "incidents": 8},
-        {"name": "Jennifer Adams", "department": "HR", "risk_score": 58, "incidents": 6},
-        {"name": "Tom Bradley", "department": "Marketing", "risk_score": 52, "incidents": 5},
-    ],
-    "detection_breakdown": {
-        "PII": 67,
-        "Secrets": 34,
-        "Policy Violations": 28,
-        "Shadow AI": 14,
-    },
-    "compliance": {
-        "soc2": "Compliant",
-        "gdpr": "Compliant",
-        "ccpa": "Action Required",
-    },
-}
-
 
 # ===================================================================
 # Chart generators (return path to temp PNG or None)
@@ -703,8 +652,8 @@ def load_data(args: argparse.Namespace) -> dict[str, Any]:
         print(f"Fetched live API data from {root}")
         return transformed
 
-    print("Using built-in sample data")
-    return SAMPLE_DATA
+    print("ERROR: specify --json FILE or --api URL (no embedded sample data).", file=sys.stderr)
+    sys.exit(1)
 
 
 # ===================================================================
@@ -794,9 +743,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Output PDF file path (default: sentinel_weekly_report.pdf)",
     )
     args = parser.parse_args(argv)
-
-    # If neither --json nor --api is provided, leave both as None
-    # so load_data() falls back to SAMPLE_DATA.
     return args
 
 

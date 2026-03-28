@@ -1,76 +1,47 @@
-# Sentinel Frontend
+# Sentinel Command (Stitch UI)
 
-**Owner: Seth Knoop (ChatGPT + Copilot + Antigravity)**
+Next.js dashboard for **Sentinel**, styled from the **Stitch “Sentinel Command”** exports (`frontend/stitch (5)/` reference HTML + `DESIGN.md`).
 
-## Context for AI Assistants
+## What it shows
 
-This is the dashboard UI for Sentinel, an AI Security Supervisor. It visualizes:
-
-1. **Real-time threat feed** — Live stream of analyzed prompts with risk indicators
-2. **Employee risk scores** — Table + detail views with risk gauges
-3. **KPI dashboard** — Threats blocked, cost saved, shadow AI detected, active employees
-4. **Policy management** — View and edit AI usage policies
-5. **Shadow AI monitoring** — Flagged unauthorized AI tool usage
-6. **Agent budgets** — API spending per supervised agent
-7. **Weekly reports** — Executive summaries with charts
-8. **Coaching panel** — Tips and alternative prompts shown to employees
+1. **Command home (`/`)** — Bento layout: health ring, integrity bars, live intercepts, shadow radar, Scout probe; **managers** see **Automation & manual runs** (`/api/ops/tick` and dispatch buttons)
+2. **Employees (`/employees`)** — Roster, risk gauges, detail sheet, Skill Hub (manual curriculum assign / complete)
+3. **Prompts (`/prompts`)** — Audit trail, risk chips, expandable rows (search syncs with top bar)
+4. **Policies (`/policies`)** — Managers build/edit rule JSON; employees view company policies (read-only)
+5. **Shadow AI (`/shadow-ai`)** — 7-day metrics + incident table (sidebar + `lg` header)
+6. **Reports (`/reports`)** — Weekly executive summary
+7. **Curriculum (`/curriculum`)** — Imported course outline; content lessons; assign to employees
+8. **Login (`/login`)** — Backend auth; JWT stored for manager-only policy writes and ops panel
+9. **Not found** — `app/not-found.tsx` styled App Router 404 (avoids dev chunk errors on bad URLs)
 
 ## Stack
 
-- Next.js 14 (App Router)
-- TypeScript
-- Tailwind CSS
-- Shadcn UI (component library)
-- Recharts (charts)
-- Lucide React (icons)
+- Next.js (App Router), TypeScript, Tailwind
+- Design tokens: `tailwind.config.ts` (lime `#c3f400`, surfaces `#111316` / `#1a1c1f`, primary `#c1c1ff`)
+- Fonts: Space Grotesk (headlines), Inter (body), JetBrains Mono (data) — see `src/app/layout.tsx`
+- Material Symbols — `material-symbols-outlined` in layout `<head>`
+- Shell: `src/components/stitch/stitch-layout.tsx` (sidebar + top bar)
+- Shadcn-style UI under `src/components/ui/`
+- Charts: Recharts
 
-## Setup
+## Local setup
 
 ```bash
+cd frontend
 npm install
-npm run dev  # localhost:3000
+cp .env.local.example .env.local
+# Ensure NEXT_PUBLIC_API_BASE=http://localhost:8000 (default in example)
+npm run dev
 ```
 
-## Backend API
+App: **http://localhost:3000**
 
-Backend runs at `localhost:8000`. All endpoints prefixed with `/api/`.
+## API
 
-Key endpoints to consume:
-- `POST /api/analyze` — Submit prompt (for demo simulator)
-- `GET /api/metrics` — Dashboard numbers
-- `GET /api/employees` — Employee list
-- `GET /api/prompts?limit=50` — Recent activity
-- `GET /api/reports/weekly` — Weekly report data
-- `GET /api/shadow-ai` — Shadow AI flags
-- `GET /api/agents` — Agent budgets
+The UI calls the FastAPI backend with prefix `/api`. Base URL comes from `NEXT_PUBLIC_API_BASE` (see `.env.local.example`). For local run, env, and API mapping, see the repo root **README.md** (**Agent / maintainer onboarding** and **Run a working local demo**).
 
-## Design Direction
+## Layout / components
 
-- **Dark theme** with accent colors: deep navy (#0f172a) background, electric blue (#3b82f6) accents, red (#ef4444) for threats, green (#22c55e) for safe
-- **Security operations center** aesthetic — think Datadog or CrowdStrike dashboards
-- Sidebar navigation with icons
-- Cards with subtle glassmorphism effect
-- Animated threat feed (new items slide in)
-- Risk gauges use circular progress indicators
-- Charts: area charts for trends, bar charts for comparisons, donut for distribution
-
-## Pages
-
-| Route | Description |
-|-------|-------------|
-| `/` | Main dashboard with KPI cards + threat feed + charts |
-| `/employees` | Employee table with risk scores, click for detail |
-| `/prompts` | Full prompt history with filters |
-| `/policies` | Policy viewer/editor |
-| `/shadow-ai` | Shadow AI detection log |
-| `/agents` | Agent budget and performance |
-| `/reports` | Weekly executive reports |
-
-## Component Patterns
-
-- Use Shadcn `Card`, `Table`, `Badge`, `Button` as base components
-- Custom `MetricCard` for KPI display (icon, value, label, trend arrow)
-- Custom `RiskGauge` for circular risk indicators
-- Custom `ThreatFeed` for real-time scrolling list
-- All API calls go through `lib/api.ts`
-- Types shared in `lib/types.ts`
+- **Do not** reintroduce the old `PageHeader`, `Sidebar`, `TopBar`, or `ThreatFeed` — they were removed in favor of `StitchLayout`.
+- New pages should use Stitch tokens: `bg-background`, `bg-surface-container-low`, `text-white`, `text-on-surface-variant`, `border-outline-variant/10`, `text-secondary-fixed`, `font-headline`, `font-mono`.
+- Optional utilities: `.glass-edge`, `.radial-gauge` in `globals.css`.

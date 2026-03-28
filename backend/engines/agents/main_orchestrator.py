@@ -1,4 +1,5 @@
 import logging
+import os
 from time import perf_counter
 from typing import Any, Callable, TypeVar
 
@@ -25,6 +26,7 @@ from engines.coaching_engine import (
     evaluate_prompt_skill,
     redact_prompt,
 )
+from engines.l1_triage import partition_l1_detections
 from engines.policy_engine import policy_enforcement
 from models import (
     ActionType,
@@ -165,35 +167,36 @@ class MainOrchestrator:
     # -- Escalation logic ------------------------------------------------------
 
     @staticmethod
-    def _needs_l2(detections: list[Detection], risk_level: RiskLevel, confidence: float) -> bool:
-        settings = get_settings()
-        if not settings.enable_l2:
-            return False
-        if detections:
-            return True
-        if risk_level != RiskLevel.low:
-            return True
-        return confidence < settings.l1_confidence_threshold
+    def _openrouter_configured() -> bool:
+        s = get_settings()
+        return bool((s.openrouter_api_key or "").strip() or (os.getenv("API_SECRET_KEY") or "").strip())
 
     @staticmethod
-    def _needs_l3(
-        risk_level: RiskLevel,
-        detections: list[Detection],
-        confidence: float,
-        l2_applied: bool,
-    ) -> bool:
-        settings = get_settings()
-        if not settings.enable_l3:
+    def _needs_l2() -> bool:
+        """Prefer LLM classification whenever L2 is enabled and a model key exists."""
+        if not get_settings().enable_l2:
             return False
-        if detections:
-            return True
-        if l2_applied:
-            return True
+        return MainOrchestrator._openrouter_configured()
+
+    @staticmethod
+    def _needs_l3_after_l2(
+        risk_level: RiskLevel,
+        l2_applied: bool,
+        l2_result: Any,
+    ) -> bool:
+        """L3 adjudicates elevated risk, any findings, or non-trivial L2 output — not every clean prompt."""
+        if not get_settings().enable_l3:
+            return False
+        if not MainOrchestrator._openrouter_configured():
+            return False
         if risk_level != RiskLevel.low:
             return True
-        if confidence < 0.95:
+        if not l2_applied or not l2_result:
+            return False
+        if getattr(l2_result, "additional_detections", None):
             return True
-        return False
+        adj = (getattr(l2_result, "risk_adjustment", None) or "").lower().strip()
+        return bool(adj and adj != "none")
 
     # -- Confidence calculation ------------------------------------------------
 
@@ -244,7 +247,7 @@ class MainOrchestrator:
         )
         role = ctx["role"]
 
-        # 2. L1 regex/rule detection
+        # 2. L1 regex/rule detection (full list kept for L2 context + persistence; risk from blatant hits only)
         detections, tool_domain = self._monitor_step(
             "L1_RegexDetection",
             execution_report,
@@ -252,20 +255,20 @@ class MainOrchestrator:
                 payload.prompt_text, role, payload.attachments, payload.target_tool
             ),
         )
-
-        risk_level = choose_risk_level(detections)
+        blatant_l1, soft_l1 = partition_l1_detections(detections)
+        risk_level = choose_risk_level(blatant_l1)
         action = choose_action(risk_level)
         layer_used = DetectionLayer.l1
-        confidence = self._base_confidence(detections)
+        confidence = self._base_confidence(blatant_l1 if blatant_l1 else soft_l1)
 
         # Escalate repeat offenders from medium to high
         if ctx["is_repeat_offender"] and risk_level == RiskLevel.medium:
             risk_level = RiskLevel.high
             action = choose_action(risk_level)
 
-        # 3. L2 classification
+        # 3. L2 classification (runs for essentially all prompts when configured — primary reasoning pass)
         l2_result = None
-        if self._needs_l2(detections, risk_level, confidence):
+        if self._needs_l2():
             l2_result = self._monitor_step(
                 "L2_Classifier",
                 execution_report,
@@ -288,10 +291,10 @@ class MainOrchestrator:
                     else 0.001
                 )
 
-        # 4. L3 judgment
+        # 4. L3 judgment (targeted — not duplicated on every no-issue prompt)
         l3_result = None
         l2_applied = bool(l2_result and l2_result.applied)
-        if self._needs_l3(risk_level, detections, confidence, l2_applied):
+        if self._needs_l3_after_l2(risk_level, l2_applied, l2_result):
             l3_result = self._monitor_step(
                 "L3_Judgment",
                 execution_report,
@@ -356,6 +359,11 @@ class MainOrchestrator:
 
         # 6. Build orchestration metadata
         orchestration_meta = {
+            "l1_triage": {
+                "blatant_count": len(blatant_l1),
+                "soft_count": len(soft_l1),
+                "note": "Risk/action from blatant L1 only; soft regex hits await LLM review.",
+            },
             "employee_context": {
                 "role": role,
                 "recent_violations": ctx["recent_violations"],
@@ -406,6 +414,8 @@ class MainOrchestrator:
                 dimension_scores=skill.dimension_scores,
                 strengths=skill.strengths,
                 improvements=skill.improvements,
+                coaching_message=skill.coaching_message,
+                ai_use_profile_summary=skill.ai_use_profile_summary or "",
             )
             record_employee_interaction_memory(
                 employee_id=payload.employee_id,

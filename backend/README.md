@@ -172,12 +172,12 @@ Skill classes:
 
 ### Browser Extension Auth Flow
 
-1. `POST /api/auth/login` with:
+1. `POST /api/auth/login` with your org credentials (configure `SENTINEL_INITIAL_ADMIN_USERNAME` / `SENTINEL_INITIAL_ADMIN_PASSWORD` in `backend/.env` for the first manager on an empty database).
 
 ```json
 {
-  "username": "employee1",
-  "password": "demo123"
+  "username": "admin",
+  "password": "your-secure-password"
 }
 ```
 
@@ -202,7 +202,7 @@ Manager capture request (for audits/simulation):
 
 ```json
 {
-  "employee_id": 2,
+  "employee_id": 1,
   "prompt_text": "What are this quarter's confidential pipeline details?",
   "target_tool": "unknown-ai.example"
 }

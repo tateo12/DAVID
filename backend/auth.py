@@ -1,7 +1,7 @@
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Header, HTTPException
+from fastapi import Depends, Header, HTTPException
 
 from database import execute, fetch_one, init_db
 
@@ -45,6 +45,35 @@ def create_session(username: str, password: str) -> dict:
     }
 
 
+def get_current_user_optional(authorization: str | None = Header(default=None)) -> dict | None:
+    """Bearer JWT when present and valid; None if missing or invalid (no 401)."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    init_db()
+    token = authorization.split(" ", 1)[1].strip()
+    if not token:
+        return None
+    row = fetch_one(
+        """
+        SELECT u.id, u.username, u.role, u.employee_id, s.expires_at
+        FROM auth_sessions s
+        INNER JOIN users u ON u.id = s.user_id
+        WHERE s.token = ?
+        """,
+        (token,),
+    )
+    if not row:
+        return None
+    if _utc_now() > datetime.fromisoformat(row["expires_at"]):
+        return None
+    return {
+        "id": row["id"],
+        "username": row["username"],
+        "role": row["role"],
+        "employee_id": row["employee_id"],
+    }
+
+
 def get_current_user(authorization: str | None = Header(default=None)) -> dict:
     init_db()
     token = _parse_bearer(authorization)
@@ -67,3 +96,11 @@ def get_current_user(authorization: str | None = Header(default=None)) -> dict:
         "role": row["role"],
         "employee_id": row["employee_id"],
     }
+
+
+def require_ops_manager(current_user: dict = Depends(get_current_user)) -> dict:
+    """Dispatch, tick, and reset are manager/admin only (Bearer session)."""
+    role = (current_user.get("role") or "").strip().lower()
+    if role not in ("manager", "admin"):
+        raise HTTPException(status_code=403, detail="Manager or admin role required for this operation")
+    return current_user

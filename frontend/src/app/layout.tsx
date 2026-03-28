@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AppShell } from "@/components/app-shell";
+import { StitchLayout } from "@/components/stitch/stitch-layout";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -10,9 +10,9 @@ const inter = Inter({
   display: "swap",
 });
 
-const plusJakarta = Plus_Jakarta_Sans({
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-display",
+  variable: "--font-headline",
   display: "swap",
 });
 
@@ -23,12 +23,12 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sentinel — AI Security Supervisor",
+  title: "Sentinel Command | AI Governance",
   description:
-    "Enterprise AI security operations center. Monitor threats, manage policies, and supervise AI usage in real-time.",
+    "Tactical command interface for AI security, policy enforcement, and threat monitoring.",
   icons: {
-    icon: "/sentinel_logo.png",
-    apple: "/sentinel_logo.png",
+    icon: "/shield-icon.svg",
+    apple: "/shield-icon.svg",
   },
 };
 
@@ -39,12 +39,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
+      {/*
+        Do not add a manual <head> here — in the App Router it can interfere with Next.js
+        injecting styles (Tailwind/globals.css), which looks like “no styling”.
+        Material Symbols load via @import in globals.css.
+      */}
       <body
-        className={`${inter.variable} ${plusJakarta.variable} ${jetbrainsMono.variable} antialiased bg-[#0a0f1a] text-[#f1f5f9]`}
-        style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
+        className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} min-h-screen bg-background font-body text-on-surface antialiased`}
       >
         <TooltipProvider delayDuration={0}>
-          <AppShell>{children}</AppShell>
+          <StitchLayout>{children}</StitchLayout>
         </TooltipProvider>
       </body>
     </html>

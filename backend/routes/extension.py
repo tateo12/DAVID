@@ -5,7 +5,13 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException
 
 from auth import get_current_user
-from database import create_captured_turn_record, create_extension_warning_event, fetch_one, fetch_rows
+from database import (
+    create_captured_turn_record,
+    create_extension_warning_event,
+    fetch_one,
+    fetch_rows,
+    touch_extension_first_seen,
+)
 from engines.orchestrator_factory import get_orchestrator
 from models import (
     AnalyzeRequest,
@@ -90,6 +96,7 @@ def _attachment_audit_entries(payload: ExtensionCaptureRequest | ExtensionTurnCa
 @router.post("/capture", response_model=AnalyzeResponse)
 def extension_capture(payload: ExtensionCaptureRequest, current_user: dict = Depends(get_current_user)) -> AnalyzeResponse:
     effective_employee_id = _resolve_effective_employee_id(payload.employee_id, current_user)
+    touch_extension_first_seen(effective_employee_id)
     effective_role = _policy_role_for_employee(effective_employee_id)
     threshold = _warning_threshold_for_role(effective_role)
 
@@ -162,6 +169,7 @@ def extension_capture_turn(
     current_user: dict = Depends(get_current_user),
 ) -> ExtensionTurnCaptureResponse:
     effective_employee_id = _resolve_effective_employee_id(payload.employee_id, current_user)
+    touch_extension_first_seen(effective_employee_id)
 
     orchestrator = get_orchestrator()
     prompt_analysis = orchestrator.run(

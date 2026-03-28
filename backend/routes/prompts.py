@@ -1,24 +1,46 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from auth import get_current_user_optional
 from database import fetch_one, fetch_rows
 from models import Detection, PromptDetail, PromptSummary
 
 router = APIRouter(prefix="/prompts", tags=["prompts"])
 
-
-@router.get("", response_model=list[PromptSummary])
-def list_prompts(limit: int = Query(default=50, ge=1, le=500)) -> list[PromptSummary]:
-    rows = fetch_rows(
-        """
+_LIST_SQL = """
         SELECT p.id, p.employee_id, COALESCE(u.username, e.name) AS employee_name, p.risk_level, p.action, p.target_tool, p.prompt_text, p.created_at
         FROM prompts p
         LEFT JOIN employees e ON e.id = p.employee_id
         LEFT JOIN users u ON u.employee_id = p.employee_id
-        ORDER BY p.id DESC
-        LIMIT ?
-        """,
-        (limit,),
-    )
+        """
+
+
+@router.get("", response_model=list[PromptSummary])
+def list_prompts(
+    limit: int = Query(default=50, ge=1, le=500),
+    current_user: dict | None = Depends(get_current_user_optional),
+) -> list[PromptSummary]:
+    if current_user and current_user.get("role") == "employee":
+        eid = current_user.get("employee_id")
+        if eid is None:
+            return []
+        rows = fetch_rows(
+            f"""
+            {_LIST_SQL}
+            WHERE p.employee_id = ?
+            ORDER BY p.id DESC
+            LIMIT ?
+            """,
+            (eid, limit),
+        )
+    else:
+        rows = fetch_rows(
+            f"""
+            {_LIST_SQL}
+            ORDER BY p.id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
     return [PromptSummary(**dict(row)) for row in rows]
 
 

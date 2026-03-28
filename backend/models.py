@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -162,6 +162,7 @@ class EmployeeSummary(BaseModel):
     risk_score: float
     total_prompts: int
     ai_skill_score: float = 0.0
+    email: str = ""
 
 
 class EmployeeDetail(EmployeeSummary):
@@ -175,6 +176,7 @@ class PromptSkillEvaluation(BaseModel):
     strengths: list[str]
     improvements: list[str]
     coaching_message: str
+    ai_use_profile_summary: str = ""
 
 
 class EmployeeSkillProfile(BaseModel):
@@ -186,6 +188,9 @@ class EmployeeSkillProfile(BaseModel):
     last_improvements: list[str]
     assigned_lessons: list[str]
     updated_at: str
+    last_coaching_message: str = ""
+    last_dimension_scores: dict[str, float] = Field(default_factory=dict)
+    ai_use_profile_summary: str = ""
 
 
 class CompanySkillSnapshot(BaseModel):
@@ -202,6 +207,30 @@ class SkillLesson(BaseModel):
     objective: str
     content: str
     is_active: bool
+    sequence_order: int = 0
+    lesson_kind: str = "lesson"
+    unit_title: str = ""
+    lesson_source: str = "legacy"
+
+
+class CurriculumLessonRef(BaseModel):
+    id: int
+    title: str
+    lesson_kind: str
+    sequence_order: int
+    objective: str = ""
+
+
+class CurriculumUnitOutline(BaseModel):
+    unit_title: str
+    skill_class: str
+    lessons: list[CurriculumLessonRef]
+
+
+class CurriculumProgressResponse(BaseModel):
+    total_curriculum_lessons: int
+    completed_curriculum: int
+    next_lesson_id: int
 
 
 class SkillLessonAssignRequest(BaseModel):
@@ -218,6 +247,9 @@ class EmployeeLessonStatus(BaseModel):
     status: str
     assigned_at: str
     completed_at: str | None = None
+    unit_title: str | None = None
+    lesson_kind: str | None = None
+    lesson_source: str | None = None
 
 
 class PromptSummary(BaseModel):
@@ -248,6 +280,35 @@ class PolicyRecord(BaseModel):
 
 class UpdatePolicyRequest(BaseModel):
     rule_json: dict[str, Any]
+
+
+class CreatePolicyRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    role: str = Field(min_length=1, max_length=100)
+    rule_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class PolicyPresetInfo(BaseModel):
+    id: str
+    label: str
+    description: str
+
+
+class PolicyAssistantChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class PolicyAssistantChatRequest(BaseModel):
+    messages: list[PolicyAssistantChatMessage]
+    selected_presets: list[str] = Field(default_factory=list)
+    draft_rule: dict[str, Any] = Field(default_factory=dict)
+
+
+class PolicyAssistantChatResponse(BaseModel):
+    message: str
+    rule_json: dict[str, Any]
+    used_llm: bool = False
 
 
 class WeeklyReportResponse(BaseModel):
@@ -290,6 +351,26 @@ class AlertRecord(BaseModel):
     detail: str
     is_active: bool
     created_at: str
+
+
+class ScoutChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class ScoutChatRequest(BaseModel):
+    messages: list[ScoutChatMessage]
+
+
+class ScoutChatResponse(BaseModel):
+    message: str
+    used_llm: bool = False
+
+
+class ScoutTelemetryResponse(BaseModel):
+    total_prompts: int
+    digest: str
+    llm_available: bool
 
 
 class AgentRecord(BaseModel):
@@ -405,6 +486,49 @@ class EmployeeMemorySnapshot(BaseModel):
     avg_risk_score_30d: float
     avg_skill_score_30d: float
     latest_skill_class: str
+
+
+class EmployeeTeamMember(BaseModel):
+    """Manager directory view: onboarding + extension status."""
+
+    id: int
+    name: str
+    department: str
+    role: str
+    risk_score: float
+    total_prompts: int
+    ai_skill_score: float = 0.0
+    email: str = ""
+    invite_sent_at: str | None = None
+    invite_reminder_sent_at: str | None = None
+    account_claimed_at: str | None = None
+    extension_first_seen_at: str | None = None
+    linked_username: str | None = None
+
+
+class EmployeeInviteCreate(BaseModel):
+    email: str
+    name: str = ""
+    department: str = "General"
+    role: str = "employee"
+
+
+class EmployeeInviteCreated(BaseModel):
+    employee_id: int
+    invite_url: str
+
+
+class EmployeePatch(BaseModel):
+    name: str | None = None
+    department: str | None = None
+    role: str | None = None
+
+
+class InviteRegisterRequest(BaseModel):
+    token: str
+    username: str
+    password: str
+    display_name: str | None = None
 
 
 class LoginRequest(BaseModel):

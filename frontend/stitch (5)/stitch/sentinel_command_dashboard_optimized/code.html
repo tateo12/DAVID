@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sentinel Command Dashboard | AI Governance</title>
+<!-- Scripts & Frameworks -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Typography -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@300;400;500;700;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "error": "#ffb4ab",
+                        "tertiary-fixed-dim": "#c2c6db",
+                        "secondary-container": "#c3f400",
+                        "surface-container-low": "#1a1c1f",
+                        "secondary-fixed": "#c3f400",
+                        "on-primary-container": "#faf7ff",
+                        "on-tertiary-container": "#f8f7ff",
+                        "outline": "#908fa0",
+                        "on-tertiary-fixed-variant": "#414658",
+                        "surface-container-high": "#282a2d",
+                        "inverse-on-surface": "#2f3034",
+                        "primary-fixed": "#e1e0ff",
+                        "surface": "#111316",
+                        "on-primary": "#1200a9",
+                        "primary-container": "#5d5fef",
+                        "on-error": "#690005",
+                        "error-container": "#93000a",
+                        "on-tertiary-fixed": "#161b2b",
+                        "primary-fixed-dim": "#c1c1ff",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary": "#2b3040",
+                        "on-secondary-fixed-variant": "#3c4d00",
+                        "on-secondary-fixed": "#161e00",
+                        "secondary-fixed-dim": "#abd600",
+                        "on-primary-fixed": "#07006c",
+                        "on-surface-variant": "#c7c4d7",
+                        "surface-tint": "#c1c1ff",
+                        "surface-bright": "#37393d",
+                        "tertiary-container": "#6d7184",
+                        "tertiary": "#c2c6db",
+                        "tertiary-fixed": "#dee1f7",
+                        "surface-container-highest": "#333538",
+                        "on-surface": "#e2e2e6",
+                        "surface-container": "#1e2023",
+                        "inverse-primary": "#4849da",
+                        "on-background": "#e2e2e6",
+                        "on-secondary-container": "#556d00",
+                        "inverse-surface": "#e2e2e6",
+                        "on-primary-fixed-variant": "#2e2bc2",
+                        "secondary": "#ffffff",
+                        "on-secondary": "#283500",
+                        "outline-variant": "#464555",
+                        "primary": "#c1c1ff",
+                        "surface-container-lowest": "#0c0e11",
+                        "background": "#111316",
+                        "surface-dim": "#111316",
+                        "surface-variant": "#333538"
+                    },
+                    fontFamily: {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"],
+                        "mono": ["JetBrains Mono"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: #111316; }
+        ::-webkit-scrollbar-thumb { background: #464555; border-radius: 2px; }
+        .glass-edge { box-shadow: inset 0 0 0 1px rgba(195, 244, 0, 0.1); }
+        .radial-gauge { background: conic-gradient(from 180deg at 50% 50%, #c3f400 0deg, #c3f400 280deg, #282a2d 280deg); }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-secondary-container selection:text-on-secondary-fixed overflow-hidden">
+<!-- 
+    =========================================
+    TOP NAVIGATION
+    =========================================
+    -->
+<header class="fixed top-0 w-full z-50 flex items-center justify-between px-6 h-16 bg-surface-container font-headline text-sm tracking-tight border-b border-outline-variant/10">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tighter text-white">Sentinel</span>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-secondary-fixed font-bold" href="#">Command Center</a>
+<a class="text-on-surface-variant hover:text-white transition-colors" href="#">Policy Builder</a>
+<a class="text-on-surface-variant hover:text-white transition-colors" href="#">Risk Trends</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<!-- Global Search -->
+<div class="flex items-center bg-surface-container-highest px-3 py-1.5 rounded-sm gap-2">
+<span class="material-symbols-outlined text-sm text-outline">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-[10px] font-mono text-on-surface-variant w-48 uppercase tracking-widest placeholder:text-outline/50" placeholder="QUERY INTERCEPT LOGS..." type="text"/>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-2">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded" title="Network Topology">
+<span class="material-symbols-outlined">hub</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded relative" title="Notifications">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-1.5 h-1.5 bg-secondary-container rounded-full"></span>
+</button>
+<button class="bg-primary-container text-on-primary-container px-4 py-1.5 font-bold tracking-tighter hover:brightness-110 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">bolt</span>
+                    Scout AI
+                </button>
+</div>
+</div>
+</header>
+<!-- 
+    =========================================
+    SIDEBAR NAVIGATION
+    =========================================
+    -->
+<aside class="fixed left-0 top-0 h-full w-64 flex flex-col pt-20 pb-6 bg-surface border-r border-outline-variant/15 z-40 hidden lg:flex">
+<div class="px-6 mb-8">
+<div class="text-lg font-black text-white font-headline tracking-tighter">SENTINEL</div>
+<div class="font-headline uppercase tracking-[0.05em] text-[10px] text-outline">v2.4.0 High-Vigilance</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="text-secondary-fixed bg-secondary-fixed/10 border-r-2 border-secondary-fixed flex items-center gap-3 px-6 py-3 font-label uppercase tracking-widest text-[10px]" href="#">
+<span class="material-symbols-outlined text-lg">grid_view</span>
+                Command Center
+            </a>
+<a class="text-on-surface-variant hover:bg-surface-container-low hover:text-white transition-all flex items-center gap-3 px-6 py-3 font-label uppercase tracking-widest text-[10px]" href="#">
+<span class="material-symbols-outlined text-lg">policy</span>
+                Policy Builder
+            </a>
+<a class="text-on-surface-variant hover:bg-surface-container-low hover:text-white transition-all flex items-center gap-3 px-6 py-3 font-label uppercase tracking-widest text-[10px]" href="#">
+<span class="material-symbols-outlined text-lg">monitoring</span>
+                Risk Trends
+            </a>
+<a class="text-on-surface-variant hover:bg-surface-container-low hover:text-white transition-all flex items-center gap-3 px-6 py-3 font-label uppercase tracking-widest text-[10px]" href="#">
+<span class="material-symbols-outlined text-lg">psychology</span>
+                Skill Hub
+            </a>
+<a class="text-on-surface-variant hover:bg-surface-container-low hover:text-white transition-all flex items-center gap-3 px-6 py-3 font-label uppercase tracking-widest text-[10px]" href="#">
+<span class="material-symbols-outlined text-lg">security</span>
+                Security Logs
+            </a>
+</nav>
+<footer class="px-6 pt-6 mt-auto border-t border-outline-variant/10 space-y-1">
+<a class="text-on-surface-variant hover:text-white flex items-center gap-3 py-2 font-label uppercase tracking-widest text-[10px]" href="#">
+<span class="material-symbols-outlined text-lg">settings</span>
+                Settings
+            </a>
+<a class="text-on-surface-variant hover:text-white flex items-center gap-3 py-2 font-label uppercase tracking-widest text-[10px]" href="#">
+<span class="material-symbols-outlined text-lg">help_outline</span>
+                Support
+            </a>
+</footer>
+</aside>
+<!-- 
+    =========================================
+    MAIN CONTENT
+    =========================================
+    -->
+<main class="lg:ml-64 pt-20 px-6 pb-6 h-screen overflow-y-auto">
+<!-- Dashboard Header / Status -->
+<header class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+<div>
+<h1 class="text-4xl font-black font-headline tracking-tighter text-white mb-1 uppercase">Sentinel Command Dashboard</h1>
+<div class="text-on-surface-variant font-mono text-xs flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span>
+                    SYSTEMS NOMINAL // ENCRYPTION: ACTIVE // THREAT SCANNING: 1.2ms LATENCY
+                </div>
+</div>
+<div class="bg-surface-container-low p-4 glass-edge flex items-center gap-4 border border-outline-variant/10">
+<div class="text-right">
+<div class="text-[10px] font-label text-outline uppercase tracking-widest leading-none">Global Status</div>
+<div class="text-secondary-fixed font-headline font-bold text-lg">PROTECTED</div>
+</div>
+<div class="w-10 h-10 bg-secondary-container/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary-container" style="font-variation-settings: 'FILL' 1;">shield_with_heart</span>
+</div>
+</div>
+</header>
+<!-- Main Bento Grid -->
+<div class="grid grid-cols-12 gap-6 auto-rows-[180px]">
+<!-- SECTION: Global Risk Map -->
+<section class="col-span-12 lg:col-span-8 row-span-2 bg-surface-container-low relative overflow-hidden group border border-outline-variant/10">
+<div class="absolute top-4 left-4 z-10">
+<h2 class="font-label text-[10px] text-white uppercase tracking-[0.15em] mb-1">Global Risk Map</h2>
+<p class="text-[8px] font-mono text-outline uppercase tracking-widest">Active nodes: 1,402</p>
+</div>
+<!-- Visualization Layer -->
+<div class="absolute inset-0 opacity-40 mix-blend-overlay">
+<img alt="Cyberpunk world map visualization" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-nyK07gG1dLeTX3HMmyQUXTwra-SN4baqSpIrwan0wolLHoyU-6PoIVPt3IXAkggeMFMmm_o4U_taHBvLYsgehvPNDeDRud_DbKfeveYZletukXu6Al-GB8cRovUWsLmiL4p_GlfgeqoLbdl8s2ZbSTNeFVemBGhXemd2DJjBHSP8JUbDRfRYSec81bjGbLgvJ3q8_wyGq40btomOzZGdCN6inCxFBzFVVGWHAK2j-Q2iahK3Z24W_dW4M0yyNeZjCAnIOgzW1Fs"/>
+</div>
+<!-- Interactive Heatmap Simulation -->
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="relative w-full h-full">
+<div class="absolute top-1/3 left-1/4 w-32 h-32 bg-secondary-container/10 rounded-full blur-3xl"></div>
+<div class="absolute bottom-1/4 right-1/3 w-48 h-48 bg-error/10 rounded-full blur-3xl"></div>
+<div class="absolute top-1/2 right-1/4 w-16 h-16 bg-primary-container/20 rounded-full blur-2xl"></div>
+</div>
+</div>
+<!-- Floating Data Callouts -->
+<div class="absolute bottom-4 right-4 flex gap-4">
+<div class="bg-surface-container-highest/80 backdrop-blur-md p-3 border border-outline-variant/20">
+<div class="text-[9px] font-mono text-outline">LON_NODE_01</div>
+<div class="text-secondary-fixed font-headline font-bold">STABLE</div>
+</div>
+<div class="bg-surface-container-highest/80 backdrop-blur-md p-3 border border-outline-variant/20">
+<div class="text-[9px] font-mono text-outline">NYC_NODE_04</div>
+<div class="text-error font-headline font-bold">ALERT</div>
+</div>
+</div>
+</section>
+<!-- SECTION: Organization Health Score -->
+<section class="col-span-12 md:col-span-6 lg:col-span-4 row-span-2 bg-surface-container-low p-6 flex flex-col justify-between border border-outline-variant/10 border-l-2 border-l-secondary-container/50">
+<div>
+<h2 class="font-label text-[10px] text-white uppercase tracking-[0.15em] mb-6">Organization Health Score</h2>
+<div class="relative w-44 h-44 mx-auto mt-2">
+<div class="absolute inset-0 rounded-full border-[12px] border-surface-container-highest"></div>
+<div class="absolute inset-0 rounded-full border-[12px] radial-gauge opacity-80"></div>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-5xl font-black font-headline text-white leading-none">88</span>
+<span class="text-[10px] font-mono text-secondary-container mt-1 uppercase tracking-widest">Post-Critical</span>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="space-y-1.5">
+<div class="flex items-center justify-between text-[10px] font-mono">
+<span class="text-outline uppercase">Network Integrity</span>
+<span class="text-white">94%</span>
+</div>
+<div class="w-full h-1 bg-surface-container-highest">
+<div class="h-full bg-secondary-container w-[94%]"></div>
+</div>
+</div>
+<div class="space-y-1.5">
+<div class="flex items-center justify-between text-[10px] font-mono">
+<span class="text-outline uppercase">AI Policy Adherence</span>
+<span class="text-white">82%</span>
+</div>
+<div class="w-full h-1 bg-surface-container-highest">
+<div class="h-full bg-primary-container w-[82%]"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION: Live Intercept Feed -->
+<section class="col-span-12 lg:col-span-8 row-span-3 bg-surface-container-low flex flex-col border border-outline-variant/10 overflow-hidden">
+<div class="p-6 pb-2 flex justify-between items-center bg-surface-container-low/50 backdrop-blur">
+<h2 class="font-label text-[10px] text-white uppercase tracking-[0.15em]">Live Intercept Feed</h2>
+<span class="text-[9px] font-mono bg-error/10 text-error px-2 py-0.5 rounded border border-error/20">3 NEW ALERTS</span>
+</div>
+<div class="flex-1 overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-lowest sticky top-0 z-10">
+<tr>
+<th class="py-3 px-6 text-[9px] font-mono text-outline uppercase tracking-widest border-b border-outline-variant/10">ID_STAMP</th>
+<th class="py-3 px-6 text-[9px] font-mono text-outline uppercase tracking-widest border-b border-outline-variant/10">AGENT_ENTITY</th>
+<th class="py-3 px-6 text-[9px] font-mono text-outline uppercase tracking-widest border-b border-outline-variant/10">RISK_LVL</th>
+<th class="py-3 px-6 text-[9px] font-mono text-outline uppercase tracking-widest border-b border-outline-variant/10">VECTORS</th>
+<th class="py-3 px-6 text-[9px] font-mono text-outline uppercase tracking-widest border-b border-outline-variant/10 text-right">PROTOCOL</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/5">
+<tr class="hover:bg-surface-container-highest transition-colors group">
+<td class="py-4 px-6 font-mono text-xs text-on-surface-variant">USR_7721</td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary-container"></div>
+<span class="text-xs font-medium text-white">ChatGPT-4</span>
+</div>
+</td>
+<td class="py-4 px-6">
+<span class="text-[9px] px-2 py-0.5 bg-secondary-container/10 text-secondary-container border border-secondary-container/20 uppercase font-bold">LOW</span>
+</td>
+<td class="py-4 px-6 text-xs text-outline italic">"Analyze quarterly..."</td>
+<td class="py-4 px-6 text-right">
+<button class="text-[10px] font-mono text-secondary-container uppercase tracking-widest border-b border-secondary-container/30 hover:text-white transition-colors">LOG_ONLY</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-highest transition-colors group">
+<td class="py-4 px-6 font-mono text-xs text-on-surface-variant">USR_8902</td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+<span class="text-xs font-medium text-white">Claude 3</span>
+</div>
+</td>
+<td class="py-4 px-6">
+<span class="text-[9px] px-2 py-0.5 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 uppercase font-bold">MEDIUM</span>
+</td>
+<td class="py-4 px-6 text-xs text-outline italic">"Exporting SV_Repo..."</td>
+<td class="py-4 px-6 text-right">
+<button class="text-[10px] font-mono text-yellow-500 uppercase tracking-widest border-b border-yellow-500/30 hover:text-white transition-colors">ENCRYPT_DATA</button>
+</td>
+</tr>
+<tr class="bg-error/5 hover:bg-error/10 transition-colors group border-y border-error/10">
+<td class="py-4 px-6 font-mono text-xs text-on-surface-variant">USR_4401</td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-error animate-pulse"></div>
+<span class="text-xs font-medium text-white">Gemini Pro</span>
+</div>
+</td>
+<td class="py-4 px-6">
+<span class="text-[9px] px-2 py-0.5 bg-error/10 text-error border border-error/20 uppercase font-bold">CRITICAL</span>
+</td>
+<td class="py-4 px-6 text-xs text-error/80 italic">"Bypass firewall..."</td>
+<td class="py-4 px-6 text-right">
+<button class="text-[10px] font-mono text-error uppercase tracking-widest border-b border-error/30 hover:text-white transition-colors">BLOCK_ENTITY</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-highest transition-colors group">
+<td class="py-4 px-6 font-mono text-xs text-on-surface-variant">USR_1192</td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary-container"></div>
+<span class="text-xs font-medium text-white">ChatGPT-4</span>
+</div>
+</td>
+<td class="py-4 px-6">
+<span class="text-[9px] px-2 py-0.5 bg-secondary-container/10 text-secondary-container border border-secondary-container/20 uppercase font-bold">LOW</span>
+</td>
+<td class="py-4 px-6 text-xs text-outline italic">"Draft legal..."</td>
+<td class="py-4 px-6 text-right">
+<button class="text-[10px] font-mono text-secondary-container uppercase tracking-widest border-b border-secondary-container/30 hover:text-white transition-colors">LOG_ONLY</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<footer class="p-4 bg-surface-container-lowest flex justify-between items-center border-t border-outline-variant/10">
+<div class="text-[10px] font-mono text-outline">AUTO-SCROLL: ACTIVE</div>
+<div class="flex gap-4">
+<button class="text-[10px] font-mono text-on-surface hover:text-white uppercase tracking-widest">PREVIOUS</button>
+<button class="text-[10px] font-mono text-on-surface hover:text-white uppercase tracking-widest">NEXT</button>
+</div>
+</footer>
+</section>
+<!-- SECTION: Shadow AI Radar -->
+<section class="col-span-12 md:col-span-6 lg:col-span-4 row-span-3 bg-surface-container-low p-6 flex flex-col border border-outline-variant/10">
+<div class="flex items-center justify-between mb-6">
+<h2 class="font-label text-[10px] text-white uppercase tracking-[0.15em]">Shadow AI Radar</h2>
+<span class="material-symbols-outlined text-sm text-outline animate-spin" style="animation-duration: 4s;">sync</span>
+</div>
+<!-- Radar Visualization -->
+<div class="relative flex-1 bg-surface-container-lowest border border-outline-variant/5 overflow-hidden flex items-center justify-center">
+<!-- Concentric Circles -->
+<div class="absolute w-4/5 aspect-square border border-outline-variant/10 rounded-full"></div>
+<div class="absolute w-3/5 aspect-square border border-outline-variant/10 rounded-full"></div>
+<div class="absolute w-2/5 aspect-square border border-outline-variant/10 rounded-full"></div>
+<!-- Sweeper -->
+<div class="absolute w-1/2 h-1/2 bg-gradient-to-tr from-secondary-container/20 to-transparent origin-bottom-left rotate-45"></div>
+<!-- Detected Target 1 -->
+<div class="absolute top-1/4 right-1/4 group cursor-help">
+<div class="w-3 h-3 bg-error rounded-full animate-ping absolute"></div>
+<div class="w-3 h-3 bg-error rounded-full relative"></div>
+<div class="absolute left-4 top-0 bg-surface-container-high p-2 text-[9px] font-mono text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 border border-outline-variant/20">
+                            UNAUTHORIZED: PERPLEXITY.AI<br/>
+                            INSTANCES: 14 ACTIVE
+                        </div>
+</div>
+<!-- Detected Target 2 -->
+<div class="absolute bottom-1/3 left-1/3 group cursor-help">
+<div class="w-2 h-2 bg-yellow-500 rounded-full relative"></div>
+<div class="absolute left-3 top-0 bg-surface-container-high p-2 text-[9px] font-mono text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 border border-outline-variant/20">
+                            UNVERIFIED: HUGGINGCHAT<br/>
+                            INSTANCES: 03 ACTIVE
+                        </div>
+</div>
+</div>
+<!-- Detection Summary List -->
+<div class="mt-6 space-y-2">
+<div class="p-3 bg-surface-container-highest flex items-center justify-between group cursor-default">
+<div class="flex items-center gap-3">
+<span class="text-xs font-mono text-white">Perplexity</span>
+<span class="text-[8px] font-mono text-error border border-error/30 px-1 uppercase tracking-tighter bg-error/5">Banned</span>
+</div>
+<span class="text-xs font-headline font-bold text-white">14 Hits</span>
+</div>
+<div class="p-3 bg-surface-container-highest flex items-center justify-between group cursor-default">
+<div class="flex items-center gap-3">
+<span class="text-xs font-mono text-white">Mistral Next</span>
+<span class="text-[8px] font-mono text-outline border border-outline/30 px-1 uppercase tracking-tighter bg-surface-container-low">Evaluation</span>
+</div>
+<span class="text-xs font-headline font-bold text-white">08 Hits</span>
+</div>
+</div>
+<button class="mt-6 w-full py-3 bg-surface-container-highest font-label text-[10px] text-white uppercase tracking-[0.2em] hover:bg-surface-bright transition-all border border-outline-variant/20 hover:border-secondary-container/30">
+                    GENERATE AUDIT REPORT
+                </button>
+</section>
+</div>
+</main>
+<!-- 
+    =========================================
+    OVERLAYS & NOTIFICATIONS
+    =========================================
+    -->
+<div class="fixed bottom-6 right-6 z-[60] bg-surface-container-high p-4 border-l-4 border-error shadow-2xl flex items-start gap-4 max-w-sm animate-in slide-in-from-right duration-500">
+<span class="material-symbols-outlined text-error">warning</span>
+<div class="flex-1">
+<div class="text-[10px] font-label text-white uppercase tracking-widest font-bold">Threat Alert</div>
+<div class="text-xs text-on-surface-variant mt-1 leading-relaxed">
+                System intercepted high-risk credential export attempt from USR_4401 via Gemini Pro API. Entity has been quarantined.
+            </div>
+</div>
+<button class="text-outline hover:text-white transition-colors">
+<span class="material-symbols-outlined text-sm">close</span>
+</button>
+</div>
+</body></html>

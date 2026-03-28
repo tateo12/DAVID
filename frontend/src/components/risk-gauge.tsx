@@ -10,10 +10,10 @@ interface RiskGaugeProps {
 }
 
 function getRiskColor(score: number): string {
-  if (score <= 25) return "#22c55e";
+  if (score <= 25) return "#c3f400";
   if (score <= 50) return "#f59e0b";
-  if (score <= 75) return "#f97316";
-  return "#ef4444";
+  if (score <= 75) return "#ffb4ab";
+  return "#ffb4ab";
 }
 
 function getRiskLabel(score: number): string {
@@ -39,7 +39,7 @@ export function RiskGauge({ score, size = 48, strokeWidth = 4, showLabel = false
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke="rgba(51, 65, 85, 0.4)"
+            stroke="#333538"
             strokeWidth={strokeWidth}
           />
           {/* Progress circle */}
@@ -62,7 +62,7 @@ export function RiskGauge({ score, size = 48, strokeWidth = 4, showLabel = false
         {/* Score number in center */}
         <div className="absolute inset-0 flex items-center justify-center">
           <span
-            className="metric-number text-sentinel-text-primary"
+            className="font-mono font-bold text-on-surface"
             style={{
               fontSize: size * 0.28,
               color,

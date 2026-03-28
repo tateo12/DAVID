@@ -12,6 +12,8 @@ interface MetricCardProps {
   trend: number | null;
   prefix?: string;
   iconColor?: string;
+  /** When true, a negative trend is shown as favorable (e.g. fewer incidents). */
+  invertTrend?: boolean;
 }
 
 export function MetricCard({
@@ -20,63 +22,56 @@ export function MetricCard({
   value,
   trend,
   prefix = "",
-  iconColor = "text-sentinel-blue",
+  iconColor = "text-primary",
+  invertTrend = false,
 }: MetricCardProps) {
-  const isPositive = (trend ?? 0) >= 0;
-  const trendColor =
-    label.toLowerCase().includes("shadow")
-      ? (trend ?? 0) <= 0
-        ? "text-sentinel-green"
-        : "text-sentinel-red"
-      : isPositive
-        ? "text-sentinel-green"
-        : "text-sentinel-red";
-  const TrendIcon = isPositive ? TrendingUp : TrendingDown;
+  const raw = trend ?? 0;
+  const favorable = invertTrend ? raw <= 0 : raw >= 0;
+  const trendColor = favorable ? "text-secondary-fixed" : "text-error";
+  const TrendIcon = raw >= 0 ? TrendingUp : TrendingDown;
 
   const iconBg =
-    iconColor.includes("red")
-      ? "bg-red-500/10"
-      : iconColor.includes("green")
-        ? "bg-emerald-500/10"
-        : iconColor.includes("amber")
-          ? "bg-amber-500/10"
-          : iconColor.includes("blue")
-            ? "bg-blue-500/10"
-            : "bg-slate-500/10";
+    iconColor.includes("error") || iconColor.includes("red")
+      ? "bg-error/10"
+      : iconColor.includes("secondary") || iconColor.includes("lime") || iconColor.includes("amber")
+        ? "bg-secondary-container/10"
+        : iconColor.includes("primary")
+          ? "bg-primary-container/15"
+          : "bg-surface-container-highest";
 
   return (
-    <div className="glass-card p-5 rounded-xl group cursor-default transition-shadow duration-300 hover:shadow-lg hover:shadow-cyan-500/5">
-      <div className="flex items-start justify-between mb-3">
-        <div className={cn("p-2.5 rounded-lg transition-all duration-200", iconBg)}>
-          <Icon className={`w-5 h-5 ${iconColor}`} />
+    <div className="group cursor-default rounded-xl border border-outline-variant/10 bg-surface-container-low p-5 transition-shadow hover:border-outline-variant/20">
+      <div className="mb-3 flex items-start justify-between">
+        <div className={cn("rounded-lg p-2.5 transition-all duration-200", iconBg)}>
+          <Icon className={cn("h-5 w-5", iconColor)} />
         </div>
         {trend === null ? (
-          <span className="text-xs text-sentinel-text-secondary/70">—</span>
+          <span className="text-xs text-on-surface-variant/70">—</span>
         ) : (
-          <div className={`flex items-center gap-1 text-xs font-medium ${trendColor}`}>
-            <TrendIcon className="w-3.5 h-3.5" />
+          <div className={cn("flex items-center gap-1 text-xs font-medium", trendColor)}>
+            <TrendIcon className="h-3.5 w-3.5" />
             <span>{Math.abs(trend).toFixed(1)}%</span>
           </div>
         )}
       </div>
-      <div className="metric-number text-2xl lg:text-3xl text-sentinel-text-primary mb-1">
+      <div className="mb-1 font-mono text-2xl font-bold text-white lg:text-3xl">
         {prefix}
         {typeof value === "number" ? value.toLocaleString() : value}
       </div>
-      <p className="text-sm text-sentinel-text-secondary">{label}</p>
+      <p className="text-sm text-on-surface-variant">{label}</p>
     </div>
   );
 }
 
 export function MetricCardSkeleton() {
   return (
-    <div className="glass-card p-5 rounded-xl">
-      <div className="flex items-start justify-between mb-3">
-        <div className="w-10 h-10 skeleton rounded-lg" />
-        <div className="w-14 h-4 skeleton" />
+    <div className="rounded-xl border border-outline-variant/10 bg-surface-container-low p-5">
+      <div className="mb-3 flex items-start justify-between">
+        <div className="h-10 w-10 animate-pulse rounded-lg bg-surface-container-highest" />
+        <div className="h-4 w-14 animate-pulse rounded bg-surface-container-highest" />
       </div>
-      <div className="w-24 h-8 skeleton mb-2" />
-      <div className="w-32 h-4 skeleton" />
+      <div className="mb-2 h-8 w-24 animate-pulse rounded bg-surface-container-highest" />
+      <div className="h-4 w-32 animate-pulse rounded bg-surface-container-highest" />
     </div>
   );
 }

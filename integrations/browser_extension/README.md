@@ -83,15 +83,17 @@ Employee types prompt → Presses Enter / clicks Send
 - Email addresses
 - Phone numbers
 
+## Backend URL (must match your API)
+
+The popup **Backend URL** defaults to **`http://localhost:8000`**. It must be the same base URL your Next.js app uses via **`NEXT_PUBLIC_API_BASE`** (no trailing slash). For a deployed API, paste that origin (e.g. `https://your-api.example.com`). Login calls `POST {Backend URL}/api/auth/login`; capture calls `POST …/api/extension/capture` and `…/api/extension/capture-turn`.
+
 ## Quick Start
 
-1. Start the Sentinel backend on `http://localhost:8000`
+1. Start the Sentinel backend on the same URL you configured (e.g. `http://localhost:8000` — check `GET /health`).
 2. In Chrome, open `chrome://extensions`
 3. Enable **Developer mode**
 4. Click **Load unpacked** and select this folder
-5. Open the extension popup and login:
-   - Employee: `employee1 / demo123`
-   - Manager: `manager1 / demo123`
+5. Open the extension popup, confirm **Backend URL**, then sign in with credentials from your Sentinel backend (configure `SENTINEL_INITIAL_ADMIN_*` for the first manager account, and create employee-linked users as your org requires).
 6. Navigate to any supported AI site — the Sentinel banner appears at the top
 7. Try typing a prompt with sensitive data and press Enter — it will be blocked
 

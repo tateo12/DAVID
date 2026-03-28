@@ -495,7 +495,7 @@ def preview_weekly_report() -> HTMLResponse:
 def preview_weekly_learning(employee_id: int) -> HTMLResponse:
     from engines.learning_engine import build_learning_email_context
 
-    ctx = build_learning_email_context(employee_id)
+    ctx = build_learning_email_context(employee_id, persist_study_focus=False)
     if not ctx:
         raise HTTPException(
             status_code=404,

@@ -7,7 +7,7 @@ def test_login_and_extension_capture_employee() -> None:
     with TestClient(app) as client:
         login_response = client.post(
             "/api/auth/login",
-            json={"username": "employee1", "password": "demo123"},
+            json={"username": "test_employee", "password": "testpass"},
         )
         assert login_response.status_code == 200
         token = login_response.json()["access_token"]
@@ -30,7 +30,7 @@ def test_manager_requires_employee_id() -> None:
     with TestClient(app) as client:
         login_response = client.post(
             "/api/auth/login",
-            json={"username": "manager1", "password": "demo123"},
+            json={"username": "test_manager", "password": "testpass"},
         )
         assert login_response.status_code == 200
         token = login_response.json()["access_token"]
@@ -47,7 +47,7 @@ def test_capture_turn_endpoint() -> None:
     with TestClient(app) as client:
         login_response = client.post(
             "/api/auth/login",
-            json={"username": "employee1", "password": "demo123"},
+            json={"username": "test_employee", "password": "testpass"},
         )
         assert login_response.status_code == 200
         token = login_response.json()["access_token"]
@@ -73,7 +73,7 @@ def test_extension_capture_requires_confirmation_for_risky_attachment() -> None:
     with TestClient(app) as client:
         login_response = client.post(
             "/api/auth/login",
-            json={"username": "employee1", "password": "demo123"},
+            json={"username": "test_employee", "password": "testpass"},
         )
         assert login_response.status_code == 200
         token = login_response.json()["access_token"]
@@ -130,7 +130,7 @@ def test_extension_capture_rejects_oversized_attachment() -> None:
     with TestClient(app) as client:
         login_response = client.post(
             "/api/auth/login",
-            json={"username": "employee1", "password": "demo123"},
+            json={"username": "test_employee", "password": "testpass"},
         )
         assert login_response.status_code == 200
         token = login_response.json()["access_token"]

@@ -121,6 +121,177 @@ def get_conn() -> Generator[_SqliteConnWrapper | PgConnection, None, None]:
             conn.close()
 
 
+def _ensure_employee_skill_profile_extra_columns_sqlite(conn: Any) -> None:
+    try:
+        cur = conn.execute("PRAGMA table_info(employee_skill_profiles)")
+        cols = {row[1] for row in cur.fetchall()}
+    except Exception:
+        return
+    if not cols:
+        return
+    for name, decl in (
+        ("last_coaching_message", "TEXT NOT NULL DEFAULT ''"),
+        ("last_dimension_scores_json", "TEXT NOT NULL DEFAULT '{}'"),
+        ("ai_use_profile_summary", "TEXT NOT NULL DEFAULT ''"),
+    ):
+        if name not in cols:
+            conn.execute(f"ALTER TABLE employee_skill_profiles ADD COLUMN {name} {decl}")
+
+
+def _ensure_skill_lesson_columns_sqlite(conn: Any) -> None:
+    try:
+        cur = conn.execute("PRAGMA table_info(skill_lessons)")
+        cols = {row[1] for row in cur.fetchall()}
+    except Exception:
+        return
+    if not cols:
+        return
+    for name, decl in (
+        ("sequence_order", "INTEGER NOT NULL DEFAULT 0"),
+        ("lesson_kind", "TEXT NOT NULL DEFAULT 'lesson'"),
+        ("unit_title", "TEXT NOT NULL DEFAULT ''"),
+        ("lesson_source", "TEXT NOT NULL DEFAULT 'legacy'"),
+    ):
+        if name not in cols:
+            conn.execute(f"ALTER TABLE skill_lessons ADD COLUMN {name} {decl}")
+
+
+def import_exported_curriculum_if_needed() -> bool:
+    """Load exported_curriculum.md into skill_lessons once. Returns True if curriculum rows exist after."""
+    from curriculum_parser import load_curriculum_rows_from_file
+
+    path = Path(__file__).resolve().parent / "exported_curriculum.md"
+    rows = load_curriculum_rows_from_file(path)
+    if not rows:
+        return False
+    row = fetch_one(
+        "SELECT COUNT(1) AS c FROM skill_lessons WHERE lesson_source = 'exported_curriculum'",
+    )
+    if row and int(row["c"] or 0) > 0:
+        return True
+    for r in rows:
+        execute(
+            """
+            INSERT INTO skill_lessons (
+                skill_class, title, objective, content, is_active,
+                sequence_order, lesson_kind, unit_title, lesson_source
+            ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, 'exported_curriculum')
+            """,
+            (
+                r["skill_class"],
+                r["title"],
+                r["objective"],
+                r["content"],
+                r["sequence_order"],
+                r["lesson_kind"],
+                r["unit_title"],
+            ),
+        )
+    return True
+
+
+def _ensure_employee_skill_profile_columns_postgres() -> None:
+    stmts = [
+        "ALTER TABLE employee_skill_profiles ADD COLUMN IF NOT EXISTS last_coaching_message TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE employee_skill_profiles ADD COLUMN IF NOT EXISTS last_dimension_scores_json TEXT NOT NULL DEFAULT '{}'",
+        "ALTER TABLE employee_skill_profiles ADD COLUMN IF NOT EXISTS ai_use_profile_summary TEXT NOT NULL DEFAULT ''",
+    ]
+    try:
+        with psycopg.connect(_pg_dsn(), autocommit=True) as conn:
+            with conn.cursor() as cur:
+                for s in stmts:
+                    try:
+                        cur.execute(s)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+
+def _ensure_employee_directory_columns_sqlite(conn: Any) -> None:
+    try:
+        cur = conn.execute("PRAGMA table_info(employees)")
+        cols = {row[1] for row in cur.fetchall()}
+    except Exception:
+        return
+    if not cols:
+        return
+    for name, decl in (
+        ("email", "TEXT NOT NULL DEFAULT ''"),
+        ("invite_token", "TEXT"),
+        ("invite_sent_at", "TEXT"),
+        ("invite_reminder_sent_at", "TEXT"),
+        ("account_claimed_at", "TEXT"),
+        ("extension_first_seen_at", "TEXT"),
+    ):
+        if name not in cols:
+            conn.execute(f"ALTER TABLE employees ADD COLUMN {name} {decl}")
+
+
+def _ensure_employee_directory_columns_postgres() -> None:
+    stmts = [
+        "ALTER TABLE employees ADD COLUMN IF NOT EXISTS email TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE employees ADD COLUMN IF NOT EXISTS invite_token TEXT",
+        "ALTER TABLE employees ADD COLUMN IF NOT EXISTS invite_sent_at TEXT",
+        "ALTER TABLE employees ADD COLUMN IF NOT EXISTS invite_reminder_sent_at TEXT",
+        "ALTER TABLE employees ADD COLUMN IF NOT EXISTS account_claimed_at TEXT",
+        "ALTER TABLE employees ADD COLUMN IF NOT EXISTS extension_first_seen_at TEXT",
+    ]
+    try:
+        with psycopg.connect(_pg_dsn(), autocommit=True) as conn:
+            with conn.cursor() as cur:
+                for s in stmts:
+                    try:
+                        cur.execute(s)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+
+def _ensure_skill_lesson_columns_postgres() -> None:
+    stmts = [
+        "ALTER TABLE skill_lessons ADD COLUMN IF NOT EXISTS sequence_order INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE skill_lessons ADD COLUMN IF NOT EXISTS lesson_kind TEXT NOT NULL DEFAULT 'lesson'",
+        "ALTER TABLE skill_lessons ADD COLUMN IF NOT EXISTS unit_title TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE skill_lessons ADD COLUMN IF NOT EXISTS lesson_source TEXT NOT NULL DEFAULT 'legacy'",
+    ]
+    try:
+        with psycopg.connect(_pg_dsn(), autocommit=True) as conn:
+            with conn.cursor() as cur:
+                for s in stmts:
+                    try:
+                        cur.execute(s)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+
+def _ensure_employee_weekly_study_focus_postgres() -> None:
+    ddl = """
+    CREATE TABLE IF NOT EXISTS employee_weekly_study_focus (
+        id SERIAL PRIMARY KEY,
+        employee_id INTEGER NOT NULL REFERENCES employees (id),
+        week_start TEXT NOT NULL,
+        focus_title TEXT NOT NULL,
+        focus_dimensions_json TEXT NOT NULL DEFAULT '[]',
+        study_sections_json TEXT NOT NULL DEFAULT '[]',
+        baseline_dimension_scores_json TEXT NOT NULL DEFAULT '{}',
+        improvement_status TEXT NOT NULL DEFAULT 'monitoring',
+        sent_at TEXT NOT NULL,
+        last_evaluated_at TEXT,
+        active INTEGER NOT NULL DEFAULT 1
+    )
+    """
+    try:
+        with psycopg.connect(_pg_dsn(), autocommit=True) as conn:
+            with conn.cursor() as cur:
+                cur.execute(ddl)
+    except Exception:
+        pass
+
+
 def init_db() -> None:
     if is_postgresql_database():
         conn = psycopg.connect(_pg_dsn(), autocommit=False)
@@ -131,6 +302,9 @@ def init_db() -> None:
             conn.commit()
         finally:
             conn.close()
+        _ensure_skill_lesson_columns_postgres()
+        _ensure_employee_skill_profile_columns_postgres()
+        _ensure_employee_weekly_study_focus_postgres()
         _seed_defaults()
         return
 
@@ -301,6 +475,9 @@ def init_db() -> None:
                 last_strengths_json TEXT NOT NULL DEFAULT '[]',
                 last_improvements_json TEXT NOT NULL DEFAULT '[]',
                 assigned_lessons_json TEXT NOT NULL DEFAULT '[]',
+                last_coaching_message TEXT NOT NULL DEFAULT '',
+                last_dimension_scores_json TEXT NOT NULL DEFAULT '{}',
+                ai_use_profile_summary TEXT NOT NULL DEFAULT '',
                 updated_at TEXT NOT NULL,
                 FOREIGN KEY (employee_id) REFERENCES employees (id)
             );
@@ -337,7 +514,11 @@ def init_db() -> None:
                 title TEXT NOT NULL,
                 objective TEXT NOT NULL,
                 content TEXT NOT NULL,
-                is_active INTEGER NOT NULL DEFAULT 1
+                is_active INTEGER NOT NULL DEFAULT 1,
+                sequence_order INTEGER NOT NULL DEFAULT 0,
+                lesson_kind TEXT NOT NULL DEFAULT 'lesson',
+                unit_title TEXT NOT NULL DEFAULT '',
+                lesson_source TEXT NOT NULL DEFAULT 'legacy'
             );
 
             CREATE TABLE IF NOT EXISTS employee_lessons (
@@ -349,6 +530,21 @@ def init_db() -> None:
                 completed_at TEXT,
                 FOREIGN KEY (employee_id) REFERENCES employees (id),
                 FOREIGN KEY (lesson_id) REFERENCES skill_lessons (id)
+            );
+
+            CREATE TABLE IF NOT EXISTS employee_weekly_study_focus (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                employee_id INTEGER NOT NULL,
+                week_start TEXT NOT NULL,
+                focus_title TEXT NOT NULL,
+                focus_dimensions_json TEXT NOT NULL DEFAULT '[]',
+                study_sections_json TEXT NOT NULL DEFAULT '[]',
+                baseline_dimension_scores_json TEXT NOT NULL DEFAULT '{}',
+                improvement_status TEXT NOT NULL DEFAULT 'monitoring',
+                sent_at TEXT NOT NULL,
+                last_evaluated_at TEXT,
+                active INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (employee_id) REFERENCES employees (id)
             );
 
             CREATE TABLE IF NOT EXISTS system_messages (
@@ -378,22 +574,14 @@ def init_db() -> None:
             );
             """
         )
+        _ensure_skill_lesson_columns_sqlite(conn)
+        _ensure_employee_skill_profile_extra_columns_sqlite(conn)
+        _ensure_employee_directory_columns_sqlite(conn)
     _seed_defaults()
 
 
 def _seed_defaults() -> None:
     with get_conn() as conn:
-        employee_count = conn.execute("SELECT COUNT(1) as c FROM employees").fetchone()["c"]
-        if employee_count == 0:
-            conn.executemany(
-                "INSERT INTO employees (id, name, department, role, risk_score) VALUES (?, ?, ?, ?, ?)",
-                [
-                    (1, "Alice Kim", "Engineering", "engineer", 0.1),
-                    (2, "Bob Diaz", "Sales", "sales", 0.2),
-                    (3, "Cara Singh", "Support", "support", 0.15),
-                ],
-            )
-
         policy_count = conn.execute("SELECT COUNT(1) as c FROM policies").fetchone()["c"]
         if policy_count == 0:
             default_rule = {
@@ -438,45 +626,13 @@ def _seed_defaults() -> None:
 
         user_count = conn.execute("SELECT COUNT(1) as c FROM users").fetchone()["c"]
         if user_count == 0:
-            conn.executemany(
-                "INSERT INTO users (username, password, role, employee_id, created_at) VALUES (?, ?, ?, ?, ?)",
-                [
-                    ("employee1", "demo123", "employee", 1, _utc_now()),
-                    ("employee2", "demo123", "employee", 2, _utc_now()),
-                    ("employee3", "demo123", "employee", 3, _utc_now()),
-                    ("manager1", "demo123", "manager", None, _utc_now()),
-                ],
-            )
-
-        for employee_id in [1, 2, 3]:
-            exists = conn.execute(
-                "SELECT COUNT(1) AS c FROM employee_skill_profiles WHERE employee_id = ?",
-                (employee_id,),
-            ).fetchone()["c"]
-            if not exists:
+            settings = get_settings()
+            u, p = (settings.initial_admin_username or "").strip(), (settings.initial_admin_password or "").strip()
+            if u and p:
                 conn.execute(
-                    """
-                    INSERT INTO employee_skill_profiles (
-                        employee_id, ai_skill_score, skill_class, prompts_evaluated, last_strengths_json, last_improvements_json, assigned_lessons_json, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (employee_id, 0.5, "developing", 0, "[]", "[]", "[]", _utc_now()),
+                    "INSERT INTO users (username, password, role, employee_id, created_at) VALUES (?, ?, 'manager', NULL, ?)",
+                    (u, p, _utc_now()),
                 )
-
-        lesson_count = conn.execute("SELECT COUNT(1) as c FROM skill_lessons").fetchone()["c"]
-        if lesson_count == 0:
-            conn.executemany(
-                """
-                INSERT INTO skill_lessons (skill_class, title, objective, content, is_active)
-                VALUES (?, ?, ?, ?, 1)
-                """,
-                [
-                    ("novice", "Prompt Basics", "Write clear task-first prompts", "Use task + context + constraints + output format."),
-                    ("developing", "Constraint Design", "Improve output reliability", "Add tone, length, and quality constraints."),
-                    ("proficient", "Reasoning Scaffolds", "Get higher quality analysis", "Use step-by-step criteria and rubric checks."),
-                    ("advanced", "Workflow Optimization", "Reduce retries and cost", "Chain prompts and use reusable templates."),
-                ],
-            )
 
         job_count = conn.execute("SELECT COUNT(1) as c FROM system_jobs").fetchone()["c"]
         if job_count == 0:
@@ -487,6 +643,26 @@ def _seed_defaults() -> None:
                     ("weekly_manager_report", 604800, None),
                     ("security_notices", 300, None),
                     ("weekly_learning", 604800, None),
+                ],
+            )
+
+    import_exported_curriculum_if_needed()
+    with get_conn() as conn:
+        lesson_count = conn.execute("SELECT COUNT(1) as c FROM skill_lessons").fetchone()["c"]
+        if lesson_count == 0:
+            conn.executemany(
+                """
+                INSERT INTO skill_lessons (
+                    skill_class, title, objective, content, is_active,
+                    sequence_order, lesson_kind, unit_title, lesson_source
+                )
+                VALUES (?, ?, ?, ?, 1, ?, 'lesson', '', 'legacy')
+                """,
+                [
+                    ("novice", "Prompt Basics", "Write clear task-first prompts", "Use task + context + constraints + output format.", 1),
+                    ("developing", "Constraint Design", "Improve output reliability", "Add tone, length, and quality constraints.", 2),
+                    ("proficient", "Reasoning Scaffolds", "Get higher quality analysis", "Use step-by-step criteria and rubric checks.", 3),
+                    ("advanced", "Workflow Optimization", "Reduce retries and cost", "Chain prompts and use reusable templates.", 4),
                 ],
             )
 
@@ -507,10 +683,54 @@ def execute(query: str, params: tuple[Any, ...] = ()) -> int:
         return int(cur.lastrowid or 0)
 
 
+def touch_extension_first_seen(employee_id: int) -> None:
+    now = _utc_now()
+    execute(
+        "UPDATE employees SET extension_first_seen_at = COALESCE(extension_first_seen_at, ?) WHERE id = ?",
+        (now, employee_id),
+    )
+
+
+def delete_employee_cascade(employee_id: int) -> None:
+    execute("DELETE FROM captured_turns WHERE employee_id = ?", (employee_id,))
+    execute("DELETE FROM extension_warning_events WHERE employee_id = ?", (employee_id,))
+    p_rows = fetch_rows("SELECT id FROM prompts WHERE employee_id = ?", (employee_id,))
+    pids = [int(r["id"]) for r in p_rows]
+    if pids:
+        ph = ",".join("?" * len(pids))
+        execute(f"DELETE FROM detections WHERE prompt_id IN ({ph})", tuple(pids))
+        execute(f"DELETE FROM employee_skill_events WHERE prompt_id IN ({ph})", tuple(pids))
+        execute(f"DELETE FROM employee_interaction_memory WHERE prompt_id IN ({ph})", tuple(pids))
+    execute("DELETE FROM employee_skill_events WHERE employee_id = ?", (employee_id,))
+    execute("DELETE FROM employee_interaction_memory WHERE employee_id = ?", (employee_id,))
+    execute("DELETE FROM prompts WHERE employee_id = ?", (employee_id,))
+    execute("DELETE FROM shadow_ai_events WHERE employee_id = ?", (employee_id,))
+    execute("DELETE FROM employee_lessons WHERE employee_id = ?", (employee_id,))
+    execute("DELETE FROM employee_weekly_study_focus WHERE employee_id = ?", (employee_id,))
+    execute("DELETE FROM employee_skill_profiles WHERE employee_id = ?", (employee_id,))
+    execute("DELETE FROM users WHERE employee_id = ?", (employee_id,))
+    execute("DELETE FROM employees WHERE id = ?", (employee_id,))
+
+
 def create_alert(alert_type: str, severity: RiskLevel, detail: str) -> None:
     execute(
         "INSERT INTO alerts (alert_type, severity, detail, is_active, created_at) VALUES (?, ?, ?, ?, ?)",
         (alert_type, severity.value, detail, 1, _utc_now()),
+    )
+
+
+def ensure_employee_skill_profile(employee_id: int) -> None:
+    if fetch_one("SELECT 1 FROM employee_skill_profiles WHERE employee_id = ?", (employee_id,)):
+        return
+    execute(
+        """
+        INSERT INTO employee_skill_profiles (
+            employee_id, ai_skill_score, skill_class, prompts_evaluated,
+            last_strengths_json, last_improvements_json, assigned_lessons_json,
+            last_coaching_message, last_dimension_scores_json, ai_use_profile_summary, updated_at
+        ) VALUES (?, 0.0, 'developing', 0, '[]', '[]', '[]', '', '{}', '', ?)
+        """,
+        (employee_id, _utc_now()),
     )
 
 
@@ -633,6 +853,8 @@ def record_skill_evaluation(
     dimension_scores: dict[str, Any],
     strengths: list[str],
     improvements: list[str],
+    coaching_message: str = "",
+    ai_use_profile_summary: str = "",
 ) -> None:
     execute(
         """
@@ -652,28 +874,52 @@ def record_skill_evaluation(
     )
     from engines.coaching_engine import skill_class_from_score
 
+    coach = (coaching_message or "")[:2000]
+    summary = (ai_use_profile_summary or "")[:4000]
+    dims_json = json.dumps(dimension_scores)
+
     profile = fetch_one(
         "SELECT ai_skill_score, prompts_evaluated FROM employee_skill_profiles WHERE employee_id = ?",
         (employee_id,),
     )
     if not profile:
+        new_class = skill_class_from_score(overall_score)
         execute(
             """
             INSERT INTO employee_skill_profiles (
-                employee_id, ai_skill_score, skill_class, prompts_evaluated, last_strengths_json, last_improvements_json, assigned_lessons_json, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                employee_id, ai_skill_score, skill_class, prompts_evaluated,
+                last_strengths_json, last_improvements_json, assigned_lessons_json,
+                last_coaching_message, last_dimension_scores_json, ai_use_profile_summary, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 employee_id,
                 overall_score,
-                skill_class_from_score(overall_score),
+                new_class,
                 1,
                 json.dumps(strengths),
                 json.dumps(improvements),
                 "[]",
+                coach,
+                dims_json,
+                summary,
                 _utc_now(),
             ),
         )
+        from curriculum_assign import ensure_initial_lesson_if_none_pending
+
+        ensure_initial_lesson_if_none_pending(employee_id, new_class)
+        pending_rows = fetch_rows(
+            "SELECT lesson_id FROM employee_lessons WHERE employee_id = ? AND status = 'assigned' ORDER BY id DESC",
+            (employee_id,),
+        )
+        execute(
+            "UPDATE employee_skill_profiles SET assigned_lessons_json = ? WHERE employee_id = ?",
+            (json.dumps([str(r["lesson_id"]) for r in pending_rows]), employee_id),
+        )
+        from engines.learning_engine import evaluate_active_study_focus
+
+        evaluate_active_study_focus(employee_id)
         return
 
     previous_score = float(profile["ai_skill_score"] or 0.0)
@@ -681,27 +927,24 @@ def record_skill_evaluation(
     new_count = previous_count + 1
     new_score = ((previous_score * previous_count) + overall_score) / new_count
     new_class = skill_class_from_score(new_score)
+    from curriculum_assign import assign_stack_for_need, ensure_initial_lesson_if_none_pending
+
+    ensure_initial_lesson_if_none_pending(employee_id, new_class)
+    emp_risk = fetch_one("SELECT risk_score FROM employees WHERE id = ?", (employee_id,))
+    rs = float(emp_risk["risk_score"] or 0.0) if emp_risk else 0.0
+    if rs >= 0.45:
+        assign_stack_for_need(employee_id, risk_score=rs)
     pending_rows = fetch_rows(
         "SELECT lesson_id FROM employee_lessons WHERE employee_id = ? AND status = 'assigned' ORDER BY id DESC",
         (employee_id,),
     )
     assigned_lessons = [str(r["lesson_id"]) for r in pending_rows]
-    # Auto-assign one lesson matching the new class if none pending.
-    if not pending_rows:
-        lesson = fetch_one(
-            "SELECT id FROM skill_lessons WHERE skill_class = ? AND is_active = 1 ORDER BY id LIMIT 1",
-            (new_class,),
-        )
-        if lesson:
-            execute(
-                "INSERT INTO employee_lessons (employee_id, lesson_id, status, assigned_at) VALUES (?, ?, 'assigned', ?)",
-                (employee_id, lesson["id"], _utc_now()),
-            )
-            assigned_lessons = [str(lesson["id"])]
     execute(
         """
         UPDATE employee_skill_profiles
-        SET ai_skill_score = ?, skill_class = ?, prompts_evaluated = ?, last_strengths_json = ?, last_improvements_json = ?, assigned_lessons_json = ?, updated_at = ?
+        SET ai_skill_score = ?, skill_class = ?, prompts_evaluated = ?,
+            last_strengths_json = ?, last_improvements_json = ?, assigned_lessons_json = ?,
+            last_coaching_message = ?, last_dimension_scores_json = ?, ai_use_profile_summary = ?, updated_at = ?
         WHERE employee_id = ?
         """,
         (
@@ -711,10 +954,16 @@ def record_skill_evaluation(
             json.dumps(strengths),
             json.dumps(improvements),
             json.dumps(assigned_lessons),
+            coach,
+            dims_json,
+            summary,
             _utc_now(),
             employee_id,
         ),
     )
+    from engines.learning_engine import evaluate_active_study_focus
+
+    evaluate_active_study_focus(employee_id)
 
 
 def record_employee_interaction_memory(

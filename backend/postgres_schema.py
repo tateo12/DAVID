@@ -169,6 +169,9 @@ INIT_STATEMENTS: list[str] = [
         last_strengths_json TEXT NOT NULL DEFAULT '[]',
         last_improvements_json TEXT NOT NULL DEFAULT '[]',
         assigned_lessons_json TEXT NOT NULL DEFAULT '[]',
+        last_coaching_message TEXT NOT NULL DEFAULT '',
+        last_dimension_scores_json TEXT NOT NULL DEFAULT '{}',
+        ai_use_profile_summary TEXT NOT NULL DEFAULT '',
         updated_at TEXT NOT NULL
     )
     """,
@@ -203,7 +206,11 @@ INIT_STATEMENTS: list[str] = [
         title TEXT NOT NULL,
         objective TEXT NOT NULL,
         content TEXT NOT NULL,
-        is_active INTEGER NOT NULL DEFAULT 1
+        is_active INTEGER NOT NULL DEFAULT 1,
+        sequence_order INTEGER NOT NULL DEFAULT 0,
+        lesson_kind TEXT NOT NULL DEFAULT 'lesson',
+        unit_title TEXT NOT NULL DEFAULT '',
+        lesson_source TEXT NOT NULL DEFAULT 'legacy'
     )
     """,
     """
@@ -214,6 +221,21 @@ INIT_STATEMENTS: list[str] = [
         status TEXT NOT NULL DEFAULT 'assigned',
         assigned_at TEXT NOT NULL,
         completed_at TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS employee_weekly_study_focus (
+        id SERIAL PRIMARY KEY,
+        employee_id INTEGER NOT NULL REFERENCES employees (id),
+        week_start TEXT NOT NULL,
+        focus_title TEXT NOT NULL,
+        focus_dimensions_json TEXT NOT NULL DEFAULT '[]',
+        study_sections_json TEXT NOT NULL DEFAULT '[]',
+        baseline_dimension_scores_json TEXT NOT NULL DEFAULT '{}',
+        improvement_status TEXT NOT NULL DEFAULT 'monitoring',
+        sent_at TEXT NOT NULL,
+        last_evaluated_at TEXT,
+        active INTEGER NOT NULL DEFAULT 1
     )
     """,
     """

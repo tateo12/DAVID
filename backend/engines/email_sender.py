@@ -291,3 +291,66 @@ class EmailSender:
             body=f"Weekly learning email sent to {emp['name']}.",
             related_entity="weekly_learning",
         )
+
+
+def send_employee_invite_email(to_email: str, invite_url: str, employee_name: str, *, reminder: bool = False) -> None:
+    sender = EmailSender()
+    subject = (
+        "Reminder: finish your Sentinel activation"
+        if reminder
+        else "You're invited to Sentinel — activate your account"
+    )
+    html = f"""<p>Hi {employee_name or "there"},</p>
+<p>{"This is a reminder to complete your Sentinel setup." if reminder else "Your organization added you to Sentinel for safer AI use."}</p>
+<p><a href="{invite_url}">Create your account</a></p>
+<p>Then install the Sentinel browser extension and sign in with the same username and password so monitoring can begin.</p>"""
+    if sender._smtp_configured():
+        try:
+            sender._send_smtp(to_email, subject, html)
+        except Exception as exc:
+            log.error("employee invite email failed: %s", exc)
+    sender._queue_to_db(
+        recipient_type="employee",
+        recipient_id=None,
+        message_type="employee_invite_reminder" if reminder else "employee_invite",
+        subject=subject,
+        body=f"invite link: {invite_url}",
+        related_entity="employee_invite",
+    )
+
+
+def process_pending_employee_invite_reminders() -> int:
+    """Send one reminder per pending invite ~2+ days after the original invite."""
+    from datetime import datetime, timedelta, timezone
+
+    from config import frontend_base_url
+    from database import _utc_now, execute, fetch_rows
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
+    rows = fetch_rows(
+        """
+        SELECT id, name, email, invite_token FROM employees
+        WHERE invite_token IS NOT NULL
+          AND COALESCE(email, '') != ''
+          AND account_claimed_at IS NULL
+          AND invite_reminder_sent_at IS NULL
+          AND invite_sent_at IS NOT NULL
+          AND invite_sent_at < ?
+        """,
+        (cutoff,),
+    )
+    base = frontend_base_url().rstrip("/")
+    sent = 0
+    for r in rows:
+        token = r["invite_token"]
+        em = (r["email"] or "").strip()
+        if not token or not em:
+            continue
+        url = f"{base}/register-invite?token={token}"
+        send_employee_invite_email(em, url, str(r["name"] or "there"), reminder=True)
+        execute(
+            "UPDATE employees SET invite_reminder_sent_at = ? WHERE id = ?",
+            (_utc_now(), r["id"]),
+        )
+        sent += 1
+    return sent

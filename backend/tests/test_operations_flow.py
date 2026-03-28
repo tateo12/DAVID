@@ -19,13 +19,21 @@ def test_ops_dispatch_and_code_review() -> None:
         )
         assert agent_event.status_code == 200
 
-        daily = client.post("/api/ops/dispatch/daily-coaching")
+        login = client.post(
+            "/api/auth/login",
+            json={"username": "test_manager", "password": "testpass"},
+        )
+        assert login.status_code == 200
+        token = login.json()["access_token"]
+        mgr_headers = {"Authorization": f"Bearer {token}"}
+
+        daily = client.post("/api/ops/dispatch/daily-coaching", headers=mgr_headers)
         assert daily.status_code == 200
 
-        weekly = client.post("/api/ops/dispatch/weekly-manager-report")
+        weekly = client.post("/api/ops/dispatch/weekly-manager-report", headers=mgr_headers)
         assert weekly.status_code == 200
 
-        security = client.post("/api/ops/dispatch/security-notices")
+        security = client.post("/api/ops/dispatch/security-notices", headers=mgr_headers)
         assert security.status_code == 200
 
         review = client.post(
@@ -39,7 +47,7 @@ def test_ops_dispatch_and_code_review() -> None:
         assert review.status_code == 200
         assert "risk_level" in review.json()
 
-        tick = client.post("/api/ops/tick")
+        tick = client.post("/api/ops/tick", headers=mgr_headers)
         assert tick.status_code == 200
         tick_body = tick.json()
         assert "ran_at" in tick_body

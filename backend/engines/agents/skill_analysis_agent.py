@@ -113,25 +113,27 @@ class SkillAnalysisAgent:
                 {
                     "role": "system",
                     "content": (
-                        "You are an expert prompt engineering evaluator for an enterprise AI governance platform. "
-                        "Analyze the employee's AI prompt and score it on five dimensions (each 0.0 to 1.0):\n"
-                        "1. objective_clarity - Does the prompt state a clear task/outcome?\n"
-                        "2. context_richness - Does it provide relevant background, audience, or business context?\n"
-                        "3. constraints_defined - Are output format, tone, length, or quality constraints specified?\n"
-                        "4. specificity - Is it detailed enough to produce a reliable response without guessing?\n"
-                        "5. instruction_quality - Does it use examples, criteria, or step-by-step structure?\n\n"
-                        "Also consider security detections: if the prompt contains PII, secrets, or policy violations, "
-                        "that indicates poor security awareness and should lower the overall score.\n\n"
-                        "If the employee has a previous skill score/class, note whether this prompt shows improvement.\n\n"
-                        "Respond with strict JSON only using these keys:\n"
-                        "- dimension_scores: {objective_clarity, context_richness, constraints_defined, specificity, instruction_quality} (each 0.0-1.0)\n"
-                        "- overall_score: weighted average (0.0-1.0), penalized for security issues\n"
-                        "- strengths: array of 1-3 specific things the prompt does well\n"
-                        "- improvements: array of 1-4 specific, actionable suggestions with concrete rewrite examples\n"
-                        "- coaching_message: a single sentence of personalized coaching advice\n\n"
-                        "Make improvements very specific. Bad: 'Add constraints'. "
-                        "Good: 'Your prompt asks to summarize a report but does not specify audience or length. "
-                        "Try: Summarize this Q3 report for the VP of Sales in 3 bullet points, each under 20 words.'"
+                        "You are an expert prompt engineering and AI-workflow coach for an enterprise AI governance platform. "
+                        "Analyze this single prompt as a sample of how the employee uses AI at work.\n\n"
+                        "Score five dimensions (each 0.0 to 1.0):\n"
+                        "1. objective_clarity - Clear task/outcome?\n"
+                        "2. context_richness - Background, audience, business context?\n"
+                        "3. constraints_defined - Format, tone, length, quality constraints?\n"
+                        "4. specificity - Enough detail to avoid guesswork?\n"
+                        "5. instruction_quality - Examples, criteria, step-by-step structure?\n\n"
+                        "Security: PII/secrets/policy findings mean weak data-handling judgment — lower overall_score.\n"
+                        "Compare to previous_skill_score / previous_skill_class when provided.\n\n"
+                        "Respond with strict JSON only:\n"
+                        "- dimension_scores: {objective_clarity, context_richness, constraints_defined, specificity, instruction_quality}\n"
+                        "- overall_score: 0.0-1.0 (penalize for security issues)\n"
+                        "- strengths: 1-3 specific positives about this prompt\n"
+                        "- improvements: 1-4 actionable suggestions with short rewrite hints\n"
+                        "- coaching_message: one concise sentence for the employee\n"
+                        "- ai_use_profile_summary: 2-4 sentences describing patterns in how this person uses AI "
+                        "(e.g. task-first vs vague asks, use of constraints, tendency to paste sensitive context). "
+                        "Write for a manager skimming Skill Hub; update-style from this prompt + trajectory only.\n\n"
+                        "Improvements must be specific. Bad: 'Add constraints'. "
+                        "Good: 'Ask for a 150-word summary for executives, not an open-ended essay.'"
                     ),
                 },
                 {
@@ -175,6 +177,13 @@ class SkillAnalysisAgent:
         if not coaching_message:
             coaching_message = "Focus on clarity, context, and constraints to improve your prompt quality."
 
+        profile_summary = str(parsed.get("ai_use_profile_summary", ""))[:1200].strip()
+        if not profile_summary:
+            profile_summary = (
+                "Latest prompt reviewed for clarity, constraints, and safe use of AI; keep building explicit "
+                "objectives and audience in each request."
+            )
+
         return PromptSkillEvaluation(
             overall_score=round(overall, 3),
             skill_class=self._skill_class_from_score(overall),
@@ -182,6 +191,7 @@ class SkillAnalysisAgent:
             strengths=strengths,
             improvements=improvements,
             coaching_message=coaching_message,
+            ai_use_profile_summary=profile_summary,
         )
 
 

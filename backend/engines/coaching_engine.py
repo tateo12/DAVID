@@ -99,6 +99,7 @@ def evaluate_prompt_skill(prompt_text: str, detections: list[Detection]) -> Prom
         strengths=strengths[:3],
         improvements=improvements[:4],
         coaching_message=coaching_message,
+        ai_use_profile_summary="",
     )
 
 

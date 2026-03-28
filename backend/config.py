@@ -40,6 +40,16 @@ class Settings(BaseSettings):
     alert_email: str = ""
     skill_model_name: str = "nvidia/nemotron-nano-9b-v2:free"
 
+    # First-time setup: when the users table is empty, create one manager account (no fake employees).
+    initial_admin_username: str = Field(
+        default="",
+        validation_alias=AliasChoices("SENTINEL_INITIAL_ADMIN_USERNAME", "INITIAL_ADMIN_USERNAME"),
+    )
+    initial_admin_password: str = Field(
+        default="",
+        validation_alias=AliasChoices("SENTINEL_INITIAL_ADMIN_PASSWORD", "INITIAL_ADMIN_PASSWORD"),
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:

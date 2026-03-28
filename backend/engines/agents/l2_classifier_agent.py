@@ -66,14 +66,15 @@ class L2ClassifierAgent:
                 {
                     "role": "system",
                     "content": (
-                        "You are a lightweight security classifier for enterprise AI prompts. "
-                        "Analyze the prompt and L1 regex detections. Identify any missed risks. "
-                        "Respond with strict JSON only using keys: "
+                        "You are the primary semantic security reviewer for enterprise AI prompts. "
+                        "L1 regex output includes many soft/false-positive signals (e.g. normal emails, generic keywords). "
+                        "Do not treat L1 as ground truth — read the full prompt and decide real risk. "
+                        "Confirm true issues, add missed risks, or dismiss noise. "
+                        "Respond with strict JSON only: "
                         "missed_risks (array of {type, subtype, severity, detail}), "
                         "risk_adjustment (one of: none, upgrade, downgrade), "
                         "rationale (short string). "
-                        "Valid type values: pii, secret, policy, shadow_ai. "
-                        "Valid severity values: low, medium, high, critical."
+                        "Types: pii, secret, policy, shadow_ai. Severities: low, medium, high, critical."
                     ),
                 },
                 {
