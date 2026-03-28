@@ -1,6 +1,5 @@
-import json
-
 from database import fetch_rows, init_db
+from json_utils import loads_json
 from models import Detection, DetectionLayer, DetectionType, RiskLevel
 
 
@@ -12,7 +11,7 @@ def _load_policy_for_role(role: str) -> dict:
     )
     merged: dict = {}
     for row in rows:
-        merged.update(json.loads(row["rule_json"]))
+        merged.update(loads_json(row["rule_json"], {}))
     return merged
 
 

@@ -3,6 +3,7 @@ import json
 from fastapi import APIRouter, HTTPException
 
 from database import execute, fetch_one, fetch_rows
+from json_utils import loads_json
 from models import (
     CompanySkillSnapshot,
     EmployeeDetail,
@@ -77,9 +78,9 @@ def get_employee_skill(employee_id: int) -> EmployeeSkillProfile:
         ai_skill_score=row["ai_skill_score"],
         skill_class=row["skill_class"] if "skill_class" in row.keys() else "developing",
         prompts_evaluated=row["prompts_evaluated"],
-        last_strengths=json.loads(row["last_strengths_json"]),
-        last_improvements=json.loads(row["last_improvements_json"]),
-        assigned_lessons=json.loads(row["assigned_lessons_json"] if "assigned_lessons_json" in row.keys() else "[]"),
+        last_strengths=loads_json(row["last_strengths_json"], []),
+        last_improvements=loads_json(row["last_improvements_json"], []),
+        assigned_lessons=loads_json(row["assigned_lessons_json"] if "assigned_lessons_json" in row.keys() else "[]", []),
         updated_at=row["updated_at"],
     )
 

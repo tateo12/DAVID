@@ -1,4 +1,6 @@
 from functools import lru_cache
+from pathlib import Path
+
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -12,6 +14,7 @@ class Settings(BaseSettings):
     allowed_origins: str = "http://localhost:3000"
 
     sqlite_path: str = "sentinel.db"
+    database_url: str | None = Field(default=None, validation_alias=AliasChoices("DATABASE_URL"))
 
     anthropic_api_key: str = ""
     openrouter_api_key: str = Field(default="", validation_alias=AliasChoices("OPENROUTER_API_KEY", "API_SECRET_KEY"))
@@ -28,7 +31,49 @@ class Settings(BaseSettings):
     daily_budget_usd: float = 50.0
     default_agent_budget_usd: float = 10.0
 
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_address: str = "sentinel@company.com"
+    smtp_use_tls: bool = True
+    alert_email: str = ""
+    skill_model_name: str = "nvidia/nemotron-nano-9b-v2:free"
+
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def resolved_database_url() -> str:
+    """Effective SQLite file URL or PostgreSQL DSN (from DATABASE_URL or sqlite_path)."""
+    s = get_settings()
+    if s.database_url and str(s.database_url).strip():
+        u = str(s.database_url).strip()
+        if u.startswith("postgres://"):
+            u = "postgresql://" + u[len("postgres://") :]
+        if u.startswith("postgresql+psycopg://"):
+            u = "postgresql://" + u[len("postgresql+psycopg://") :]
+        return u
+    base = Path(__file__).resolve().parent / s.sqlite_path
+    return f"sqlite:///{base.as_posix()}"
+
+
+def is_postgresql_database() -> bool:
+    return resolved_database_url().startswith("postgresql")
+
+
+def frontend_base_url() -> str:
+    """First origin in allowed_origins, or localhost default (email links, CORS docs)."""
+    parts = [p.strip() for p in get_settings().allowed_origins.split(",") if p.strip()]
+    return parts[0] if parts else "http://localhost:3000"
+
+
+def openrouter_chat_completions_url() -> str:
+    return f"{get_settings().openrouter_base_url.rstrip('/')}/chat/completions"
+
+
+def cors_allowed_origins() -> list[str]:
+    parts = [p.strip() for p in get_settings().allowed_origins.split(",") if p.strip()]
+    return parts if parts else ["*"]

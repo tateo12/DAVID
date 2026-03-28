@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { fetchEmployees } from "@/lib/api";
 import { Employee, EmployeeStatus } from "@/lib/types";
 import { RiskGauge } from "@/components/risk-gauge";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/page-header";
 import {
   Table,
   TableBody,
@@ -20,7 +21,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Search, ArrowUpDown } from "lucide-react";
+import { Users, ArrowUpDown } from "lucide-react";
 
 const statusStyles: Record<EmployeeStatus, string> = {
   active: "bg-sentinel-green/15 text-sentinel-green border-sentinel-green/30",
@@ -29,6 +30,7 @@ const statusStyles: Record<EmployeeStatus, string> = {
 };
 
 function formatDate(iso: string) {
+  if (!iso.trim()) return "—";
   return new Date(iso).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -39,10 +41,12 @@ function formatDate(iso: string) {
 
 type SortField = "name" | "risk_score" | "total_prompts" | "last_active";
 
-export default function EmployeesPage() {
+function EmployeesContent() {
+  const searchParams = useSearchParams();
+  const q = (searchParams.get("q") ?? "").trim().toLowerCase();
+
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>("risk_score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selected, setSelected] = useState<Employee | null>(null);
@@ -64,12 +68,14 @@ export default function EmployeesPage() {
   };
 
   const filtered = useMemo(() => {
-    const list = employees.filter(
-      (e) =>
-        e.name.toLowerCase().includes(search.toLowerCase()) ||
-        e.department.toLowerCase().includes(search.toLowerCase()) ||
-        e.email.toLowerCase().includes(search.toLowerCase())
-    );
+    const list = employees.filter((e) => {
+      if (!q) return true;
+      return (
+        e.name.toLowerCase().includes(q) ||
+        e.department.toLowerCase().includes(q) ||
+        e.email.toLowerCase().includes(q)
+      );
+    });
 
     list.sort((a, b) => {
       const aVal = a[sortField];
@@ -83,7 +89,7 @@ export default function EmployeesPage() {
     });
 
     return list;
-  }, [employees, search, sortField, sortDir]);
+  }, [employees, q, sortField, sortDir]);
 
   const SortHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
     <button
@@ -97,25 +103,12 @@ export default function EmployeesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-sentinel-text-primary">Employees</h1>
-          <p className="text-sm text-sentinel-text-secondary mt-1">
-            Monitor employee risk scores and AI usage patterns
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-sentinel-text-secondary" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search employees..."
-              className="pl-10 bg-sentinel-surface/50 border-sentinel-border text-sentinel-text-primary placeholder:text-sentinel-text-secondary/60 h-9 text-sm"
-            />
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        accent="employees"
+        icon={Users}
+        title="Employees"
+        description="Directory, risk posture, and activity. Use the top search bar to filter by name, department, or email."
+      />
 
       <div className="glass-card rounded-xl overflow-hidden">
         {loading ? (
@@ -130,6 +123,12 @@ export default function EmployeesPage() {
                 <div className="w-16 h-5 skeleton rounded-full" />
               </div>
             ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="px-6 py-16 text-center">
+            <p className="text-sm text-sentinel-text-secondary">
+              {q ? "No employees match your search." : "No employees loaded."}
+            </p>
           </div>
         ) : (
           <Table>
@@ -278,5 +277,28 @@ export default function EmployeesPage() {
         </SheetContent>
       </Sheet>
     </div>
+  );
+}
+
+function EmployeesFallback() {
+  return (
+    <div className="space-y-6">
+      <div className="h-32 skeleton rounded-2xl" />
+      <div className="glass-card rounded-xl p-8">
+        <div className="space-y-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-12 skeleton" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function EmployeesPage() {
+  return (
+    <Suspense fallback={<EmployeesFallback />}>
+      <EmployeesContent />
+    </Suspense>
   );
 }

@@ -88,6 +88,16 @@ class AnalyzeRequest(BaseModel):
     target_tool: str | None = None
     attachments: list[AttachmentContext] = Field(default_factory=list)
     metadata: dict[str, Any] | None = None
+    # When False, analysis runs but nothing is persisted (extension pre-check).
+    persist_prompt: bool = True
+
+
+class AgentExecutionReport(BaseModel):
+    agent_name: str
+    status: str
+    elapsed_ms: int = 0
+    decisions: dict[str, Any] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class AnalyzeResponse(BaseModel):
@@ -106,6 +116,8 @@ class AnalyzeResponse(BaseModel):
     warning_reasons: list[str] = Field(default_factory=list)
     safer_alternatives: list[str] = Field(default_factory=list)
     intent_assessment: IntentAssessment | None = None
+    orchestration_report: list[AgentExecutionReport] = Field(default_factory=list)
+    orchestration_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class MetricSnapshot(BaseModel):
@@ -114,6 +126,33 @@ class MetricSnapshot(BaseModel):
     active_employees: int
     shadow_ai_events: int
     estimated_cost_saved_usd: float
+
+
+class ThreatTrendPoint(BaseModel):
+    day: str
+    threats: int
+    blocked: int
+
+
+class RiskDistributionSlice(BaseModel):
+    level: str
+    count: int
+
+
+class DashboardMetrics(BaseModel):
+    """Rolling 7-day operational KPIs + chart series (dashboard UI)."""
+
+    threats_blocked: int
+    prompts_analyzed: int
+    active_employees: int
+    shadow_ai_events: int
+    estimated_cost_saved_usd: float
+    threats_blocked_trend_pct: float | None = None
+    cost_saved_trend_pct: float | None = None
+    shadow_ai_trend_pct: float | None = None
+    active_employees_trend_pct: float | None = None
+    threat_trend: list[ThreatTrendPoint] = Field(default_factory=list)
+    risk_distribution: list[RiskDistributionSlice] = Field(default_factory=list)
 
 
 class EmployeeSummary(BaseModel):
@@ -216,6 +255,8 @@ class WeeklyReportResponse(BaseModel):
     week_end: str
     summary: str
     kpis: dict[str, Any]
+    threat_trend: list[dict[str, Any]] = Field(default_factory=list)
+    top_risks: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class AutomationOpportunity(BaseModel):
@@ -366,11 +407,6 @@ class EmployeeMemorySnapshot(BaseModel):
     latest_skill_class: str
 
 
-class ErrorResponse(BaseModel):
-    error: str
-    detail: str
-
-
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -398,6 +434,8 @@ class ExtensionCaptureRequest(BaseModel):
     warning_context_id: str | None = None
     metadata: dict[str, Any] | None = None
     employee_id: int | None = None
+    # True: analysis for UX only; no DB rows (browser pre-check).
+    preview_only: bool = False
 
 
 class ExtensionTurnCaptureRequest(BaseModel):

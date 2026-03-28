@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 
+from config import frontend_base_url
 from database import execute, fetch_one, fetch_rows
 
 router = APIRouter(prefix="/emails", tags=["emails"])
@@ -197,14 +198,6 @@ def _get_employee_or_404(employee_id: int) -> dict[str, Any]:
     return dict(emp)
 
 
-def _severity_color(sev: str) -> str:
-    if sev in ("critical", "high"):
-        return "#ef4444"
-    if sev == "medium":
-        return "#f59e0b"
-    return "#3b82f6"
-
-
 # ---------------------------------------------------------------------------
 # 1. GET /api/emails/preview/coaching?employee_id=1
 # ---------------------------------------------------------------------------
@@ -252,7 +245,7 @@ def preview_coaching_email(employee_id: int) -> HTMLResponse:
         "prompt_excerpt": excerpt,
         "coaching_tip": coaching_tip,
         "safe_prompt_example": SAFE_EXAMPLES.get(detection_type, SAFE_EXAMPLES["policy"]),
-        "policy_url": "http://localhost:3000/policies",
+        "policy_url": f"{frontend_base_url().rstrip('/')}/policies",
     }
     html = render_template("coaching.html", ctx)
     return HTMLResponse(content=html)
@@ -335,7 +328,7 @@ def preview_alert_email(alert_id: int) -> HTMLResponse:
         "detections": detection_list,
         "prompt_excerpt": prompt_excerpt,
         "prompt_truncated": len(prompt_excerpt) >= 300,
-        "dashboard_url": f"http://localhost:3000/alerts/{alert_id}",
+        "dashboard_url": f"{frontend_base_url().rstrip('/')}/alerts/{alert_id}",
     }
     html = render_template("alert.html", ctx)
     return HTMLResponse(content=html)
@@ -494,9 +487,29 @@ def preview_weekly_report() -> HTMLResponse:
     return HTMLResponse(content=html)
 
 
+# ---------------------------------------------------------------------------
+# 3b. GET /api/emails/preview/weekly-learning?employee_id=1
+# ---------------------------------------------------------------------------
+
+@router.get("/preview/weekly-learning", response_class=HTMLResponse)
+def preview_weekly_learning(employee_id: int) -> HTMLResponse:
+    from engines.learning_engine import build_learning_email_context
+
+    ctx = build_learning_email_context(employee_id)
+    if not ctx:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No learning data available for employee {employee_id} (no prompts in the last 7 days).",
+        )
+    html = render_template("learning.html", ctx)
+    return HTMLResponse(content=html)
+
+
 def _trend(current: int, previous: int) -> str:
     if previous == 0:
-        return "+0%" if current == 0 else f"+{current * 100}%"
+        if current == 0:
+            return "0%"
+        return "new"
     diff_pct = round((current - previous) / previous * 100)
     if diff_pct > 0:
         return f"+{diff_pct}%"
@@ -550,7 +563,7 @@ def send_coaching_email(employee_id: int) -> HTMLResponse:
         "prompt_excerpt": excerpt,
         "coaching_tip": coaching_tip,
         "safe_prompt_example": SAFE_EXAMPLES.get(detection_type, SAFE_EXAMPLES["policy"]),
-        "policy_url": "http://localhost:3000/policies",
+        "policy_url": f"{frontend_base_url().rstrip('/')}/policies",
     }
     html = render_template("coaching.html", ctx)
 

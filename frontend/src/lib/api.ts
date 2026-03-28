@@ -16,12 +16,18 @@ const DEFAULT_EMPLOYEE_ID = 1;
 
 type BackendRiskLevel = "low" | "medium" | "high" | "critical";
 
-interface BackendMetricSnapshot {
+interface BackendDashboardMetrics {
   threats_blocked: number;
   prompts_analyzed: number;
   active_employees: number;
   shadow_ai_events: number;
   estimated_cost_saved_usd: number;
+  threats_blocked_trend_pct: number | null;
+  cost_saved_trend_pct: number | null;
+  shadow_ai_trend_pct: number | null;
+  active_employees_trend_pct: number | null;
+  threat_trend: Array<{ day: string; threats: number; blocked: number }>;
+  risk_distribution: Array<{ level: string; count: number }>;
 }
 
 interface BackendAnalyzeResponse {
@@ -40,6 +46,7 @@ interface BackendEmployeeSummary {
   department: string;
   risk_score: number;
   total_prompts: number;
+  ai_skill_score?: number;
 }
 
 interface BackendPromptSummary {
@@ -58,6 +65,13 @@ interface BackendWeeklyReport {
   week_end: string;
   summary: string;
   kpis: Record<string, number | string>;
+  threat_trend?: Array<{ date: string; threats: number; safe: number }>;
+  top_risks?: Array<{
+    employee: string;
+    department: string;
+    risk_score: number;
+    flagged_prompts: number;
+  }>;
 }
 
 interface BackendShadowAIEvent {
@@ -79,37 +93,68 @@ interface BackendAgent {
 
 // ===== Generic Fetch Helper =====
 async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options?.headers,
+    },
+  });
+  const text = await res.text();
+  let body: unknown = undefined;
   try {
-    const res = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options?.headers,
-      },
-    });
-    if (!res.ok) throw new Error(`API error: ${res.status}`);
-    return await res.json();
+    body = text ? JSON.parse(text) : undefined;
   } catch {
-    throw new Error(`Failed to fetch ${endpoint}`);
+    body = text;
   }
+  if (!res.ok) {
+    const detail =
+      typeof body === "object" && body !== null && "detail" in body
+        ? String((body as { detail: unknown }).detail)
+        : text || res.statusText;
+    const err = new Error(`${res.status}: ${detail}`) as Error & { status?: number; body?: unknown };
+    err.status = res.status;
+    err.body = body;
+    throw err;
+  }
+  return body as T;
 }
 
 // ===== API Functions =====
+const emptyMetrics = (): Metrics => ({
+  threats_blocked: 0,
+  threats_blocked_trend: null,
+  cost_saved: 0,
+  cost_saved_trend: null,
+  shadow_ai_detected: 0,
+  shadow_ai_trend: null,
+  active_employees: 0,
+  active_employees_trend: null,
+  threat_trend_chart: [],
+  risk_distribution: [],
+});
+
 export async function fetchMetrics(): Promise<Metrics> {
   try {
-    const data = await apiFetch<BackendMetricSnapshot>("/api/metrics");
+    const data = await apiFetch<BackendDashboardMetrics>("/api/metrics/dashboard");
     return {
       threats_blocked: data.threats_blocked,
-      threats_blocked_trend: 0,
+      threats_blocked_trend: data.threats_blocked_trend_pct,
       cost_saved: Math.round(data.estimated_cost_saved_usd),
-      cost_saved_trend: 0,
+      cost_saved_trend: data.cost_saved_trend_pct,
       shadow_ai_detected: data.shadow_ai_events,
-      shadow_ai_trend: 0,
+      shadow_ai_trend: data.shadow_ai_trend_pct,
       active_employees: data.active_employees,
-      active_employees_trend: 0,
+      active_employees_trend: data.active_employees_trend_pct,
+      threat_trend_chart: data.threat_trend.map((p) => ({
+        day: p.day,
+        threats: p.threats,
+        blocked: p.blocked,
+      })),
+      risk_distribution: data.risk_distribution,
     };
   } catch {
-    return { threats_blocked: 0, threats_blocked_trend: 0, cost_saved: 0, cost_saved_trend: 0, shadow_ai_detected: 0, shadow_ai_trend: 0, active_employees: 0, active_employees_trend: 0 };
+    return emptyMetrics();
   }
 }
 
@@ -120,7 +165,7 @@ export async function analyzePrompt(prompt: string): Promise<AnalysisResult> {
       body: JSON.stringify({
         employee_id: DEFAULT_EMPLOYEE_ID,
         prompt_text: prompt,
-        target_tool: "sentinel-demo-ui",
+        target_tool: "sentinel-web-dashboard",
       }),
     });
     return {
@@ -133,7 +178,15 @@ export async function analyzePrompt(prompt: string): Promise<AnalysisResult> {
       timestamp: new Date().toISOString(),
     };
   } catch {
-    return { id: "error", prompt, risk_level: "safe" as RiskLevel, risk_score: 0, categories: [], reasoning: "Backend unavailable", timestamp: new Date().toISOString() };
+    return {
+      id: "error",
+      prompt,
+      risk_level: "low" as RiskLevel,
+      risk_score: 0,
+      categories: [],
+      reasoning: "Backend unavailable",
+      timestamp: new Date().toISOString(),
+    };
   }
 }
 
@@ -148,9 +201,10 @@ export async function fetchEmployees(): Promise<Employee[]> {
       risk_score: Math.round(emp.risk_score * 100),
       total_prompts: emp.total_prompts,
       flagged_prompts: 0,
-      last_active: new Date().toISOString(),
+      last_active: "",
       status: "active",
       risk_trend: [],
+      ai_skill_score: emp.ai_skill_score !== undefined ? Math.round(emp.ai_skill_score * 100) : undefined,
     }));
   } catch {
     return [];
@@ -188,9 +242,11 @@ export async function fetchPrompts(limit = 50): Promise<PromptRecord[]> {
 export async function fetchWeeklyReport(): Promise<WeeklyReport> {
   try {
     const report = await apiFetch<BackendWeeklyReport>("/api/reports/weekly");
-    const totalPrompts = Number(report.kpis.total_prompts ?? 0);
+    const totalPrompts = Number(report.kpis.total_prompts ?? report.kpis.prompts_7d ?? 0);
     const threatsBlocked = Number(report.kpis.threats_blocked ?? 0);
     const costSaved = Number(report.kpis.estimated_cost_saved_usd ?? 0);
+    const threatsTrend = report.threat_trend ?? [];
+    const topRisks = report.top_risks ?? [];
     return {
       id: `weekly-${report.week_start}`,
       week_start: report.week_start,
@@ -199,16 +255,34 @@ export async function fetchWeeklyReport(): Promise<WeeklyReport> {
       key_metrics: {
         total_prompts: totalPrompts,
         threats_blocked: threatsBlocked,
-        high_risk_users: Number(report.kpis.high_risk_users ?? 0),
+        high_risk_users: Number(report.kpis.high_risk_users ?? report.kpis.high_risk_7d ?? 0),
         cost_saved: Math.round(costSaved),
         avg_risk_score: Number(report.kpis.avg_risk_score ?? 0),
       },
-      threat_trend: [],
-      top_risks: [],
+      threat_trend: threatsTrend.map((d) => ({
+        date: d.date,
+        threats: d.threats,
+        safe: d.safe,
+      })),
+      top_risks: topRisks.map((r) => ({
+        employee: r.employee,
+        department: r.department,
+        risk_score: r.risk_score,
+        flagged_prompts: r.flagged_prompts,
+      })),
       recommendations: [report.summary],
     };
   } catch {
-    return { id: "", week_start: "", week_end: "", generated_at: "", key_metrics: { total_prompts: 0, threats_blocked: 0, high_risk_users: 0, cost_saved: 0, avg_risk_score: 0 }, threat_trend: [], top_risks: [], recommendations: [] };
+    return {
+      id: "",
+      week_start: "",
+      week_end: "",
+      generated_at: "",
+      key_metrics: { total_prompts: 0, threats_blocked: 0, high_risk_users: 0, cost_saved: 0, avg_risk_score: 0 },
+      threat_trend: [],
+      top_risks: [],
+      recommendations: [],
+    };
   }
 }
 
@@ -443,69 +517,16 @@ export async function fetchAutomationAnalysis(): Promise<AutomationAnalysisRespo
   }
 }
 
-// ===== Static Data =====
-const mockPolicies: Policy[] = [
-  {
-    id: "pol-1",
-    name: "Data Classification & Handling",
-    description: "Guidelines for how employees should classify and handle data when using AI tools.",
-    full_text: "All employees must classify data according to our four-tier system (Public, Internal, Confidential, Restricted) before sharing with any AI tool. Restricted and Confidential data must NEVER be shared with external AI services. Internal data may be shared with approved AI tools only. Violations will be logged and escalated to the security team.",
-    status: "active",
-    last_updated: "2026-03-15T10:00:00Z",
-    created_at: "2026-01-10T10:00:00Z",
-    category: "Data Protection",
-  },
-  {
-    id: "pol-2",
-    name: "Approved AI Tools List",
-    description: "Maintained list of AI tools approved for enterprise use.",
-    full_text: "Only the following AI tools are approved for use: GitHub Copilot (Engineering only), ChatGPT Enterprise (All departments), Grammarly Business (All departments), Midjourney (Design & Marketing). Any use of unapproved AI tools will trigger a Shadow AI alert. Requests for new tools must go through the AI Governance Committee.",
-    status: "active",
-    last_updated: "2026-03-20T14:00:00Z",
-    created_at: "2026-02-01T10:00:00Z",
-    category: "Tool Governance",
-  },
-  {
-    id: "pol-3",
-    name: "Prompt Injection Prevention",
-    description: "Security controls to detect and prevent prompt injection attacks.",
-    full_text: "All prompts submitted to AI systems must be scanned for injection patterns before execution. Known injection patterns include: system prompt overrides, role-playing attacks, delimiter manipulation, and encoded payload delivery. Detected injections are blocked and the incident is logged.",
-    status: "active",
-    last_updated: "2026-03-18T09:00:00Z",
-    created_at: "2026-01-15T10:00:00Z",
-    category: "Security",
-  },
-  {
-    id: "pol-4",
-    name: "AI Output Review Requirements",
-    description: "Requirements for reviewing AI-generated outputs before use in production.",
-    full_text: "All AI-generated code must undergo standard code review before merging. AI-generated content for external communications must be reviewed by the communications team. AI-generated data analysis must be validated against source data. No AI output should be used as the sole basis for HR or legal decisions.",
-    status: "active",
-    last_updated: "2026-03-22T11:00:00Z",
-    created_at: "2026-02-15T10:00:00Z",
-    category: "Quality Assurance",
-  },
-  {
-    id: "pol-5",
-    name: "AI Budget Controls",
-    description: "API spending limits and budget controls for AI agent usage.",
-    full_text: "Each department has a monthly AI API budget. Engineering: $5,000/month. Marketing: $2,000/month. All other departments: $1,000/month. Budget overages require VP approval. Real-time spending dashboards are available in the Sentinel dashboard.",
-    status: "draft",
-    last_updated: "2026-03-25T16:00:00Z",
-    created_at: "2026-03-20T10:00:00Z",
-    category: "Financial",
-  },
-  {
-    id: "pol-6",
-    name: "Incident Response for AI Security Events",
-    description: "Procedures for responding to AI-related security incidents.",
-    full_text: "Critical AI security events (risk score > 80) trigger immediate response: 1) Auto-block the request, 2) Notify the SOC team, 3) Suspend the user's AI access pending review, 4) Generate an incident report. High-risk events (60-80) are logged and reviewed within 4 hours. Medium events are included in the daily security digest.",
-    status: "active",
-    last_updated: "2026-03-10T10:00:00Z",
-    created_at: "2026-01-20T10:00:00Z",
-    category: "Incident Response",
-  },
-];
+export async function fetchPolicies(): Promise<Policy[]> {
+  return apiFetch<Policy[]>("/api/policies");
+}
 
-export { mockPolicies };
-
+export async function updatePolicy(
+  policyId: number,
+  ruleJson: Record<string, unknown>
+): Promise<Policy> {
+  return apiFetch<Policy>(`/api/policies/${policyId}`, {
+    method: "PUT",
+    body: JSON.stringify({ rule_json: ruleJson }),
+  });
+}

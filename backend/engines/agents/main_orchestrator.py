@@ -1,31 +1,63 @@
+import logging
 from time import perf_counter
 from typing import Any, Callable, TypeVar
 
+from config import get_settings
 from database import (
     create_alert,
     create_prompt_record,
     execute,
+    fetch_one,
+    fetch_rows,
     record_employee_interaction_memory,
     record_skill_evaluation,
 )
+from detectors.pii_detector import detect_pii
+from detectors.policy_detector import detect_policy_violations
+from detectors.secrets_detector import detect_secrets
+from detectors.shadow_ai_detector import detect_shadow_ai
 from engines.action_engine import choose_action, choose_risk_level
-from engines.agents.agent_supervision_budget_profitability_agent import AgentSupervisionBudgetProfitabilityAgent
-from engines.agents.employee_supervision_coach_security_agent import EmployeeSupervisionCoachSecurityAgent
 from engines.agents.l2_classifier_agent import L2ClassifierAgent
 from engines.agents.l3_judgment_agent import L3JudgmentAgent
-from engines.agents.policy_enforcement_agent import PolicyEnforcementAgent
-from models import ActionType, AgentExecutionReport, AnalyzeRequest, AnalyzeResponse, Detection, DetectionLayer, RiskLevel
+from engines.coaching_engine import (
+    assess_intent_and_recommendations,
+    coaching_tip,
+    evaluate_prompt_skill,
+    redact_prompt,
+)
+from engines.policy_engine import policy_enforcement
+from models import (
+    ActionType,
+    AgentExecutionReport,
+    AnalyzeRequest,
+    AnalyzeResponse,
+    AttachmentContext,
+    Detection,
+    DetectionLayer,
+    RiskLevel,
+)
 
 T = TypeVar("T")
 
 
 class MainOrchestrator:
+    """Central brain that coordinates security analysis, skill evaluation,
+    decision-making, persistence, and automated side-effects for every
+    employee prompt captured by the browser extension."""
+
     def __init__(self) -> None:
-        self._policy_agent = PolicyEnforcementAgent()
-        self._employee_agent = EmployeeSupervisionCoachSecurityAgent()
-        self._agent_supervisor = AgentSupervisionBudgetProfitabilityAgent()
         self._l2_classifier = L2ClassifierAgent()
         self._l3_judgment = L3JudgmentAgent()
+        self._skill_agent: Any = None
+        self._email_sender: Any = None
+
+    def set_skill_agent(self, agent: Any) -> None:
+        self._skill_agent = agent
+
+    def set_email_sender(self, sender: Any) -> None:
+        self._email_sender = sender
+
+    # -- Step monitoring -------------------------------------------------------
 
     def _monitor_step(
         self,
@@ -59,159 +91,371 @@ class MainOrchestrator:
             )
             raise
 
+    # -- Employee context ------------------------------------------------------
+
+    @staticmethod
+    def _load_employee_context(employee_id: int) -> dict[str, Any]:
+        role_row = fetch_one("SELECT role FROM employees WHERE id = ?", (employee_id,))
+        role = role_row["role"] if role_row else "employee"
+
+        memory_rows = fetch_rows(
+            """
+            SELECT risk_level, action, skill_score, skill_class
+            FROM employee_interaction_memory
+            WHERE employee_id = ? AND created_at >= datetime('now', '-30 day')
+            ORDER BY created_at DESC LIMIT 20
+            """,
+            (employee_id,),
+        )
+
+        profile = fetch_one(
+            "SELECT ai_skill_score, skill_class, prompts_evaluated FROM employee_skill_profiles WHERE employee_id = ?",
+            (employee_id,),
+        )
+
+        recent_violations = sum(
+            1 for m in memory_rows if m["action"] in ("block", "quarantine", "redact")
+        )
+
+        return {
+            "role": role,
+            "recent_memory": [dict(m) for m in memory_rows],
+            "skill_profile": dict(profile) if profile else None,
+            "recent_violations": recent_violations,
+            "is_repeat_offender": recent_violations >= 3,
+        }
+
+    # -- L1 detection ----------------------------------------------------------
+
+    @staticmethod
+    def _with_source(detections: list[Detection], source: str) -> list[Detection]:
+        return [d.model_copy(update={"source": source}) for d in detections]
+
+    @staticmethod
+    def _analyze_text_source(text: str, source: str, role: str) -> list[Detection]:
+        if not text.strip():
+            return []
+        dets: list[Detection] = []
+        dets.extend(MainOrchestrator._with_source(detect_pii(text), source))
+        dets.extend(MainOrchestrator._with_source(detect_secrets(text), source))
+        dets.extend(MainOrchestrator._with_source(detect_policy_violations(text), source))
+        dets = MainOrchestrator._with_source(policy_enforcement(role, text, dets), source)
+        return dets
+
+    @staticmethod
+    def _run_l1_detection(
+        prompt_text: str,
+        role: str,
+        attachments: list[AttachmentContext],
+        target_tool: str | None,
+    ) -> tuple[list[Detection], str | None]:
+        detections = MainOrchestrator._analyze_text_source(prompt_text, "prompt", role)
+
+        for idx, attachment in enumerate(attachments):
+            att_text = (attachment.extracted_text or "").strip()
+            if att_text:
+                source = f"attachment:{idx}:{attachment.filename}"
+                detections.extend(MainOrchestrator._analyze_text_source(att_text, source, role))
+
+        shadow_hits, tool_domain = detect_shadow_ai(target_tool)
+        detections.extend(MainOrchestrator._with_source(shadow_hits, "tool"))
+
+        return detections, tool_domain
+
+    # -- Escalation logic ------------------------------------------------------
+
+    @staticmethod
+    def _needs_l2(detections: list[Detection], risk_level: RiskLevel, confidence: float) -> bool:
+        settings = get_settings()
+        if not settings.enable_l2:
+            return False
+        if detections:
+            return True
+        if risk_level != RiskLevel.low:
+            return True
+        return confidence < settings.l1_confidence_threshold
+
+    @staticmethod
+    def _needs_l3(
+        risk_level: RiskLevel,
+        detections: list[Detection],
+        confidence: float,
+        l2_applied: bool,
+    ) -> bool:
+        settings = get_settings()
+        if not settings.enable_l3:
+            return False
+        if detections:
+            return True
+        if l2_applied:
+            return True
+        if risk_level != RiskLevel.low:
+            return True
+        if confidence < 0.95:
+            return True
+        return False
+
+    # -- Confidence calculation ------------------------------------------------
+
+    @staticmethod
+    def _base_confidence(detections: list[Detection]) -> float:
+        if not detections:
+            return 0.99
+        avg_conf = sum(d.confidence for d in detections) / len(detections)
+        volume_penalty = min(0.08, max(0, len(detections) - 3) * 0.01)
+        return max(0.55, min(0.99, avg_conf - volume_penalty))
+
+    # -- Persistence -----------------------------------------------------------
+
     @staticmethod
     def _persist_detections(prompt_id: int, detections: list[Detection]) -> None:
-        for detection in detections:
+        for d in detections:
             execute(
                 """
                 INSERT INTO detections (
-                    prompt_id, type, subtype, severity, detail, span_start, span_end, confidence, layer
+                    prompt_id, type, subtype, severity, detail,
+                    span_start, span_end, confidence, layer
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     prompt_id,
-                    detection.type.value,
-                    detection.subtype,
-                    detection.severity.value,
-                    detection.detail,
-                    detection.span[0],
-                    detection.span[1],
-                    detection.confidence,
-                    detection.layer.value,
+                    d.type.value,
+                    d.subtype,
+                    d.severity.value,
+                    d.detail,
+                    d.span[0],
+                    d.span[1],
+                    d.confidence,
+                    d.layer.value,
                 ),
             )
 
+    # -- Main entry point ------------------------------------------------------
+
     def run(self, payload: AnalyzeRequest) -> AnalyzeResponse:
         execution_report: list[AgentExecutionReport] = []
+        estimated_cost = 0.0
 
-        employee_result = self._monitor_step(
-            self._employee_agent.name,
+        # 1. Load employee context (history, skill profile, repeat-offender flag)
+        ctx = self._monitor_step(
+            "ContextLoader",
             execution_report,
-            lambda: self._employee_agent.run_security_exam(payload),
+            lambda: self._load_employee_context(payload.employee_id),
         )
-        policy_result = self._monitor_step(
-            self._policy_agent.name,
+        role = ctx["role"]
+
+        # 2. L1 regex/rule detection
+        detections, tool_domain = self._monitor_step(
+            "L1_RegexDetection",
             execution_report,
-            lambda: self._policy_agent.run(payload, employee_result.detections),
+            lambda: self._run_l1_detection(
+                payload.prompt_text, role, payload.attachments, payload.target_tool
+            ),
         )
 
-        detections = policy_result.detections
         risk_level = choose_risk_level(detections)
         action = choose_action(risk_level)
         layer_used = DetectionLayer.l1
-        confidence = 0.95 if detections else 0.99
+        confidence = self._base_confidence(detections)
 
-        l2_result = self._monitor_step(
-            self._l2_classifier.name,
-            execution_report,
-            lambda: self._l2_classifier.run(payload.prompt_text, detections, confidence),
-        )
-        if l2_result.applied and l2_result.additional_detections:
-            detections = detections + l2_result.additional_detections
-            risk_level = choose_risk_level(detections)
+        # Escalate repeat offenders from medium to high
+        if ctx["is_repeat_offender"] and risk_level == RiskLevel.medium:
+            risk_level = RiskLevel.high
             action = choose_action(risk_level)
-            layer_used = DetectionLayer.l2
-            confidence = 0.90
 
-        l3_result = self._monitor_step(
-            self._l3_judgment.name,
-            execution_report,
-            lambda: self._l3_judgment.run(payload.prompt_text, risk_level, action, detections),
-        )
-        if l3_result.applied and l3_result.risk_level and l3_result.action and l3_result.confidence is not None:
-            risk_level = l3_result.risk_level
-            action = l3_result.action
-            confidence = l3_result.confidence
-            layer_used = DetectionLayer.l3
+        # 3. L2 classification
+        l2_result = None
+        if self._needs_l2(detections, risk_level, confidence):
+            l2_result = self._monitor_step(
+                "L2_Classifier",
+                execution_report,
+                lambda: self._l2_classifier.run(
+                    payload.prompt_text, detections, confidence
+                ),
+            )
+            if l2_result.applied:
+                if l2_result.additional_detections:
+                    detections.extend(
+                        self._with_source(l2_result.additional_detections, "prompt")
+                    )
+                    risk_level = choose_risk_level(detections)
+                    action = choose_action(risk_level)
+                    confidence = max(0.6, min(confidence, 0.9))
+                    layer_used = DetectionLayer.l2
+                estimated_cost += (
+                    l2_result.estimated_cost_usd
+                    if l2_result.estimated_cost_usd > 0
+                    else 0.001
+                )
 
-        coaching_result = self._monitor_step(
-            f"{self._employee_agent.name}.SmartCoaching",
-            execution_report,
-            lambda: self._employee_agent.run_smart_coaching(payload.prompt_text, detections, action),
-            decisions=self._employee_agent.summarize_risk_examination(detections),
-        )
+        # 4. L3 judgment
+        l3_result = None
+        l2_applied = bool(l2_result and l2_result.applied)
+        if self._needs_l3(risk_level, detections, confidence, l2_applied):
+            l3_result = self._monitor_step(
+                "L3_Judgment",
+                execution_report,
+                lambda: self._l3_judgment.run(
+                    payload.prompt_text, risk_level, action, detections
+                ),
+            )
+            if (
+                l3_result.applied
+                and l3_result.risk_level
+                and l3_result.action
+                and l3_result.confidence is not None
+            ):
+                risk_level = l3_result.risk_level
+                action = l3_result.action
+                confidence = l3_result.confidence
+                layer_used = DetectionLayer.l3
+                estimated_cost += (
+                    l3_result.estimated_cost_usd
+                    if l3_result.estimated_cost_usd > 0
+                    else 0.01
+                )
 
-        budget_result = self._monitor_step(
-            self._agent_supervisor.name,
-            execution_report,
-            lambda: self._agent_supervisor.run(payload, detections),
-        )
-
-        metadata = {
-            **(payload.metadata or {}),
-            "orchestration": {
-                "security_exam": employee_result.security_exam,
-                "employee_role": policy_result.employee_role,
-                "l2_classification": {
-                    "applied": l2_result.applied,
-                    "additional_detections": len(l2_result.additional_detections),
-                    "risk_adjustment": l2_result.risk_adjustment,
-                    "rationale": l2_result.rationale,
-                    "warnings": l2_result.warnings,
-                },
-                "l3_judgment": {
-                    "applied": l3_result.applied,
-                    "rationale": l3_result.rationale,
-                    "warnings": l3_result.warnings,
-                },
-                "budget_profitability_review": budget_result.review,
-                "agent_security_flags": budget_result.security_flags,
-                "agents_at_risk": budget_result.agents_at_risk,
-            },
-        }
-
-        prompt_id = create_prompt_record(
-            employee_id=payload.employee_id,
-            prompt_text=payload.prompt_text,
-            redacted_prompt=coaching_result.redacted_prompt,
-            target_tool=payload.target_tool,
-            risk_level=risk_level,
-            action=action,
-            layer_used=layer_used.value,
-            confidence=confidence,
-            estimated_cost_usd=budget_result.estimated_cost_usd + l2_result.estimated_cost_usd + l3_result.estimated_cost_usd,
-            coaching_tip=coaching_result.tip,
-            metadata=metadata,
-        )
-        self._persist_detections(prompt_id, detections)
-
-        record_skill_evaluation(
-            employee_id=payload.employee_id,
-            prompt_id=prompt_id,
-            overall_score=coaching_result.skill.overall_score,
-            dimension_scores=coaching_result.skill.dimension_scores,
-            strengths=coaching_result.skill.strengths,
-            improvements=coaching_result.skill.improvements,
-        )
-        record_employee_interaction_memory(
-            employee_id=payload.employee_id,
-            prompt_id=prompt_id,
-            risk_level=risk_level.value,
-            action=action.value,
-            skill_score=coaching_result.skill.overall_score,
-            skill_class=coaching_result.skill.skill_class,
+        # 5. Skill evaluation + coaching
+        prompt_detections = [d for d in detections if d.source == "prompt"]
+        redacted = (
+            redact_prompt(payload.prompt_text, prompt_detections)
+            if action == ActionType.redact
+            else None
         )
 
-        if employee_result.tool_domain and any(d.type.value == "shadow_ai" for d in detections):
-            execute(
-                "INSERT INTO shadow_ai_events (employee_id, tool_domain, risk_level, created_at) VALUES (?, ?, ?, datetime('now'))",
-                (payload.employee_id, employee_result.tool_domain, RiskLevel.high.value),
+        if self._skill_agent is not None:
+            try:
+                skill = self._monitor_step(
+                    "SkillAnalysisAgent",
+                    execution_report,
+                    lambda: self._skill_agent.run(
+                        payload.prompt_text, detections, ctx.get("skill_profile")
+                    ),
+                )
+            except Exception:
+                skill = self._monitor_step(
+                    "SkillEvaluation_Fallback",
+                    execution_report,
+                    lambda: evaluate_prompt_skill(payload.prompt_text, detections),
+                )
+        else:
+            skill = self._monitor_step(
+                "SkillEvaluation",
+                execution_report,
+                lambda: evaluate_prompt_skill(payload.prompt_text, detections),
             )
 
-        if action in {ActionType.block, ActionType.quarantine}:
-            create_alert("security_event", risk_level, f"Prompt {prompt_id} required {action.value}.")
+        tip = coaching_tip(action, detections, skill)
+        intent_assessment, warning_reasons, safer_alternatives = (
+            assess_intent_and_recommendations(
+                payload.prompt_text,
+                detections,
+                attachment_count=len(payload.attachments),
+            )
+        )
+
+        # 6. Build orchestration metadata
+        orchestration_meta = {
+            "employee_context": {
+                "role": role,
+                "recent_violations": ctx["recent_violations"],
+                "is_repeat_offender": ctx["is_repeat_offender"],
+                "skill_class": (
+                    ctx["skill_profile"]["skill_class"]
+                    if ctx["skill_profile"]
+                    else "unknown"
+                ),
+            },
+            "l2_classification": {
+                "applied": l2_result.applied if l2_result else False,
+                "additional_detections": (
+                    len(l2_result.additional_detections) if l2_result else 0
+                ),
+                "risk_adjustment": l2_result.risk_adjustment if l2_result else None,
+                "rationale": l2_result.rationale if l2_result else None,
+            },
+            "l3_judgment": {
+                "applied": l3_result.applied if l3_result else False,
+                "rationale": l3_result.rationale if l3_result else None,
+            },
+        }
+        metadata = {**(payload.metadata or {}), "orchestration": orchestration_meta}
+
+        prompt_id = 0
+        if payload.persist_prompt:
+            # 7. Persist prompt, detections, skill, memory
+            prompt_id = create_prompt_record(
+                employee_id=payload.employee_id,
+                prompt_text=payload.prompt_text,
+                redacted_prompt=redacted,
+                target_tool=payload.target_tool,
+                risk_level=risk_level,
+                action=action,
+                layer_used=layer_used.value,
+                confidence=confidence,
+                estimated_cost_usd=estimated_cost,
+                coaching_tip=tip,
+                metadata=metadata,
+            )
+            self._persist_detections(prompt_id, detections)
+
+            record_skill_evaluation(
+                employee_id=payload.employee_id,
+                prompt_id=prompt_id,
+                overall_score=skill.overall_score,
+                dimension_scores=skill.dimension_scores,
+                strengths=skill.strengths,
+                improvements=skill.improvements,
+            )
+            record_employee_interaction_memory(
+                employee_id=payload.employee_id,
+                prompt_id=prompt_id,
+                risk_level=risk_level.value,
+                action=action.value,
+                skill_score=skill.overall_score,
+                skill_class=skill.skill_class,
+            )
+
+            # 8. Shadow AI tracking
+            if tool_domain and any(d.type.value == "shadow_ai" for d in detections):
+                execute(
+                    "INSERT INTO shadow_ai_events (employee_id, tool_domain, risk_level, created_at) VALUES (?, ?, ?, datetime('now'))",
+                    (payload.employee_id, tool_domain, RiskLevel.high.value),
+                )
+
+            # 9. Automated side-effects: alert + security email on block/quarantine
+            if action in {ActionType.block, ActionType.quarantine}:
+                create_alert(
+                    "security_event",
+                    risk_level,
+                    f"Prompt {prompt_id} required {action.value}.",
+                )
+                if self._email_sender is not None:
+                    try:
+                        self._email_sender.send_security_alert(
+                            employee_id=payload.employee_id,
+                            prompt_id=prompt_id,
+                            risk_level=risk_level,
+                            action=action,
+                            detections=detections,
+                        )
+                    except Exception as exc:
+                        logging.getLogger(__name__).warning("security email send failed: %s", exc)
 
         return AnalyzeResponse(
             prompt_id=prompt_id,
             risk_level=risk_level,
             action=action,
             detections=detections,
-            coaching_tip=coaching_result.tip,
-            redacted_prompt=coaching_result.redacted_prompt,
+            coaching_tip=tip,
+            redacted_prompt=redacted,
             layer_used=layer_used,
             confidence=confidence,
-            estimated_cost_usd=budget_result.estimated_cost_usd + l2_result.estimated_cost_usd + l3_result.estimated_cost_usd,
-            skill_evaluation=coaching_result.skill,
+            estimated_cost_usd=estimated_cost,
+            skill_evaluation=skill,
+            warning_reasons=warning_reasons,
+            safer_alternatives=safer_alternatives,
+            intent_assessment=intent_assessment,
             orchestration_report=execution_report,
-            orchestration_metadata=metadata.get("orchestration", {}),
+            orchestration_metadata=orchestration_meta,
         )

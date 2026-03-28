@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from auth import get_current_user
 from database import create_captured_turn_record, create_extension_warning_event, fetch_one, fetch_rows
-from engines.analysis_engine import analyze_prompt
+from engines.orchestrator_factory import get_orchestrator
 from models import (
     AnalyzeRequest,
     AnalyzeResponse,
@@ -33,6 +33,13 @@ def _resolve_effective_employee_id(payload_employee_id: int | None, current_user
     raise HTTPException(status_code=403, detail="Role not allowed for extension capture")
 
 
+def _safe_rule_json(s: str) -> dict:
+    try:
+        return json.loads(s)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
 def _warning_threshold_for_role(role: str) -> RiskLevel:
     rows = fetch_rows(
         "SELECT role, rule_json FROM policies WHERE role = ? OR role = 'all' ORDER BY role DESC",
@@ -40,7 +47,7 @@ def _warning_threshold_for_role(role: str) -> RiskLevel:
     )
     merged: dict = {}
     for row in rows:
-        merged.update(json.loads(row["rule_json"]))
+        merged.update(_safe_rule_json(row["rule_json"]))
     configured = str(merged.get("extension_warning_threshold", "high")).lower()
     if configured in {RiskLevel.low.value, RiskLevel.medium.value, RiskLevel.high.value, RiskLevel.critical.value}:
         return RiskLevel(configured)
@@ -91,6 +98,7 @@ def extension_capture(payload: ExtensionCaptureRequest, current_user: dict = Dep
         prompt_text=payload.prompt_text,
         target_tool=payload.target_tool,
         attachments=payload.attachments,
+        persist_prompt=not payload.preview_only,
         metadata={
             "source": "browser_extension",
             "attachments_count": len(payload.attachments),
@@ -100,7 +108,7 @@ def extension_capture(payload: ExtensionCaptureRequest, current_user: dict = Dep
             **(payload.metadata or {}),
         },
     )
-    analysis = analyze_prompt(analyze_payload)
+    analysis = get_orchestrator().run(analyze_payload)
 
     requires_confirmation = (
         not payload.warning_confirmed
@@ -155,7 +163,8 @@ def extension_capture_turn(
 ) -> ExtensionTurnCaptureResponse:
     effective_employee_id = _resolve_effective_employee_id(payload.employee_id, current_user)
 
-    prompt_analysis = analyze_prompt(
+    orchestrator = get_orchestrator()
+    prompt_analysis = orchestrator.run(
         AnalyzeRequest(
             employee_id=effective_employee_id,
             prompt_text=payload.prompt_text,
@@ -172,7 +181,7 @@ def extension_capture_turn(
             },
         )
     )
-    output_analysis = analyze_prompt(
+    output_analysis = orchestrator.run(
         AnalyzeRequest(
             employee_id=effective_employee_id,
             prompt_text=payload.ai_output_text,

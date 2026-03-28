@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 
 from database import execute, fetch_one, fetch_rows
+from json_utils import loads_json
 from models import PolicyRecord, UpdatePolicyRequest
 
 router = APIRouter(prefix="/policies", tags=["policies"])
@@ -17,7 +18,7 @@ def list_policies() -> list[PolicyRecord]:
             id=row["id"],
             name=row["name"],
             role=row["role"],
-            rule_json=json.loads(row["rule_json"]),
+            rule_json=loads_json(row["rule_json"], {}),
             updated_at=row["updated_at"],
         )
         for row in rows

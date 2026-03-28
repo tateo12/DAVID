@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { fetchPrompts } from "@/lib/api";
 import { PromptRecord, RiskLevel } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -20,10 +20,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, ChevronDown, ChevronRight, Filter, MessageSquareText } from "lucide-react";
+import { ChevronDown, ChevronRight, Filter, MessageSquareText } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 
 const riskBadgeStyles: Record<RiskLevel, string> = {
-  safe: "bg-sentinel-green/15 text-sentinel-green border-sentinel-green/30",
   low: "bg-sentinel-green/10 text-sentinel-green/80 border-sentinel-green/20",
   medium: "bg-sentinel-amber/15 text-sentinel-amber border-sentinel-amber/30",
   high: "bg-orange-500/15 text-orange-400 border-orange-500/30",
@@ -39,10 +39,12 @@ function formatTimestamp(ts: string) {
   });
 }
 
-export default function PromptsPage() {
+function PromptsContent() {
+  const searchParams = useSearchParams();
+  const q = (searchParams.get("q") ?? "").trim().toLowerCase();
+
   const [prompts, setPrompts] = useState<PromptRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState<string>("all");
   const [deptFilter, setDeptFilter] = useState<string>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -63,8 +65,7 @@ export default function PromptsPage() {
     return prompts.filter((p) => {
       if (riskFilter !== "all" && p.risk_level !== riskFilter) return false;
       if (deptFilter !== "all" && p.department !== deptFilter) return false;
-      if (search) {
-        const q = search.toLowerCase();
+      if (q) {
         return (
           p.prompt.toLowerCase().includes(q) ||
           p.employee_name.toLowerCase().includes(q) ||
@@ -73,7 +74,7 @@ export default function PromptsPage() {
       }
       return true;
     });
-  }, [prompts, search, riskFilter, deptFilter]);
+  }, [prompts, q, riskFilter, deptFilter]);
 
   const toggleExpand = (id: string) => {
     setExpanded((prev) => {
@@ -86,23 +87,26 @@ export default function PromptsPage() {
 
   // Risk level summary stats
   const riskCounts = useMemo(() => {
-    const counts: Record<string, number> = { safe: 0, low: 0, medium: 0, high: 0, critical: 0 };
-    prompts.forEach((p) => counts[p.risk_level]++);
+    const counts: Record<string, number> = { low: 0, medium: 0, high: 0, critical: 0 };
+    prompts.forEach((p) => {
+      const k = p.risk_level in counts ? p.risk_level : "low";
+      counts[k]++;
+    });
     return counts;
   }, [prompts]);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-sentinel-text-primary">Prompt History</h1>
-        <p className="text-sm text-sentinel-text-secondary mt-1">
-          Complete audit trail of all analyzed prompts
-        </p>
-      </div>
+      <PageHeader
+        accent="prompts"
+        icon={MessageSquareText}
+        title="Prompt history"
+        description="Full audit trail with expandable rows. Text search uses the bar at the top; chips and department narrow the list below."
+      />
 
       {/* Summary Chips */}
       <div className="flex flex-wrap gap-2">
-        {(["safe", "low", "medium", "high", "critical"] as RiskLevel[]).map((level) => (
+        {(["low", "medium", "high", "critical"] as RiskLevel[]).map((level) => (
           <button
             key={level}
             onClick={() => setRiskFilter(riskFilter === level ? "all" : level)}
@@ -119,16 +123,7 @@ export default function PromptsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-sentinel-text-secondary" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search prompts, employees..."
-            className="pl-10 bg-sentinel-surface/50 border-sentinel-border text-sentinel-text-primary placeholder:text-sentinel-text-secondary/60 h-9 text-sm"
-          />
-        </div>
+      <div className="flex flex-wrap items-center gap-3">
         <Select value={deptFilter} onValueChange={setDeptFilter}>
           <SelectTrigger className="w-40 bg-sentinel-surface/50 border-sentinel-border text-sentinel-text-primary h-9 text-sm">
             <Filter className="w-3.5 h-3.5 mr-2 text-sentinel-text-secondary" />
@@ -150,6 +145,14 @@ export default function PromptsPage() {
             {Array.from({ length: 10 }).map((_, i) => (
               <div key={i} className="h-12 skeleton" />
             ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="px-6 py-16 text-center">
+            <p className="text-sm text-sentinel-text-secondary">
+              {prompts.length === 0
+                ? "No prompts recorded yet."
+                : "No prompts match the current filters or search."}
+            </p>
           </div>
         ) : (
           <Table>
@@ -247,5 +250,27 @@ export default function PromptsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function PromptsFallback() {
+  return (
+    <div className="space-y-6">
+      <div className="h-32 skeleton rounded-2xl" />
+      <div className="h-10 w-full max-w-lg skeleton rounded-lg" />
+      <div className="glass-card rounded-xl p-8">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="mb-3 h-12 skeleton" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function PromptsPage() {
+  return (
+    <Suspense fallback={<PromptsFallback />}>
+      <PromptsContent />
+    </Suspense>
   );
 }

@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { fetchAgents, fetchAutomationAnalysis } from "@/lib/api";
+import { fetchAgents } from "@/lib/api";
 import { Agent, AgentStatus } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Bot, Zap, Clock, DollarSign } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 import {
   BarChart,
   Bar,
@@ -34,7 +35,7 @@ export default function AgentsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([fetchAgents(), fetchAutomationAnalysis()]).then(([ag]) => {
+    fetchAgents().then((ag) => {
       setAgents(ag);
       setLoading(false);
     });
@@ -49,12 +50,12 @@ export default function AgentsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-sentinel-text-primary">Agent Budgets</h1>
-        <p className="text-sm text-sentinel-text-secondary mt-1">
-          Monitor AI agent API spending, performance, and availability
-        </p>
-      </div>
+      <PageHeader
+        accent="agents"
+        icon={Bot}
+        title="Agent budgets"
+        description="API spend vs budget, latency, and task-level automation profiles from the backend."
+      />
 
       {/* Agent Cards */}
       {loading ? (

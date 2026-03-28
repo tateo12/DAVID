@@ -44,4 +44,4 @@ def test_ops_dispatch_and_code_review() -> None:
         tick_body = tick.json()
         assert "ran_at" in tick_body
         assert "jobs" in tick_body
-        assert len(tick_body["jobs"]) == 3
+        assert len(tick_body["jobs"]) == 4

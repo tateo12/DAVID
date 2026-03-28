@@ -5,7 +5,8 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException
 
 from database import execute, fetch_one, fetch_rows, get_conn
-from engines.analysis_engine import analyze_prompt
+from json_utils import loads_json
+from engines.orchestrator_factory import get_orchestrator
 from models import (
     AgentActionEventRequest,
     AnalyzeRequest,
@@ -49,7 +50,9 @@ def _job_due(name: str) -> tuple[bool, str]:
     last_run_at = row["last_run_at"]
     if not last_run_at:
         return True, "never_ran"
-    last = datetime.fromisoformat(last_run_at)
+    last = datetime.fromisoformat(last_run_at.replace("Z", "+00:00"))
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
     elapsed = (datetime.now(timezone.utc) - last).total_seconds()
     return elapsed >= int(row["interval_seconds"]), f"elapsed={int(elapsed)}s"
 
@@ -100,7 +103,7 @@ def trigger_agent_assessment(payload: AgentActionEventRequest) -> DispatchResult
 
 @router.post("/events/employee-prompt", response_model=AnalyzeResponse)
 def trigger_employee_evaluation(payload: AnalyzeRequest) -> AnalyzeResponse:
-    return analyze_prompt(payload)
+    return get_orchestrator().run(payload)
 
 
 @router.post("/dispatch/daily-coaching", response_model=DispatchResult)
@@ -118,7 +121,7 @@ def dispatch_daily_coaching() -> DispatchResult:
     )
     count = 0
     for row in rows:
-        improvements = json.loads(row["last_improvements_json"] or "[]")
+        improvements = loads_json(row["last_improvements_json"], [])
         focus = improvements[0] if improvements else "Keep using clear task + context + constraints structure."
         _insert_message(
             recipient_type="employee",
@@ -185,6 +188,42 @@ def dispatch_weekly_manager_report() -> DispatchResult:
     return DispatchResult(generated_count=1, message="Weekly manager report generated and queued.")
 
 
+@router.post("/dispatch/weekly-learning", response_model=DispatchResult)
+def dispatch_weekly_learning_emails() -> DispatchResult:
+    """Generate and send personalized weekly learning emails to all active employees."""
+    import logging
+
+    from engines.email_sender import EmailSender
+    from engines.learning_engine import build_learning_email_context
+    from routes.emails import render_template
+
+    log = logging.getLogger(__name__)
+    sender = EmailSender()
+
+    rows = fetch_rows(
+        """
+        SELECT DISTINCT e.id AS employee_id
+        FROM employees e
+        INNER JOIN prompts p ON p.employee_id = e.id
+        WHERE p.created_at >= datetime('now', '-7 day')
+        """
+    )
+    count = 0
+    for row in rows:
+        employee_id = row["employee_id"]
+        ctx = build_learning_email_context(employee_id)
+        if not ctx:
+            continue
+        try:
+            html = render_template("learning.html", ctx)
+        except Exception:
+            log.exception("weekly learning template failed for employee_id=%s", employee_id)
+            continue
+        sender.send_weekly_learning(employee_id, html)
+        count += 1
+    return DispatchResult(generated_count=count, message=f"Weekly learning emails sent to {count} employees.")
+
+
 @router.post("/dispatch/security-notices", response_model=DispatchResult)
 def dispatch_security_notices() -> DispatchResult:
     rows = fetch_rows(
@@ -220,7 +259,7 @@ def review_engineer_code_submit(payload: CodeReviewSubmitRequest) -> AnalyzeResp
     if employee["role"] != "engineer":
         raise HTTPException(status_code=403, detail="Code submit review is only for engineers")
 
-    return analyze_prompt(
+    return get_orchestrator().run(
         AnalyzeRequest(
             employee_id=payload.employee_id,
             prompt_text=payload.code_text,
@@ -387,14 +426,16 @@ def seed_agent_demo_data() -> DispatchResult:
                 (round(total_cost, 2), avg_quality, success_rate, agent_id),
             )
 
-        # ── Seed a few agent-related alerts ──────────────────────────
+        # ── Seed a few agent-related alerts (idempotent: replace prior demo rows) ──
+        conn.execute("DELETE FROM alerts WHERE detail LIKE '[demo-seed] %'")
+
         # Budget warning for DataPipe (highest spender)
         conn.execute(
             "INSERT INTO alerts (alert_type, severity, detail, is_active, created_at) VALUES (?, ?, ?, 1, ?)",
             (
                 "agent_budget_warning",
                 "medium",
-                "Agent DataPipe has used 87% of its weekly budget ($52.20 / $60.00). Consider reviewing task volume.",
+                "[demo-seed] Agent DataPipe has used 87% of its weekly budget ($52.20 / $60.00). Consider reviewing task volume.",
                 (now - timedelta(hours=6)).isoformat(),
             ),
         )
@@ -404,7 +445,7 @@ def seed_agent_demo_data() -> DispatchResult:
             (
                 "agent_quality_drop",
                 "medium",
-                "Agent SalesBot quality score dropped below 0.70 threshold over the last 24 hours. Success rate: 78%.",
+                "[demo-seed] Agent SalesBot quality score dropped below 0.70 threshold over the last 24 hours. Success rate: 78%.",
                 (now - timedelta(hours=14)).isoformat(),
             ),
         )
@@ -414,7 +455,7 @@ def seed_agent_demo_data() -> DispatchResult:
             (
                 "agent_low_success",
                 "high",
-                "Agent MarketingGen success rate fell to 72% — below the 75% minimum. 6 failed tasks in the last 48 hours.",
+                "[demo-seed] Agent MarketingGen success rate fell to 72% — below the 75% minimum. 6 failed tasks in the last 48 hours.",
                 (now - timedelta(hours=3)).isoformat(),
             ),
         )
@@ -424,7 +465,7 @@ def seed_agent_demo_data() -> DispatchResult:
             (
                 "agent_performance_excellent",
                 "low",
-                "Agent HelpDesk AI sustained 96% success rate with highest quality scores. Budget rebalance recommendation: +10%.",
+                "[demo-seed] Agent HelpDesk AI sustained 96% success rate with highest quality scores. Budget rebalance recommendation: +10%.",
                 (now - timedelta(hours=24)).isoformat(),
             ),
         )
@@ -434,7 +475,7 @@ def seed_agent_demo_data() -> DispatchResult:
             (
                 "agent_budget_warning",
                 "low",
-                "Agent CodeGuard approaching 75% budget utilization. Current spend trending within normal range.",
+                "[demo-seed] Agent CodeGuard approaching 75% budget utilization. Current spend trending within normal range.",
                 (now - timedelta(hours=48)).isoformat(),
             ),
         )
@@ -568,8 +609,9 @@ def seed_prompt_demo_data() -> DispatchResult:
     ]
 
     count = 0
+    orchestrator = get_orchestrator()
     for seed in SEED_PROMPTS:
-        analyze_prompt(
+        orchestrator.run(
             AnalyzeRequest(
                 employee_id=seed["employee_id"],
                 prompt_text=seed["prompt_text"],
@@ -588,11 +630,23 @@ def seed_prompt_demo_data() -> DispatchResult:
 def reset_all_data() -> dict:
     """Wipe all transactional data, keep employees and config."""
     with get_conn() as conn:
+        # Order respects FKs when foreign_keys=ON (children before parents).
         for table in [
-            "prompts", "detections", "alerts", "shadow_ai_events",
-            "captured_turns", "agent_runs", "weekly_reports",
-            "auth_sessions", "system_messages", "employee_skill_events",
+            "alert_notifications",
+            "detections",
+            "employee_interaction_memory",
+            "employee_skill_events",
             "employee_lessons",
+            "agent_output_attributions",
+            "agent_runs",
+            "extension_warning_events",
+            "captured_turns",
+            "prompts",
+            "alerts",
+            "shadow_ai_events",
+            "weekly_reports",
+            "auth_sessions",
+            "system_messages",
         ]:
             conn.execute(f"DELETE FROM {table}")
         conn.execute("UPDATE employees SET risk_score = 0")
@@ -650,5 +704,20 @@ def ops_tick(force: bool = False) -> TickResponse:
         )
     else:
         jobs.append(TickJobResult(job_name="security_notices", status="skipped", generated_count=0, detail=detail))
+
+    due, detail = _job_due("weekly_learning")
+    if force or due:
+        res = dispatch_weekly_learning_emails()
+        _mark_job_run("weekly_learning")
+        jobs.append(
+            TickJobResult(
+                job_name="weekly_learning",
+                status="ran",
+                generated_count=res.generated_count,
+                detail=res.message,
+            )
+        )
+    else:
+        jobs.append(TickJobResult(job_name="weekly_learning", status="skipped", generated_count=0, detail=detail))
 
     return TickResponse(ran_at=_utc_now(), jobs=jobs)

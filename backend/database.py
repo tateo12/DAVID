@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import sqlite3
 from contextlib import contextmanager
@@ -5,8 +7,13 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Generator
 
-from config import get_settings
+import psycopg
+from psycopg.rows import dict_row
+
+from config import get_settings, is_postgresql_database, resolved_database_url
 from models import ActionType, RiskLevel
+from postgres_schema import INIT_STATEMENTS
+from sql_adapt import adapt_sql_for_postgres, append_returning_id, should_append_returning_id
 
 
 def _utc_now() -> str:
@@ -18,18 +25,115 @@ def _db_path() -> Path:
     return Path(__file__).resolve().parent / settings.sqlite_path
 
 
+def _sqlite_file_for_connect() -> str:
+    """Path or :memory: for sqlite3 from resolved DATABASE_URL / sqlite_path."""
+    u = resolved_database_url()
+    if ":memory:" in u:
+        return ":memory:"
+    if u.startswith("sqlite:///"):
+        rest = u[10:]
+        p = Path(rest)
+        if not p.is_absolute():
+            p = Path(__file__).resolve().parent / rest
+        return str(p)
+    return str(_db_path())
+
+
+def _pg_dsn() -> str:
+    return resolved_database_url()
+
+
+class _PgCursor:
+    def __init__(self, cur: psycopg.Cursor[Any], lastrowid: int = 0) -> None:
+        self._cur = cur
+        self._lastrowid = lastrowid
+
+    def fetchone(self) -> Any:
+        return self._cur.fetchone()
+
+    def fetchall(self) -> list[Any]:
+        return list(self._cur.fetchall())
+
+    @property
+    def lastrowid(self) -> int:
+        return self._lastrowid
+
+
+class PgConnection:
+    """psycopg connection with SQLite-like execute() (including lastrowid for INSERTs)."""
+
+    def __init__(self, conn: psycopg.Connection) -> None:
+        self._conn = conn
+
+    def execute(self, sql: str, params: tuple[Any, ...] = ()) -> _PgCursor:
+        adapted = adapt_sql_for_postgres(sql)
+        need_returning = should_append_returning_id(adapted)
+        if need_returning:
+            adapted = append_returning_id(adapted)
+        cur = self._conn.cursor(row_factory=dict_row)
+        cur.execute(adapted, params)
+        if need_returning:
+            row = cur.fetchone()
+            lid = int(row["id"]) if row and row.get("id") is not None else 0
+            return _PgCursor(cur, lastrowid=lid)
+        return _PgCursor(cur, lastrowid=0)
+
+    def executemany(self, sql: str, seq: list[tuple[Any, ...]]) -> None:
+        adapted = adapt_sql_for_postgres(sql)
+        with self._conn.cursor() as cur:
+            cur.executemany(adapted, seq)
+
+
+class _SqliteConnWrapper:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def execute(self, sql: str, params: tuple[Any, ...] = ()) -> sqlite3.Cursor:
+        return self._conn.execute(sql, params)
+
+    def executemany(self, sql: str, seq: list[tuple[Any, ...]]) -> sqlite3.Cursor:
+        return self._conn.executemany(sql, seq)
+
+    def executescript(self, script: str) -> None:
+        self._conn.executescript(script)
+
+
 @contextmanager
-def get_conn() -> Generator[sqlite3.Connection, None, None]:
-    conn = sqlite3.connect(_db_path())
-    conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-        conn.commit()
-    finally:
-        conn.close()
+def get_conn() -> Generator[_SqliteConnWrapper | PgConnection, None, None]:
+    if is_postgresql_database():
+        conn = psycopg.connect(_pg_dsn(), autocommit=False)
+        try:
+            yield PgConnection(conn)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    else:
+        conn = sqlite3.connect(_sqlite_file_for_connect())
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        try:
+            yield _SqliteConnWrapper(conn)
+            conn.commit()
+        finally:
+            conn.close()
 
 
 def init_db() -> None:
+    if is_postgresql_database():
+        conn = psycopg.connect(_pg_dsn(), autocommit=False)
+        try:
+            with conn.cursor() as cur:
+                for stmt in INIT_STATEMENTS:
+                    cur.execute(stmt)
+            conn.commit()
+        finally:
+            conn.close()
+        _seed_defaults()
+        return
+
     with get_conn() as conn:
         conn.executescript(
             """
@@ -382,16 +486,17 @@ def _seed_defaults() -> None:
                     ("daily_coaching", 86400, None),
                     ("weekly_manager_report", 604800, None),
                     ("security_notices", 300, None),
+                    ("weekly_learning", 604800, None),
                 ],
             )
 
 
-def fetch_rows(query: str, params: tuple[Any, ...] = ()) -> list[sqlite3.Row]:
+def fetch_rows(query: str, params: tuple[Any, ...] = ()) -> list[Any]:
     with get_conn() as conn:
         return conn.execute(query, params).fetchall()
 
 
-def fetch_one(query: str, params: tuple[Any, ...] = ()) -> sqlite3.Row | None:
+def fetch_one(query: str, params: tuple[Any, ...] = ()) -> Any:
     with get_conn() as conn:
         return conn.execute(query, params).fetchone()
 
@@ -399,7 +504,7 @@ def fetch_one(query: str, params: tuple[Any, ...] = ()) -> sqlite3.Row | None:
 def execute(query: str, params: tuple[Any, ...] = ()) -> int:
     with get_conn() as conn:
         cur = conn.execute(query, params)
-        return cur.lastrowid
+        return int(cur.lastrowid or 0)
 
 
 def create_alert(alert_type: str, severity: RiskLevel, detail: str) -> None:

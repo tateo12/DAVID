@@ -1,0 +1,240 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Weekly AI Skills Report</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f1f5f9; font-family:Arial, Helvetica, sans-serif; -webkit-font-smoothing:antialiased;">
+
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f1f5f9;">
+    <tr>
+      <td align="center" style="padding:24px 16px;">
+
+        <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px; width:100%; background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 4px 6px rgba(0,0,0,0.07);">
+
+          <!-- Accent bar -->
+          <tr>
+            <td style="background-color:{% if skill_class == 'advanced' %}#22c55e{% elif skill_class == 'proficient' %}#3b82f6{% elif skill_class == 'developing' %}#f59e0b{% else %}#ef4444{% endif %}; padding:6px 40px;"></td>
+          </tr>
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#0f172a; padding:28px 40px; text-align:center;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="color:#ffffff; font-size:22px; font-weight:bold; text-align:center; letter-spacing:0.5px;">
+                    Weekly AI Skills Report
+                  </td>
+                </tr>
+                <tr>
+                  <td style="color:#94a3b8; font-size:13px; text-align:center; padding-top:6px;">
+                    {{ week_start }} &mdash; {{ week_end }}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:36px 40px 12px 40px;">
+
+              <!-- Greeting -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="color:#0f172a; font-size:18px; font-weight:bold; padding-bottom:16px;">
+                    Hi {{ employee_name }},
+                  </td>
+                </tr>
+                <tr>
+                  <td style="color:#475569; font-size:15px; line-height:24px; padding-bottom:24px;">
+                    Here's your personalized AI prompt skills summary for the past week. We've analyzed your prompts and prepared targeted learning to help you level up.
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Score Card -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:24px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+                <tr>
+                  <td style="background-color:#0f172a; padding:12px 20px; color:#ffffff; font-size:13px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">
+                    Your Skill Snapshot
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="padding:14px 20px; border-bottom:1px solid #f1f5f9; width:45%; color:#64748b; font-size:13px; font-weight:600;">
+                          Skill Class
+                        </td>
+                        <td style="padding:14px 20px; border-bottom:1px solid #f1f5f9;">
+                          <table border="0" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="font-size:13px; font-weight:bold; color:#ffffff; background-color:{% if skill_class == 'advanced' %}#22c55e{% elif skill_class == 'proficient' %}#3b82f6{% elif skill_class == 'developing' %}#f59e0b{% else %}#ef4444{% endif %}; padding:4px 14px; border-radius:12px; text-transform:uppercase; letter-spacing:0.5px;">
+                                {{ skill_class }}
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:14px 20px; border-bottom:1px solid #f1f5f9; color:#64748b; font-size:13px; font-weight:600;">
+                          Overall Score
+                        </td>
+                        <td style="padding:14px 20px; border-bottom:1px solid #f1f5f9; color:#0f172a; font-size:16px; font-weight:bold;">
+                          {{ skill_score_display }}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:14px 20px; border-bottom:1px solid #f1f5f9; color:#64748b; font-size:13px; font-weight:600;">
+                          Trend
+                        </td>
+                        <td style="padding:14px 20px; border-bottom:1px solid #f1f5f9; color:{% if trend == 'improving' %}#22c55e{% elif trend == 'declining' %}#ef4444{% else %}#64748b{% endif %}; font-size:14px; font-weight:600;">
+                          {{ trend_display }}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:14px 20px; color:#64748b; font-size:13px; font-weight:600;">
+                          Prompts This Week
+                        </td>
+                        <td style="padding:14px 20px; color:#0f172a; font-size:14px; font-weight:600;">
+                          {{ prompts_this_week }}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Dimension Scores -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:24px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+                <tr>
+                  <td style="background-color:#0f172a; padding:12px 20px; color:#ffffff; font-size:13px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">
+                    Skill Dimensions
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      {% for dim in dimensions %}
+                      <tr>
+                        <td style="padding:10px 20px; border-bottom:1px solid #f1f5f9; color:#0f172a; font-size:13px; font-weight:600; width:55%;">
+                          {{ dim.label }}
+                        </td>
+                        <td style="padding:10px 20px; border-bottom:1px solid #f1f5f9; color:{% if dim.score_pct >= 80 %}#22c55e{% elif dim.score_pct >= 60 %}#3b82f6{% elif dim.score_pct >= 40 %}#f59e0b{% else %}#ef4444{% endif %}; font-size:14px; font-weight:bold; text-align:center;">
+                          {{ dim.score_pct }}%
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Strengths -->
+              {% if strengths_text %}
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-left:4px solid #22c55e; margin-bottom:24px;">
+                <tr>
+                  <td style="padding:16px 20px; background-color:#f0fdf4; border-radius:0 8px 8px 0;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="color:#15803d; font-size:15px; font-weight:bold; padding-bottom:8px;">
+                          What You're Doing Well
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="color:#166534; font-size:14px; line-height:22px;">
+                          {{ strengths_text }}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              {% endif %}
+
+              <!-- Personalized Learning Tips -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-left:4px solid #3b82f6; margin-bottom:24px;">
+                <tr>
+                  <td style="padding:16px 20px; background-color:#eff6ff; border-radius:0 8px 8px 0;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="color:#1e40af; font-size:15px; font-weight:bold; padding-bottom:8px;">
+                          This Week's Learning Focus
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="color:#1e3a5f; font-size:14px; line-height:22px;">
+                          {{ learning_tips }}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Assigned Lessons -->
+              {% if lessons_text %}
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border:2px solid #8b5cf6; border-radius:8px; margin-bottom:24px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="color:#6d28d9; font-size:15px; font-weight:bold; padding-bottom:10px;">
+                          Recommended Lessons
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="color:#475569; font-size:14px; line-height:22px;">
+                          {{ lessons_text }}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              {% endif %}
+
+              <!-- CTA -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:12px;">
+                <tr>
+                  <td align="center" style="padding:4px 0 16px 0;">
+                    <table border="0" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center" style="background-color:#3b82f6; border-radius:8px;">
+                          <a href="{{ dashboard_url }}" target="_blank" style="display:inline-block; padding:14px 36px; color:#ffffff; font-size:15px; font-weight:bold; text-decoration:none; letter-spacing:0.3px;">
+                            View Full Dashboard &rarr;
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 40px 28px 40px; border-top:1px solid #e2e8f0;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="color:#94a3b8; font-size:12px; line-height:18px; text-align:center;">
+                    <strong>Sentinel AI Security</strong> | Acme Corp<br />
+                    This is an automated weekly skills report. Questions? Contact your security team.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

@@ -4,7 +4,7 @@ from typing import Any
 
 import requests
 
-from config import get_settings
+from config import get_settings, openrouter_chat_completions_url
 from engines.agents.contracts import L2ClassificationResult
 from models import Detection, DetectionLayer, DetectionType, RiskLevel
 
@@ -84,7 +84,7 @@ class L2ClassifierAgent:
         }
         try:
             response = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
+                openrouter_chat_completions_url(),
                 headers=headers,
                 json=payload,
                 timeout=25,

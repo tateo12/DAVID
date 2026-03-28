@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from engines.analysis_engine import analyze_prompt
+from engines.orchestrator_factory import get_orchestrator
 from models import AnalyzeRequest, AnalyzeResponse
 
 router = APIRouter(prefix="/analyze", tags=["analyze"])
@@ -8,4 +8,4 @@ router = APIRouter(prefix="/analyze", tags=["analyze"])
 
 @router.post("", response_model=AnalyzeResponse)
 def analyze(payload: AnalyzeRequest) -> AnalyzeResponse:
-    return analyze_prompt(payload)
+    return get_orchestrator().run(payload)

@@ -62,8 +62,9 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "monospace"],
+        sans: ["var(--font-sans)", "Inter", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "Plus Jakarta Sans", "system-ui", "sans-serif"],
+        mono: ["var(--font-mono)", "JetBrains Mono", "monospace"],
       },
       animation: {
         "slide-down": "slideDown 0.3s ease-out",

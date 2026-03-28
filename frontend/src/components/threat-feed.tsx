@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, User } from "lucide-react";
 
 const riskBadgeStyles: Record<RiskLevel, string> = {
-  safe: "bg-sentinel-green/15 text-sentinel-green border-sentinel-green/30",
   low: "bg-sentinel-green/10 text-sentinel-green/80 border-sentinel-green/20",
   medium: "bg-sentinel-amber/15 text-sentinel-amber border-sentinel-amber/30",
   high: "bg-orange-500/15 text-orange-400 border-orange-500/30",
@@ -84,6 +83,14 @@ export function ThreatFeed({ maxItems = 20, refreshInterval = 5000 }: ThreatFeed
             <div className="w-full h-4 skeleton mt-2" />
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (prompts.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-sentinel-border/50 py-12 text-center text-sm text-sentinel-text-secondary">
+        No prompts in the feed yet. Capture prompts from the extension or analyzer to populate this list.
       </div>
     );
   }

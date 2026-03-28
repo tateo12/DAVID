@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -27,8 +27,12 @@ const navItems = [
   { href: "/reports", label: "Reports", icon: FileBarChart },
 ];
 
-export function Sidebar() {
-  const [expanded, setExpanded] = useState(true);
+interface SidebarProps {
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+export function Sidebar({ expanded, onToggle }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -67,7 +71,7 @@ export function Sidebar() {
           const linkContent = (
             <Link
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${
+              className={`relative flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${
                 isActive
                   ? "bg-sentinel-blue/15 text-sentinel-blue"
                   : "text-sentinel-text-secondary hover:bg-sentinel-surface-hover hover:text-sentinel-text-primary"
@@ -107,7 +111,8 @@ export function Sidebar() {
       {/* Collapse Toggle */}
       <div className="px-2 pb-4 shrink-0">
         <button
-          onClick={() => setExpanded(!expanded)}
+          type="button"
+          onClick={onToggle}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sentinel-text-secondary hover:bg-sentinel-surface-hover hover:text-sentinel-text-primary transition-all duration-200"
         >
           {expanded ? (

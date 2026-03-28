@@ -4,7 +4,7 @@ from typing import Any
 
 import requests
 
-from config import get_settings
+from config import get_settings, openrouter_chat_completions_url
 from engines.agents.contracts import L3JudgmentResult
 from models import ActionType, Detection, RiskLevel
 
@@ -22,7 +22,9 @@ class L3JudgmentAgent:
             return False
         if not self._get_api_key():
             return False
-        return risk_level in {RiskLevel.medium, RiskLevel.high, RiskLevel.critical} or len(detections) == 0
+        if detections:
+            return True
+        return risk_level in {RiskLevel.medium, RiskLevel.high, RiskLevel.critical}
 
     @staticmethod
     def _detection_summary(detections: list[Detection]) -> list[dict[str, Any]]:
@@ -88,7 +90,7 @@ class L3JudgmentAgent:
         }
         try:
             response = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
+                openrouter_chat_completions_url(),
                 headers=headers,
                 json=payload,
                 timeout=30,

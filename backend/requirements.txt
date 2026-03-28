@@ -7,3 +7,4 @@ anthropic
 requests
 pytest
 httpx
+psycopg[binary]

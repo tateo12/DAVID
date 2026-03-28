@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { fetchShadowAI } from "@/lib/api";
 import { ShadowAISummary, RiskLevel } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Ghost, Wrench, Users, AlertTriangle, Eye } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 import {
   Dialog,
   DialogContent,
@@ -22,7 +23,6 @@ import {
 } from "@/components/ui/dialog";
 
 const riskBadgeStyles: Record<RiskLevel, string> = {
-  safe: "bg-sentinel-green/15 text-sentinel-green border-sentinel-green/30",
   low: "bg-sentinel-green/10 text-sentinel-green/80 border-sentinel-green/20",
   medium: "bg-sentinel-amber/15 text-sentinel-amber border-sentinel-amber/30",
   high: "bg-orange-500/15 text-orange-400 border-orange-500/30",
@@ -46,6 +46,12 @@ function formatDate(iso: string) {
   });
 }
 
+function pctDelta(cur: number, prev: number): number | null {
+  if (prev === 0 && cur === 0) return 0;
+  if (prev === 0) return null;
+  return Math.round(((cur - prev) / prev) * 1000) / 10;
+}
+
 export default function ShadowAIPage() {
   const [data, setData] = useState<ShadowAISummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,16 +64,40 @@ export default function ShadowAIPage() {
     });
   }, []);
 
+  const shadowStats = useMemo(() => {
+    const flags = data?.flags ?? [];
+    const now = Date.now();
+    const ms7 = 7 * 24 * 60 * 60 * 1000;
+    const last7 = flags.filter((f) => {
+      const t = new Date(f.date).getTime();
+      return !Number.isNaN(t) && now - t >= 0 && now - t <= ms7;
+    });
+    const prev7 = flags.filter((f) => {
+      const t = new Date(f.date).getTime();
+      if (Number.isNaN(t)) return false;
+      const age = now - t;
+      return age > ms7 && age <= 2 * ms7;
+    });
+    return {
+      flagsLast: last7.length,
+      flagsPrev: prev7.length,
+      toolsLast: new Set(last7.map((f) => f.tool_detected)).size,
+      toolsPrev: new Set(prev7.map((f) => f.tool_detected)).size,
+      empLast: new Set(last7.map((f) => f.employee_id)).size,
+      empPrev: new Set(prev7.map((f) => f.employee_id)).size,
+    };
+  }, [data?.flags]);
+
   const selectedFlag = data?.flags.find((f) => f.id === selectedId);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-sentinel-text-primary">Shadow AI Detection</h1>
-        <p className="text-sm text-sentinel-text-secondary mt-1">
-          Monitor and manage unauthorized AI tool usage across the organization
-        </p>
-      </div>
+      <PageHeader
+        accent="shadow"
+        icon={Ghost}
+        title="Shadow AI detection"
+        description="Unsanctioned tools and side-channel usage. Feed shows the last 100 events; summary cards compare the latest 7 days to the prior 7."
+      />
 
       {/* Summary Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -75,23 +105,23 @@ export default function ShadowAIPage() {
           <>
             <MetricCard
               icon={AlertTriangle}
-              label="Total Flags"
-              value={data.total_flags}
-              trend={-12}
+              label="Flags (7d)"
+              value={shadowStats.flagsLast}
+              trend={pctDelta(shadowStats.flagsLast, shadowStats.flagsPrev)}
               iconColor="text-sentinel-red"
             />
             <MetricCard
               icon={Wrench}
-              label="Unique Tools Detected"
-              value={data.unique_tools}
-              trend={5}
+              label="Unique tools (7d)"
+              value={shadowStats.toolsLast}
+              trend={pctDelta(shadowStats.toolsLast, shadowStats.toolsPrev)}
               iconColor="text-sentinel-amber"
             />
             <MetricCard
               icon={Users}
-              label="Employees Involved"
-              value={data.employees_involved}
-              trend={-8}
+              label="Employees (7d)"
+              value={shadowStats.empLast}
+              trend={pctDelta(shadowStats.empLast, shadowStats.empPrev)}
               iconColor="text-sentinel-blue"
             />
           </>
@@ -126,7 +156,7 @@ export default function ShadowAIPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data?.flags.map((flag) => (
+              {data?.flags?.length ? data.flags.map((flag) => (
                 <TableRow
                   key={flag.id}
                   className="border-sentinel-border/50 hover:bg-sentinel-surface-hover/50 transition-colors duration-150"
@@ -173,7 +203,13 @@ export default function ShadowAIPage() {
                     </button>
                   </TableCell>
                 </TableRow>
-              ))}
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-14 text-center text-sm text-sentinel-text-secondary">
+                    No shadow AI events in the current feed.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         )}

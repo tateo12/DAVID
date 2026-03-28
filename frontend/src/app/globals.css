@@ -32,9 +32,13 @@
     @apply border-border;
   }
 
+  .font-display {
+    font-family: var(--font-display), "Plus Jakarta Sans", system-ui, sans-serif;
+  }
+
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-sans), "Inter", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }

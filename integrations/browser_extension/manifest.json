@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Sentinel Prompt Guard",
-  "version": "0.1.0",
-  "description": "Captures employee AI prompts and sends them to Sentinel backend for analysis.",
+  "version": "0.2.0",
+  "description": "Intercepts and scans employee AI prompts before submission — blocks sensitive data from reaching AI tools.",
   "action": {
     "default_popup": "popup.html",
     "default_title": "Sentinel Prompt Guard"
@@ -10,35 +10,67 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["storage", "activeTab", "scripting", "tabs"],
-  "host_permissions": [
-    "http://localhost:8000/*",
-    "https://chatgpt.com/*",
-    "https://chat.openai.com/*",
-    "https://claude.ai/*",
-    "https://gemini.google.com/*"
-  ],
+  "permissions": ["storage", "activeTab", "scripting", "tabs", "webNavigation"],
+  "host_permissions": ["*://*/*"],
   "content_scripts": [
     {
       "matches": [
         "https://chatgpt.com/*",
         "https://chat.openai.com/*",
         "https://claude.ai/*",
-        "https://gemini.google.com/*"
+        "https://gemini.google.com/*",
+        "https://aistudio.google.com/*",
+        "https://copilot.microsoft.com/*",
+        "https://www.bing.com/chat*",
+        "https://www.perplexity.ai/*",
+        "https://perplexity.ai/*",
+        "https://chat.mistral.ai/*",
+        "https://poe.com/*",
+        "https://huggingface.co/chat/*",
+        "https://chat.deepseek.com/*",
+        "https://you.com/*",
+        "https://pi.ai/*",
+        "https://coral.cohere.com/*",
+        "https://character.ai/*",
+        "https://beta.character.ai/*",
+        "https://old.character.ai/*",
+        "https://meta.ai/*",
+        "https://www.meta.ai/*",
+        "https://grok.com/*",
+        "https://x.com/i/grok*",
+        "https://chat.lmsys.org/*",
+        "https://lmarena.ai/*",
+        "https://arena.lmsys.org/*",
+        "https://labs.google/*",
+        "https://chat.qwenlm.ai/*",
+        "https://console.groq.com/*",
+        "https://openrouter.ai/*",
+        "https://chat.01.ai/*",
+        "https://notdiamond.ai/*",
+        "https://chat.notdiamond.ai/*",
+        "https://abacus.ai/*",
+        "https://app.fireworks.ai/*",
+        "https://deepinfra.com/*",
+        "https://together.ai/*",
+        "https://app.together.ai/*",
+        "https://replicate.com/*",
+        "https://chat.reka.ai/*",
+        "https://chat.coze.com/*",
+        "https://www.jasper.ai/*",
+        "https://app.writesonic.com/*",
+        "https://chat.forefront.ai/*",
+        "https://open-assistant.io/*",
+        "https://chat.nbox.ai/*"
       ],
       "js": ["content.js"],
+      "css": ["styles.css"],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
       "resources": ["page_hook.js"],
-      "matches": [
-        "https://chatgpt.com/*",
-        "https://chat.openai.com/*",
-        "https://claude.ai/*",
-        "https://gemini.google.com/*"
-      ]
+      "matches": ["*://*/*"]
     }
   ]
 }

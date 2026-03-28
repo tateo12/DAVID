@@ -1,25 +1,30 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import get_settings
+from config import cors_allowed_origins, get_settings
 from database import init_db
 from routes import agents, alerts, analyze, auth, emails, employees, extension, metrics, operations, policies, prompts, reports, shadow_ai
 
 settings = get_settings()
-app = FastAPI(title=settings.app_name)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_allowed_origins(),
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-def startup() -> None:
-    init_db()
 
 
 @app.get("/health")

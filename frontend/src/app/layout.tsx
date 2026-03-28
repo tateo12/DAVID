@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppShell } from "@/components/app-shell";
@@ -7,6 +7,12 @@ import { AppShell } from "@/components/app-shell";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
+  display: "swap",
+});
+
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-display",
   display: "swap",
 });
 
@@ -34,7 +40,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased bg-[#0f172a] text-[#f1f5f9]`}
+        className={`${inter.variable} ${plusJakarta.variable} ${jetbrainsMono.variable} antialiased bg-[#0a0f1a] text-[#f1f5f9]`}
         style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
       >
         <TooltipProvider delayDuration={0}>

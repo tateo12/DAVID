@@ -1,19 +1,20 @@
 // ===== Risk & Status Types =====
-export type RiskLevel = "safe" | "low" | "medium" | "high" | "critical";
-export type PolicyStatus = "active" | "draft" | "archived";
+export type RiskLevel = "low" | "medium" | "high" | "critical";
 export type AgentStatus = "online" | "offline" | "degraded";
 export type EmployeeStatus = "active" | "inactive" | "suspended";
 
-// ===== Metrics =====
+// ===== Metrics (from GET /api/metrics/dashboard — 7-day rolling + WoW %) =====
 export interface Metrics {
   threats_blocked: number;
-  threats_blocked_trend: number;
+  threats_blocked_trend: number | null;
   cost_saved: number;
-  cost_saved_trend: number;
+  cost_saved_trend: number | null;
   shadow_ai_detected: number;
-  shadow_ai_trend: number;
+  shadow_ai_trend: number | null;
   active_employees: number;
-  active_employees_trend: number;
+  active_employees_trend: number | null;
+  threat_trend_chart: Array<{ day: string; threats: number; blocked: number }>;
+  risk_distribution: Array<{ level: string; count: number }>;
 }
 
 // ===== Analysis =====
@@ -42,6 +43,8 @@ export interface Employee {
   status: EmployeeStatus;
   avatar_url?: string;
   risk_trend: number[];
+  /** 0–100 when provided from API */
+  ai_skill_score?: number;
   prompt_history?: PromptRecord[];
 }
 
@@ -59,16 +62,13 @@ export interface PromptRecord {
   timestamp: string;
 }
 
-// ===== Policies =====
+// ===== Policies (API: GET/PUT /api/policies) =====
 export interface Policy {
-  id: string;
+  id: number;
   name: string;
-  description: string;
-  full_text: string;
-  status: PolicyStatus;
-  last_updated: string;
-  created_at: string;
-  category: string;
+  role: string;
+  rule_json: Record<string, unknown>;
+  updated_at: string;
 }
 
 // ===== Shadow AI =====

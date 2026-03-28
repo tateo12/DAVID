@@ -34,6 +34,7 @@ import {
   Cpu,
   Info,
 } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 import { RiskGauge } from "@/components/risk-gauge";
 
 function formatDate(iso: string) {
@@ -76,32 +77,32 @@ export default function ReportsPage() {
   if (!report) return null;
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
-      {/* Report Header */}
-      <div className="border-b border-sentinel-border pb-6">
-        <div className="flex items-center gap-3 mb-2">
+    <div className="mx-auto max-w-5xl space-y-8">
+      <PageHeader
+        accent="reports"
+        icon={FileBarChart}
+        title="Weekly executive summary"
+        description={
+          <>
+            <span className="inline-flex items-center gap-1.5 text-sentinel-text-secondary">
+              <Calendar className="h-3.5 w-3.5 shrink-0" />
+              {formatDate(report.week_start)} — {formatDate(report.week_end)}
+            </span>
+            <span className="mt-2 block text-sentinel-text-secondary/90">
+              Threat landscape, risk concentration, and automation ROI for the period covered by the API.
+            </span>
+          </>
+        }
+        actions={
           <Image
             src="/sentinel_logo.png"
-            alt="Sentinel"
-            width={44}
-            height={44}
-            className="shrink-0 rounded-full"
+            alt=""
+            width={40}
+            height={40}
+            className="shrink-0 rounded-full opacity-90 ring-1 ring-white/10"
           />
-          <div>
-            <h1 className="text-3xl font-bold text-sentinel-text-primary">Weekly Executive Summary</h1>
-            <div className="flex items-center gap-2 mt-1">
-              <Calendar className="w-3.5 h-3.5 text-sentinel-text-secondary" />
-              <span className="text-sm text-sentinel-text-secondary">
-                {formatDate(report.week_start)} — {formatDate(report.week_end)}
-              </span>
-            </div>
-          </div>
-        </div>
-        <p className="text-sm text-sentinel-text-secondary/80 mt-3 leading-relaxed max-w-2xl">
-          Comprehensive overview of AI security posture, threat landscape, and actionable recommendations
-          for the reporting period.
-        </p>
-      </div>
+        }
+      />
 
       {/* Key Metrics */}
       <section>
