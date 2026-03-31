@@ -8,7 +8,8 @@ INIT_STATEMENTS: list[str] = [
         name TEXT NOT NULL,
         department TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'employee',
-        risk_score DOUBLE PRECISION NOT NULL DEFAULT 0
+        risk_score DOUBLE PRECISION NOT NULL DEFAULT 0,
+        company_name TEXT NOT NULL DEFAULT ''
     )
     """,
     """
@@ -264,6 +265,17 @@ INIT_STATEMENTS: list[str] = [
         alert_id INTEGER NOT NULL REFERENCES alerts (id),
         notified_at TEXT NOT NULL,
         UNIQUE(alert_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS auth_otps (
+        id SERIAL PRIMARY KEY,
+        email TEXT NOT NULL,
+        code TEXT NOT NULL,
+        role TEXT NOT NULL,
+        company_name TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
     )
     """,
 ]

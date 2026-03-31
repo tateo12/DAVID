@@ -513,6 +513,20 @@ export async function createPolicy(payload: {
   });
 }
 
+export async function registerOtpRequest(payload: { email: string; company_name: string; role: string }) {
+  return apiFetch("/api/auth/register-request", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  }, false);
+}
+
+export async function registerOtpVerify(payload: { email: string; code: string; username: string; password: string }): Promise<{ access_token: string; expires_at: string; user: AuthUser }> {
+  return apiFetch("/api/auth/register-verify", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  }, false);
+}
+
 export async function loginUser(username: string, password: string): Promise<{
   access_token: string;
   user: AuthUser;

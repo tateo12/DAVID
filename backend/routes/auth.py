@@ -1,10 +1,83 @@
+import secrets
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from auth import create_session, get_current_user, hash_password
 from database import _utc_now, execute, fetch_one, init_db
-from models import AuthUser, InviteRegisterRequest, LoginRequest, LoginResponse
+from models import AuthUser, InviteRegisterRequest, LoginRequest, LoginResponse, OtpRegisterRequest, OtpVerifyRequest
+from engines.email_sender import send_otp_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.post("/register-request")
+def register_request(payload: OtpRegisterRequest):
+    init_db()
+    email = payload.email.strip().lower()
+    company = payload.company_name.strip()
+    role = payload.role.strip()
+    
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Invalid email")
+    if fetch_one("SELECT id FROM employees WHERE lower(trim(email)) = ?", (email,)):
+        raise HTTPException(status_code=400, detail="Email already registered")
+        
+    code = f"{secrets.randbelow(1000000):06d}"
+    expires = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+    now = _utc_now()
+    execute(
+        "INSERT INTO auth_otps (email, code, role, company_name, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (email, code, role, company, now, expires)
+    )
+    send_otp_email(email, code, role)
+    return {"status": "otp_sent"}
+
+
+@router.post("/register-verify", response_model=LoginResponse)
+def register_verify(payload: OtpVerifyRequest) -> LoginResponse:
+    init_db()
+    email = payload.email.strip().lower()
+    code = payload.code.strip()
+    username = payload.username.strip()
+    password = payload.password
+    
+    if fetch_one("SELECT id FROM users WHERE username = ?", (username,)):
+        raise HTTPException(status_code=400, detail="Username already taken")
+        
+    now = _utc_now()
+    otp_row = fetch_one(
+        "SELECT id, role, company_name FROM auth_otps WHERE email = ? AND code = ? AND expires_at > ? ORDER BY id DESC LIMIT 1",
+        (email, code, now)
+    )
+    if not otp_row:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code")
+        
+    from routes.employees import _next_employee_id
+    from database import ensure_employee_skill_profile
+    eid = _next_employee_id()
+    name = email.split("@")[0]
+    
+    execute(
+        """
+        INSERT INTO employees (
+            id, name, department, role, risk_score, email, company_name, account_claimed_at
+        ) VALUES (?, ?, ?, ?, 0, ?, ?, ?)
+        """,
+        (eid, name, "General", otp_row["role"], email, otp_row["company_name"], now)
+    )
+    ensure_employee_skill_profile(eid)
+    
+    execute(
+        "INSERT INTO users (username, password, role, employee_id, created_at) VALUES (?, ?, ?, ?, ?)",
+        (username, hash_password(password), otp_row["role"], eid, now)
+    )
+    
+    session = create_session(username, password)
+    return LoginResponse(
+        access_token=session["access_token"],
+        expires_at=session["expires_at"],
+        user=AuthUser(**session["user"]),
+    )
 
 
 @router.post("/login", response_model=LoginResponse)

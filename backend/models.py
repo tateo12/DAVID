@@ -531,6 +531,19 @@ class InviteRegisterRequest(BaseModel):
     display_name: str | None = None
 
 
+class OtpRegisterRequest(BaseModel):
+    email: str
+    company_name: str
+    role: str
+
+
+class OtpVerifyRequest(BaseModel):
+    email: str
+    code: str
+    username: str
+    password: str
+
+
 class LoginRequest(BaseModel):
     username: str
     password: str

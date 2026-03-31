@@ -354,3 +354,23 @@ def process_pending_employee_invite_reminders() -> int:
         )
         sent += 1
     return sent
+
+def send_otp_email(to_email: str, code: str, role: str) -> None:
+    sender = EmailSender()
+    subject = "Sentinel Verification Code"
+    html = f"""<p>Your Sentinel verification code is:</p>
+<h2>{code}</h2>
+<p>Enter this code to register your {role} account.</p>"""
+    if sender._smtp_configured():
+        try:
+            sender._send_smtp(to_email, subject, html)
+        except Exception as exc:
+            log.error("otp email failed: %s", exc)
+    sender._queue_to_db(
+        recipient_type="employee",
+        recipient_id=None,
+        message_type="otp_code",
+        subject=subject,
+        body=f"code: {code}",
+        related_entity="otp",
+    )

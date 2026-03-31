@@ -223,6 +223,7 @@ def _ensure_employee_directory_columns_sqlite(conn: Any) -> None:
         ("invite_reminder_sent_at", "TEXT"),
         ("account_claimed_at", "TEXT"),
         ("extension_first_seen_at", "TEXT"),
+        ("company_name", "TEXT NOT NULL DEFAULT ''"),
     ):
         if name not in cols:
             conn.execute(f"ALTER TABLE employees ADD COLUMN {name} {decl}")
@@ -236,6 +237,7 @@ def _ensure_employee_directory_columns_postgres() -> None:
         "ALTER TABLE employees ADD COLUMN IF NOT EXISTS invite_reminder_sent_at TEXT",
         "ALTER TABLE employees ADD COLUMN IF NOT EXISTS account_claimed_at TEXT",
         "ALTER TABLE employees ADD COLUMN IF NOT EXISTS extension_first_seen_at TEXT",
+        "ALTER TABLE employees ADD COLUMN IF NOT EXISTS company_name TEXT NOT NULL DEFAULT ''",
     ]
     try:
         with psycopg.connect(_pg_dsn(), autocommit=True) as conn:
@@ -316,7 +318,8 @@ def init_db() -> None:
                 name TEXT NOT NULL,
                 department TEXT NOT NULL,
                 role TEXT NOT NULL DEFAULT 'employee',
-                risk_score REAL NOT NULL DEFAULT 0
+                risk_score REAL NOT NULL DEFAULT 0,
+                company_name TEXT NOT NULL DEFAULT ''
             );
 
             CREATE TABLE IF NOT EXISTS prompts (
@@ -571,6 +574,15 @@ def init_db() -> None:
                 notified_at TEXT NOT NULL,
                 UNIQUE(alert_id),
                 FOREIGN KEY (alert_id) REFERENCES alerts (id)
+            );
+            CREATE TABLE IF NOT EXISTS auth_otps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL,
+                code TEXT NOT NULL,
+                role TEXT NOT NULL,
+                company_name TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL
             );
             """
         )
