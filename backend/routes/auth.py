@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from auth import create_session, get_current_user
+from auth import create_session, get_current_user, hash_password
 from database import _utc_now, execute, fetch_one, init_db
 from models import AuthUser, InviteRegisterRequest, LoginRequest, LoginResponse
 
@@ -43,7 +43,7 @@ def register_invite(payload: InviteRegisterRequest) -> LoginResponse:
     display = (payload.display_name or "").strip() or (username.split("@")[0] if "@" in username else username)
     execute(
         "INSERT INTO users (username, password, role, employee_id, created_at) VALUES (?, ?, 'employee', ?, ?)",
-        (username, password, int(row["id"]), _utc_now()),
+        (username, hash_password(password), int(row["id"]), _utc_now()),
     )
     execute(
         """

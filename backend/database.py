@@ -629,9 +629,10 @@ def _seed_defaults() -> None:
             settings = get_settings()
             u, p = (settings.initial_admin_username or "").strip(), (settings.initial_admin_password or "").strip()
             if u and p:
+                from auth import hash_password
                 conn.execute(
                     "INSERT INTO users (username, password, role, employee_id, created_at) VALUES (?, ?, 'manager', NULL, ?)",
-                    (u, p, _utc_now()),
+                    (u, hash_password(p), _utc_now()),
                 )
 
         job_count = conn.execute("SELECT COUNT(1) as c FROM system_jobs").fetchone()["c"]

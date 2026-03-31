@@ -1,6 +1,7 @@
 import secrets
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 from fastapi import Depends, Header, HTTPException
 
 from database import execute, fetch_one, init_db
@@ -8,6 +9,18 @@ from database import execute, fetch_one, init_db
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def hash_password(plain: str) -> str:
+    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    # Support legacy plain-text passwords by checking if it looks like a bcrypt hash
+    if hashed.startswith("$2b$") or hashed.startswith("$2a$"):
+        return bcrypt.checkpw(plain.encode(), hashed.encode())
+    # Legacy plain-text match — migrate to hashed on successful login
+    return plain == hashed
 
 
 def _parse_bearer(authorization: str | None) -> str:
@@ -21,11 +34,16 @@ def _parse_bearer(authorization: str | None) -> str:
 def create_session(username: str, password: str) -> dict:
     init_db()
     user = fetch_one(
-        "SELECT id, username, role, employee_id FROM users WHERE username = ? AND password = ?",
-        (username, password),
+        "SELECT id, username, password, role, employee_id FROM users WHERE username = ?",
+        (username,),
     )
-    if not user:
+    if not user or not verify_password(password, user["password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Auto-migrate plain-text passwords to bcrypt on successful login
+    stored_pw = user["password"]
+    if not stored_pw.startswith("$2b$") and not stored_pw.startswith("$2a$"):
+        execute("UPDATE users SET password = ? WHERE id = ?", (hash_password(password), user["id"]))
 
     token = secrets.token_urlsafe(32)
     expires_at = _utc_now() + timedelta(hours=12)

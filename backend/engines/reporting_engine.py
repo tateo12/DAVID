@@ -136,7 +136,7 @@ def build_dashboard_metrics(employee_id: int | None = None) -> DashboardMetrics:
     shadow_cur = int(sh_cur["c"] or 0) if sh_cur else 0
     shadow_prev = int(sh_prev["c"] or 0) if sh_prev else 0
 
-    threat_trend = _dashboard_threat_series(employee_id)
+    threat_trend = _dashboard_threat_series()
     risk_dist = _dashboard_risk_distribution(employee_id)
 
     return DashboardMetrics(
