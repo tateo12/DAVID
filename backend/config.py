@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_site_url: str = "http://localhost:3000"
     openrouter_app_name: str = "Sentinel"
-    l2_model_name: str = "nvidia/nemotron-nano-9b-v2:free"
-    l3_model_name: str = "nvidia/nemotron-3-super-120b-a12b:free"
+    l2_model_name: str = "google/gemma-3-4b-it:free"
+    l3_model_name: str = "nvidia/nemotron-nano-12b-v2-vl:free"
     enable_l2: bool = True
     enable_l3: bool = True
     l1_confidence_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     smtp_from_address: str = "sentinel@company.com"
     smtp_use_tls: bool = True
     alert_email: str = ""
-    skill_model_name: str = "nvidia/nemotron-nano-9b-v2:free"
+    skill_model_name: str = "google/gemma-3-4b-it:free"
 
     # First-time setup: when the users table is empty, create one manager account (no fake employees).
     initial_admin_username: str = Field(
