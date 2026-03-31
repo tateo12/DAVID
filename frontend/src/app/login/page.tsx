@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { loginUser, registerOtpRequest, registerOtpVerify } from "@/lib/api";
 import { setSession } from "@/lib/session";
@@ -73,8 +72,8 @@ export default function LoginPage() {
         router.push("/");
         router.refresh();
       }
-    } catch (err: any) {
-      setAuthError(err.message || "An error occurred.");
+    } catch (err: unknown) {
+      setAuthError(err instanceof Error ? err.message : "An error occurred.");
     } finally {
       setAuthLoading(false);
     }
