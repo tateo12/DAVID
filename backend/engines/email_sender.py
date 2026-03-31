@@ -1,7 +1,6 @@
-"""Real SMTP email sender for Sentinel.
+"""Email sender for Sentinel.
 
-Falls back to inserting into the system_messages table when SMTP is not
-configured, preserving the existing demo/preview behavior.
+Priority: Resend API > SMTP > DB queue (system_messages table).
 """
 
 import logging
@@ -18,11 +17,26 @@ log = logging.getLogger(__name__)
 
 
 class EmailSender:
-    """Sends real emails via SMTP when configured, otherwise queues to DB."""
+    """Sends emails via Resend (preferred), SMTP (fallback), or queues to DB."""
+
+    def _resend_configured(self) -> bool:
+        return bool(get_settings().resend_api_key)
 
     def _smtp_configured(self) -> bool:
         s = get_settings()
         return bool(s.smtp_host and s.smtp_user and s.smtp_password)
+
+    def _send_resend(self, to: str, subject: str, html_body: str) -> None:
+        import resend
+
+        s = get_settings()
+        resend.api_key = s.resend_api_key
+        resend.Emails.send({
+            "from": s.email_from_address,
+            "to": [to],
+            "subject": subject,
+            "html": html_body,
+        })
 
     def _send_smtp(self, to: str, subject: str, html_body: str) -> None:
         s = get_settings()
@@ -41,6 +55,24 @@ class EmailSender:
             with smtplib.SMTP(s.smtp_host, s.smtp_port) as server:
                 server.login(s.smtp_user, s.smtp_password)
                 server.sendmail(s.smtp_from_address, [to], msg.as_string())
+
+    def send_email(self, to: str, subject: str, html_body: str) -> bool:
+        """Send an email via Resend or SMTP. Returns True if sent."""
+        if self._resend_configured():
+            try:
+                self._send_resend(to, subject, html_body)
+                log.info("Email sent via Resend to %s", to)
+                return True
+            except Exception as exc:
+                log.error("Resend send failed for %s: %s", to, exc)
+        if self._smtp_configured():
+            try:
+                self._send_smtp(to, subject, html_body)
+                log.info("Email sent via SMTP to %s", to)
+                return True
+            except Exception as exc:
+                log.error("SMTP send failed for %s: %s", to, exc)
+        return False
 
     def _queue_to_db(
         self,
@@ -73,8 +105,12 @@ class EmailSender:
         return render_template(name, ctx)
 
     def _employee_email(self, employee_id: int) -> str | None:
-        """Look up employee name for email address derivation.
-        Real deployments would store actual email; here we derive from user table."""
+        row = fetch_one(
+            "SELECT e.email FROM employees e WHERE e.id = ? AND COALESCE(e.email, '') != ''",
+            (employee_id,),
+        )
+        if row and row["email"]:
+            return row["email"]
         row = fetch_one(
             "SELECT u.username FROM users u WHERE u.employee_id = ?",
             (employee_id,),
@@ -163,25 +199,19 @@ class EmailSender:
             log.warning("Failed to render alert template: %s", exc)
             html = f"<p>Security alert: {severity} severity, action {action_display} on prompt {prompt_id}</p>"
 
-        if self._smtp_configured():
-            settings = get_settings()
-            recipients = []
+        recipients = []
+        emp_email = self._employee_email(employee_id)
+        if emp_email:
+            recipients.append(emp_email)
 
-            emp_email = self._employee_email(employee_id)
-            if emp_email:
-                recipients.append(emp_email)
+        settings = get_settings()
+        if settings.alert_email:
+            recipients.extend(
+                addr.strip() for addr in settings.alert_email.split(",") if addr.strip()
+            )
 
-            if settings.alert_email:
-                recipients.extend(
-                    addr.strip() for addr in settings.alert_email.split(",") if addr.strip()
-                )
-
-            for addr in recipients:
-                try:
-                    self._send_smtp(addr, subject, html)
-                    log.info("Security alert sent to %s for prompt %d", addr, prompt_id)
-                except Exception as exc:
-                    log.error("SMTP send failed for %s: %s", addr, exc)
+        for addr in recipients:
+            self.send_email(addr, subject, html)
 
         self._queue_to_db(
             recipient_type="employee",
@@ -228,7 +258,7 @@ class EmailSender:
             target_tool = prompt_row["target_tool"] or "AI Assistant"
             coaching_tip = prompt_row["coaching_tip"] or COACHING_TIPS.get(detection_type, COACHING_TIPS["policy"])
         else:
-            return  # no flagged prompts to coach on
+            return
 
         ctx = {
             "employee_name": emp["name"],
@@ -238,7 +268,7 @@ class EmailSender:
             "prompt_excerpt": excerpt,
             "coaching_tip": coaching_tip,
             "safe_prompt_example": SAFE_EXAMPLES.get(detection_type, SAFE_EXAMPLES["policy"]),
-            "policy_url": "http://localhost:3000/policies",
+            "policy_url": f"{frontend_base_url().rstrip('/')}/policies",
         }
 
         subject = f"Sentinel: AI Security Coaching for {emp['name']}"
@@ -248,13 +278,9 @@ class EmailSender:
             log.warning("Failed to render coaching template: %s", exc)
             html = f"<p>Coaching: {coaching_tip}</p>"
 
-        if self._smtp_configured():
-            emp_email = self._employee_email(employee_id)
-            if emp_email:
-                try:
-                    self._send_smtp(emp_email, subject, html)
-                except Exception as exc:
-                    log.error("SMTP coaching send failed: %s", exc)
+        emp_email = self._employee_email(employee_id)
+        if emp_email:
+            self.send_email(emp_email, subject, html)
 
         self._queue_to_db(
             recipient_type="employee",
@@ -275,13 +301,9 @@ class EmailSender:
         emp = self._employee_info(employee_id)
         subject = subject or f"Sentinel: Your Weekly AI Skills Report - {emp['name']}"
 
-        if self._smtp_configured():
-            emp_email = self._employee_email(employee_id)
-            if emp_email:
-                try:
-                    self._send_smtp(emp_email, subject, html_body)
-                except Exception as exc:
-                    log.error("SMTP weekly learning send failed: %s", exc)
+        emp_email = self._employee_email(employee_id)
+        if emp_email:
+            self.send_email(emp_email, subject, html_body)
 
         self._queue_to_db(
             recipient_type="employee",
@@ -304,11 +326,7 @@ def send_employee_invite_email(to_email: str, invite_url: str, employee_name: st
 <p>{"This is a reminder to complete your Sentinel setup." if reminder else "Your organization added you to Sentinel for safer AI use."}</p>
 <p><a href="{invite_url}">Create your account</a></p>
 <p>Then install the Sentinel browser extension and sign in with the same username and password so monitoring can begin.</p>"""
-    if sender._smtp_configured():
-        try:
-            sender._send_smtp(to_email, subject, html)
-        except Exception as exc:
-            log.error("employee invite email failed: %s", exc)
+    sender.send_email(to_email, subject, html)
     sender._queue_to_db(
         recipient_type="employee",
         recipient_id=None,
@@ -355,17 +373,14 @@ def process_pending_employee_invite_reminders() -> int:
         sent += 1
     return sent
 
+
 def send_otp_email(to_email: str, code: str, role: str) -> None:
     sender = EmailSender()
     subject = "Sentinel Verification Code"
     html = f"""<p>Your Sentinel verification code is:</p>
-<h2>{code}</h2>
+<h2 style="font-family: monospace; font-size: 32px; letter-spacing: 4px; color: #c3f400; background: #111316; padding: 16px 24px; border-radius: 4px; display: inline-block;">{code}</h2>
 <p>Enter this code to register your {role} account.</p>"""
-    if sender._smtp_configured():
-        try:
-            sender._send_smtp(to_email, subject, html)
-        except Exception as exc:
-            log.error("otp email failed: %s", exc)
+    sender.send_email(to_email, subject, html)
     sender._queue_to_db(
         recipient_type="employee",
         recipient_id=None,

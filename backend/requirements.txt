@@ -9,3 +9,4 @@ pytest
 httpx
 psycopg[binary]
 bcrypt
+resend

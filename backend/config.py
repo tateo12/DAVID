@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     daily_budget_usd: float = 50.0
     default_agent_budget_usd: float = 10.0
 
+    resend_api_key: str = Field(default="", validation_alias=AliasChoices("RESEND_API_KEY"))
+    email_from_address: str = "Sentinel <noreply@sentinel-ai-security.com>"
+
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""
