@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     app_name: str = "Sentinel Backend"
     app_env: str = "dev"
     api_prefix: str = "/api"
-    allowed_origins: str = "http://localhost:3000"
+    allowed_origins: str = "*"
 
     sqlite_path: str = "sentinel.db"
     database_url: str | None = Field(default=None, validation_alias=AliasChoices("DATABASE_URL"))
