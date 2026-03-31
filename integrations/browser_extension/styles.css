@@ -1,7 +1,13 @@
 /* =============================================================
    Sentinel AI Security — Chrome Extension Styles
-   All selectors prefixed #sentinel- or .sentinel- to avoid
-   conflicts with host page styles.
+   Matches the Sentinel frontend design system:
+   - Surface: #111316 / #1a1c1f / #1e2023
+   - Accent:  #c3f400 (lime green)
+   - Primary: #5d5fef / #c1c1ff (purple)
+   - Error:   #ef4444 / #ffb4ab
+   - Text:    #e2e2e6 / #c7c4d7
+   - Border:  #464555
+   - Fonts:   Space Grotesk, Inter, JetBrains Mono
    ============================================================= */
 
 /* ---------- Keyframes ---------- */
@@ -22,8 +28,8 @@
 }
 
 @keyframes sentinel-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.45); }
-  50%      { box-shadow: 0 0 8px 4px rgba(56, 189, 248, 0.2); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(195, 244, 0, 0.35); }
+  50%      { box-shadow: 0 0 8px 4px rgba(195, 244, 0, 0.15); }
 }
 
 @keyframes sentinel-dotPulse {
@@ -73,13 +79,15 @@
   align-items: center;
   justify-content: center;
   height: 32px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  color: #f1f5f9;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.3px;
-  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.35), 0 0 20px rgba(56, 189, 248, 0.08);
+  background: #111316;
+  color: #e2e2e6;
+  font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(195, 244, 0, 0.06);
+  border-bottom: 1px solid rgba(70, 69, 85, 0.3);
   animation: sentinel-slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   user-select: none;
   -webkit-font-smoothing: antialiased;
@@ -103,8 +111,8 @@
 }
 
 .sentinel-status-dot-green {
-  background: #22c55e;
-  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+  background: #c3f400;
+  box-shadow: 0 0 6px rgba(195, 244, 0, 0.6);
 }
 
 .sentinel-status-dot-yellow {
@@ -126,7 +134,7 @@
   transform: translateY(-50%);
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: #908fa0;
   font-size: 14px;
   cursor: pointer;
   width: 20px;
@@ -134,15 +142,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: 2px;
   transition: all 0.15s ease;
   line-height: 1;
   padding: 0;
 }
 
 #sentinel-banner-close:hover {
-  color: #f1f5f9;
-  background: rgba(255, 255, 255, 0.1);
+  color: #e2e2e6;
+  background: rgba(195, 244, 0, 0.1);
 }
 
 /* ---------- Spacer ---------- */
@@ -161,14 +169,14 @@
   position: fixed;
   inset: 0;
   z-index: 2147483645;
-  background: rgba(2, 6, 23, 0.82);
+  background: rgba(12, 14, 17, 0.85);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
   animation: sentinel-overlayIn 0.25s ease forwards;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -178,11 +186,11 @@
   max-width: 92vw;
   max-height: 85vh;
   overflow-y: auto;
-  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
+  background: #1a1c1f;
+  border: 1px solid rgba(70, 69, 85, 0.3);
+  border-radius: 4px;
   padding: 28px 32px 24px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(70, 69, 85, 0.15);
   animation: sentinel-fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -198,7 +206,7 @@
 .sentinel-block-icon {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -206,7 +214,7 @@
 }
 
 .sentinel-block-icon-critical {
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.12);
   border: 1px solid rgba(239, 68, 68, 0.25);
 }
 
@@ -215,7 +223,7 @@
 }
 
 .sentinel-block-icon-high {
-  background: rgba(245, 158, 11, 0.15);
+  background: rgba(245, 158, 11, 0.12);
   border: 1px solid rgba(245, 158, 11, 0.25);
 }
 
@@ -224,26 +232,27 @@
 }
 
 .sentinel-block-icon-medium {
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.25);
+  background: rgba(93, 95, 239, 0.12);
+  border: 1px solid rgba(93, 95, 239, 0.25);
 }
 
 .sentinel-block-icon-medium svg {
-  color: #38bdf8;
+  color: #c1c1ff;
 }
 
 .sentinel-block-title {
+  font-family: 'Space Grotesk', sans-serif;
   font-size: 18px;
   font-weight: 700;
-  letter-spacing: -0.2px;
+  letter-spacing: -0.3px;
 }
 
 .sentinel-block-title-critical { color: #f87171; }
 .sentinel-block-title-high     { color: #fbbf24; }
-.sentinel-block-title-medium   { color: #38bdf8; }
+.sentinel-block-title-medium   { color: #c1c1ff; }
 
 .sentinel-block-subtitle {
-  color: #94a3b8;
+  color: #c7c4d7;
   font-size: 13px;
   line-height: 1.5;
   margin-bottom: 20px;
@@ -265,17 +274,18 @@
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(70, 69, 85, 0.25);
   font-size: 13px;
-  color: #e2e8f0;
+  color: #e2e2e6;
 }
 
 .sentinel-finding-badge {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: 2px;
+  font-family: 'Space Grotesk', sans-serif;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -284,27 +294,27 @@
 }
 
 .sentinel-badge-critical {
-  background: rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.15);
   color: #fca5a5;
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .sentinel-badge-high {
-  background: rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.15);
   color: #fcd34d;
   border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .sentinel-badge-medium {
-  background: rgba(56, 189, 248, 0.2);
-  color: #7dd3fc;
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: rgba(93, 95, 239, 0.15);
+  color: #c1c1ff;
+  border: 1px solid rgba(93, 95, 239, 0.3);
 }
 
 .sentinel-badge-low {
-  background: rgba(148, 163, 184, 0.15);
-  color: #cbd5e1;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(144, 143, 160, 0.12);
+  color: #c7c4d7;
+  border: 1px solid rgba(70, 69, 85, 0.3);
 }
 
 .sentinel-finding-text {
@@ -316,8 +326,8 @@
   display: block;
   margin-top: 4px;
   font-size: 11px;
-  color: #64748b;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  color: #908fa0;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -335,36 +345,42 @@
 .sentinel-btn-edit {
   flex: 1;
   padding: 10px 18px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
+  border-radius: 2px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
   cursor: pointer;
   transition: all 0.15s ease;
   border: none;
-  background: #3b82f6;
-  color: #fff;
+  background: #c3f400;
+  color: #111316;
 }
 
 .sentinel-btn-edit:hover {
-  background: #2563eb;
-  box-shadow: 0 0 16px rgba(59, 130, 246, 0.3);
+  filter: brightness(1.1);
+  box-shadow: 0 0 16px rgba(195, 244, 0, 0.25);
 }
 
 .sentinel-btn-proceed {
   padding: 10px 18px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
+  border-radius: 2px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
   cursor: pointer;
   transition: all 0.15s ease;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.06);
-  color: #94a3b8;
+  border: 1px solid rgba(70, 69, 85, 0.4);
+  background: rgba(255, 255, 255, 0.04);
+  color: #908fa0;
 }
 
 .sentinel-btn-proceed:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
-  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e2e6;
 }
 
 .sentinel-btn-proceed:disabled {
@@ -383,14 +399,16 @@
   align-items: center;
   gap: 10px;
   padding: 12px 20px;
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  color: #e2e8f0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  font-size: 13px;
-  font-weight: 500;
+  background: #1a1c1f;
+  border: 1px solid rgba(195, 244, 0, 0.15);
+  border-radius: 4px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  color: #e2e2e6;
+  font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
   animation: sentinel-fadeIn 0.2s ease forwards;
   -webkit-font-smoothing: antialiased;
 }
@@ -398,8 +416,8 @@
 .sentinel-spinner {
   width: 18px;
   height: 18px;
-  border: 2px solid rgba(56, 189, 248, 0.2);
-  border-top-color: #38bdf8;
+  border: 2px solid rgba(195, 244, 0, 0.2);
+  border-top-color: #c3f400;
   border-radius: 50%;
   animation: sentinel-spin 0.7s linear infinite;
   flex-shrink: 0;
@@ -411,8 +429,8 @@
   left: 0;
   right: 0;
   height: 2px;
-  border-radius: 0 0 12px 12px;
-  background: linear-gradient(90deg, transparent, #38bdf8, #818cf8, transparent);
+  border-radius: 0 0 4px 4px;
+  background: linear-gradient(90deg, transparent, #c3f400, #5d5fef, transparent);
   background-size: 200% 100%;
   animation: sentinel-shimmer 1.2s linear infinite;
 }
@@ -430,7 +448,7 @@
   flex-direction: column;
   gap: 8px;
   pointer-events: none;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -440,11 +458,11 @@
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  background: #1e293b;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-  color: #e2e8f0;
+  background: #1e2023;
+  border-radius: 4px;
+  border: 1px solid rgba(70, 69, 85, 0.25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  color: #e2e2e6;
   font-size: 13px;
   max-width: 360px;
   animation: sentinel-toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -455,7 +473,7 @@
 }
 
 .sentinel-toast-success {
-  border-left: 3px solid #22c55e;
+  border-left: 3px solid #c3f400;
 }
 
 .sentinel-toast-warning {
@@ -467,7 +485,7 @@
 }
 
 .sentinel-toast-info {
-  border-left: 3px solid #38bdf8;
+  border-left: 3px solid #5d5fef;
 }
 
 /* =============================================================
@@ -482,7 +500,7 @@
   max-width: 400px;
   min-width: 320px;
   animation: sentinel-fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -491,10 +509,10 @@
 }
 
 .sentinel-warning-card {
-  background: #1e293b;
-  border-radius: 12px;
+  background: #1a1c1f;
+  border-radius: 4px;
   padding: 16px 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(70, 69, 85, 0.2);
   border-left: 4px solid transparent;
 }
 
@@ -509,9 +527,10 @@
 }
 
 .sentinel-warning-title {
-  color: #f8fafc;
+  color: #e2e2e6;
+  font-family: 'Space Grotesk', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -521,7 +540,7 @@
 .sentinel-warning-red .sentinel-warning-title    { color: #f87171; }
 
 .sentinel-warning-body {
-  color: #94a3b8;
+  color: #c7c4d7;
   font-size: 12.5px;
   line-height: 1.5;
   margin-bottom: 14px;
@@ -534,32 +553,35 @@
 }
 
 .sentinel-btn-dismiss {
-  background: rgba(255, 255, 255, 0.08);
-  color: #cbd5e1;
-  border: none;
+  background: rgba(255, 255, 255, 0.05);
+  color: #c7c4d7;
+  border: 1px solid rgba(70, 69, 85, 0.3);
   padding: 6px 14px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
+  border-radius: 2px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .sentinel-btn-dismiss:hover {
-  background: rgba(255, 255, 255, 0.14);
-  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e2e6;
 }
 
 .sentinel-link-learn {
-  color: #38bdf8;
+  color: #c3f400;
   text-decoration: none;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   transition: color 0.15s ease;
 }
 
 .sentinel-link-learn:hover {
-  color: #7dd3fc;
+  color: #d4ff33;
   text-decoration: underline;
 }
 
@@ -567,16 +589,16 @@
 
 .sentinel-warning-timer {
   height: 3px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 0 0 12px 12px;
+  background: rgba(70, 69, 85, 0.2);
+  border-radius: 0 0 4px 4px;
   margin: 12px -20px -16px;
   overflow: hidden;
 }
 
 .sentinel-warning-timer-bar {
   height: 100%;
-  background: linear-gradient(90deg, #38bdf8, #818cf8);
-  border-radius: 0 0 0 12px;
+  background: linear-gradient(90deg, #c3f400, #5d5fef);
+  border-radius: 0 0 0 4px;
   transition: width 0.3s linear;
   width: 100%;
 }
@@ -584,7 +606,7 @@
 /* ---------- Input border glow while monitoring ---------- */
 
 .sentinel-field-monitored {
-  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.15) !important;
+  box-shadow: 0 0 0 1px rgba(195, 244, 0, 0.12) !important;
   transition: box-shadow 0.3s ease !important;
 }
 
