@@ -1,0 +1,78 @@
+﻿  Γû▓ Next.js 14.2.35
+  - Environments: .env.local
+
+node.exe : 
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (:St  
+  ring) [], RemoteExcept   
+ ion
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+> Build error occurred
+Error: EINVAL: invalid 
+argument, readlink 'C:\User
+s\Smech\OneDrive\Documents\
+GitHub\DAVID\frontend\.next
+\server\chunks'
+    at async 
+Object.readlink (node:inter
+nal/fs/promises:971:10)
+    at async C:\Users\Smech
+\OneDrive\Documents\GitHub\
+DAVID\frontend\node_modules
+\next\dist\lib\recursive-de
+lete.js:58:30
+    at async Promise.all 
+(index 2)
+    at async 
+recursiveDelete (C:\Users\S
+mech\OneDrive\Documents\Git
+Hub\DAVID\frontend\node_mod
+ules\next\dist\lib\recursiv
+e-delete.js:51:5)
+    at async C:\Users\Smech
+\OneDrive\Documents\GitHub\
+DAVID\frontend\node_modules
+\next\dist\lib\recursive-de
+lete.js:68:17
+    at async Promise.all 
+(index 6)
+    at async 
+recursiveDelete (C:\Users\S
+mech\OneDrive\Documents\Git
+Hub\DAVID\frontend\node_mod
+ules\next\dist\lib\recursiv
+e-delete.js:51:5)
+    at async C:\Users\Smech
+\OneDrive\Documents\GitHub\
+DAVID\frontend\node_modules
+\next\dist\build\index.js:6
+94:17
+    at async 
+Span.traceAsyncFn (C:\Users
+\Smech\OneDrive\Documents\G
+itHub\DAVID\frontend\node_m
+odules\next\dist\trace\trac
+e.js:154:20)
+    at async build (C:\User
+s\Smech\OneDrive\Documents\
+GitHub\DAVID\frontend\node_
+modules\next\dist\build\ind
+ex.js:368:9) {
+  errno: -4071,
+  code: 'EINVAL',
+  syscall: 'readlink',
+  path: 'C:\\Users\\Smech\\
+OneDrive\\Documents\\GitHub
+\\DAVID\\frontend\\.next\\s
+erver\\chunks'
+}

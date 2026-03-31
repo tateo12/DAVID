@@ -5,6 +5,10 @@ const passwordEl = document.getElementById("password");
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 
+const loginView = document.getElementById("view-login");
+const dashboardView = document.getElementById("view-dashboard");
+const diagnosticUserEl = document.getElementById("diagnostic-user");
+
 async function loadState() {
   const state = await chrome.storage.local.get([
     "apiBaseUrl",
@@ -13,11 +17,14 @@ async function loadState() {
   ]);
   apiBaseUrlEl.value = state.apiBaseUrl || "https://david-production-f999.up.railway.app";
   if (state.user) {
-    statusEl.textContent = `Logged in as ${state.user.username} (${state.user.role})`;
-    statusEl.className = "";
+    statusEl.textContent = ``;
+    loginView.classList.add("hidden");
+    dashboardView.classList.remove("hidden");
+    if (diagnosticUserEl) diagnosticUserEl.textContent = `AGENT: ${state.user.username}`;
   } else {
-    statusEl.textContent = "Not logged in.";
-    statusEl.className = "muted";
+    statusEl.textContent = "Authentication required.";
+    loginView.classList.remove("hidden");
+    dashboardView.classList.add("hidden");
   }
 }
 
@@ -26,7 +33,7 @@ async function login() {
   const username = usernameEl.value.trim();
   const password = passwordEl.value;
   if (!apiBaseUrl || !username || !password) {
-    statusEl.textContent = "Fill backend URL, username, and password.";
+    statusEl.textContent = "Provide credentials.";
     return;
   }
 
@@ -48,19 +55,23 @@ async function login() {
       user: body.user,
       expiresAt: body.expires_at,
     });
-    statusEl.textContent = `Logged in as ${body.user.username} (${body.user.role})`;
-    statusEl.className = "";
+    loginView.classList.add("hidden");
+    dashboardView.classList.remove("hidden");
+    if (diagnosticUserEl) diagnosticUserEl.textContent = `AGENT: ${body.user.username}`;
+    statusEl.textContent = ``;
   } catch (error) {
-    statusEl.textContent = `Login error: ${String(error)}`;
+    statusEl.textContent = `Error: ${String(error)}`;
   }
 }
 
 async function logout() {
   await chrome.storage.local.remove(["accessToken", "user", "expiresAt"]);
-  statusEl.textContent = "Logged out.";
-  statusEl.className = "muted";
+  loginView.classList.remove("hidden");
+  dashboardView.classList.add("hidden");
+  statusEl.textContent = "Signed out.";
 }
 
 loginBtn.addEventListener("click", login);
 logoutBtn.addEventListener("click", logout);
 loadState();
+
