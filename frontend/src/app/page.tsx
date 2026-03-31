@@ -4,6 +4,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { ShadowAISummary } from "@/lib/types";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   fetchMetrics,
   fetchPrompts,
@@ -81,6 +82,14 @@ const RISK_ROW: Record<
 };
 
 export default function CommandDashboardPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!getSession()) {
+      router.replace("/login");
+    }
+  }, [router]);
+
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [prompts, setPrompts] = useState<PromptRecord[]>([]);
