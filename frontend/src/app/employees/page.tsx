@@ -22,16 +22,8 @@ import type {
 } from "@/lib/types";
 import { RiskGauge } from "@/components/risk-gauge";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, Info } from "lucide-react";
 
 const statusStyles: Record<EmployeeStatus, string> = {
   active: "border-secondary-container/30 bg-secondary-container/10 text-secondary-fixed",
@@ -49,7 +41,7 @@ function formatDate(iso: string) {
   });
 }
 
-type SortField = "name" | "risk_score" | "total_prompts" | "last_active";
+type SortField = "name" | "risk_score" | "total_prompts" | "last_active" | "sentinel_score";
 
 function EmployeesContent() {
   const searchParams = useSearchParams();
@@ -57,7 +49,7 @@ function EmployeesContent() {
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortField, setSortField] = useState<SortField>("risk_score");
+  const [sortField, setSortField] = useState<SortField>("sentinel_score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selected, setSelected] = useState<Employee | null>(null);
   const [skillProfile, setSkillProfile] = useState<EmployeeSkillProfile | null>(null);
@@ -152,8 +144,16 @@ function EmployeesContent() {
     });
 
     list.sort((a, b) => {
+      const aScore = a.ai_skill_score !== undefined ? a.ai_skill_score * 100 : Math.max(0, 100 - a.risk_score);
+      const bScore = b.ai_skill_score !== undefined ? b.ai_skill_score * 100 : Math.max(0, 100 - b.risk_score);
+
+      if (sortField === "sentinel_score") {
+         return sortDir === "asc" ? aScore - bScore : bScore - aScore;
+      }
+
       const aVal = a[sortField];
       const bVal = b[sortField];
+      
       if (typeof aVal === "string" && typeof bVal === "string") {
         return sortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       }
@@ -165,120 +165,280 @@ function EmployeesContent() {
     return list;
   }, [employees, q, sortField, sortDir]);
 
+  const activeCoachingCount = employees.filter((e) => e.flagged_prompts > 0 || e.risk_score > 60).length;
+  const avgProf =
+    employees.length > 0
+      ? employees.reduce((a, e) => a + (e.ai_skill_score !== undefined ? e.ai_skill_score * 100 : Math.max(0, 100 - e.risk_score)), 0) / employees.length
+      : 0;
+
+  const criticalUsers = [...employees].sort((a, b) => b.risk_score - a.risk_score).slice(0, 2);
+
   const SortHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
     <button
       type="button"
       onClick={() => handleSort(field)}
-      className="flex items-center gap-1 text-on-surface-variant transition-colors hover:text-white"
+      className="flex flex-row items-center gap-1 hover:text-white transition-colors uppercase tracking-widest text-[10px] text-on-surface-variant font-label"
     >
       {children}
       <ArrowUpDown className={`h-3 w-3 ${sortField === field ? "text-secondary-fixed" : ""}`} />
     </button>
   );
 
-  const avgProf =
-    employees.length > 0
-      ? employees.reduce((a, e) => a + (e.ai_skill_score ?? e.risk_score), 0) / employees.length
-      : 0;
-
   return (
-    <div className="space-y-8">
-      <header className="flex flex-col justify-between gap-6 border-b border-outline-variant/10 pb-8 md:flex-row md:items-end">
+    <div className="space-y-8 max-w-[1600px] mx-auto p-4 md:p-8">
+      {/* HEADER & KPI CARDS */}
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-outline-variant/10 pb-8">
         <div className="space-y-2">
-          <h1 className="font-headline text-3xl font-black uppercase tracking-tight text-white">
-            Employee Skill &amp; Coaching Hub
-          </h1>
-          <p className="max-w-2xl text-sm leading-relaxed text-on-surface-variant">
-            Sentinel workforce telemetry. Filter via top bar search. Click a row for detail.
+          <h1 className="font-headline text-3xl font-black tracking-tight text-white uppercase">Employee Skill &amp; Coaching Hub</h1>
+          <p className="text-on-surface-variant max-w-2xl text-sm leading-relaxed">
+            Quantifying human-AI interaction security through the <span className="text-primary font-medium">Sentinel Score</span>. 
+            Monitoring real-time behavioral drift and automated remedial coaching loops.
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <section className="flex min-w-[140px] flex-col rounded-lg border border-outline-variant/15 bg-surface-container-low px-4 py-2">
-            <span className="font-label text-[10px] uppercase tracking-wider text-on-surface-variant">
-              Avg signal
-            </span>
-            <span className="font-headline text-xl font-bold text-secondary-fixed">
-              {avgProf.toFixed(1)}
-            </span>
+        <div className="flex items-center gap-3">
+          <section className="bg-surface-container-low px-4 py-2 rounded-lg border border-outline-variant/15 flex flex-col min-w-[140px]">
+            <span className="font-label text-[10px] uppercase text-on-surface-variant tracking-wider">Global Proficiency</span>
+            <span className="font-headline text-xl font-bold text-secondary-fixed">{avgProf.toFixed(1)}%</span>
           </section>
-          <section className="flex min-w-[140px] flex-col rounded-lg border border-outline-variant/15 bg-surface-container-low px-4 py-2">
-            <span className="font-label text-[10px] uppercase tracking-wider text-on-surface-variant">
-              Roster
-            </span>
-            <span className="font-headline text-xl font-bold text-primary">{employees.length}</span>
+          <section className="bg-surface-container-low px-4 py-2 rounded-lg border border-outline-variant/15 flex flex-col min-w-[140px]">
+             <span className="font-label text-[10px] uppercase text-on-surface-variant tracking-wider">Active Coaching</span>
+             <span className="font-headline text-xl font-bold text-primary">{activeCoachingCount}</span>
           </section>
         </div>
       </header>
 
-      <div className="overflow-hidden rounded-xl border border-outline-variant/10 bg-surface-container-low">
-        {loading ? (
-          <div className="space-y-4 p-8">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-12 animate-pulse rounded bg-surface-container-highest" />
-            ))}
+      {/* ANALYTICS & LEADERBOARD GRID */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        {/* SKILL MATRIX RADAR */}
+        <article className="xl:col-span-4 bg-surface-container-low rounded-xl p-6 border border-outline-variant/10 relative overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="font-label text-xs font-bold tracking-widest text-secondary-fixed uppercase">Skill Matrix Analysis</h2>
+            <Info className="text-on-surface-variant w-4 h-4 cursor-help" />
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="px-6 py-16 text-center text-sm text-on-surface-variant">
-            {q ? "No employees match your search." : "No employees loaded."}
+          <div className="relative h-64 flex items-center justify-center rounded-full" style={{ backgroundImage: "radial-gradient(circle, #464555 1px, transparent 1px)", backgroundSize: "20px 20px" }}>
+            <div className="absolute inset-0 border border-outline-variant/20 rounded-full scale-100"></div>
+            <div className="absolute inset-0 border border-outline-variant/20 rounded-full scale-75"></div>
+            <div className="absolute inset-0 border border-outline-variant/20 rounded-full scale-50"></div>
+            <svg className="w-full h-full drop-shadow-2xl opacity-90" viewBox="0 0 100 100">
+              <polygon fill="rgba(93, 95, 239, 0.25)" points="50,10 85,35 75,85 25,85 15,35" stroke="#5D5FEF" strokeWidth="1.5"></polygon>
+              <circle cx="50" cy="10" fill="#5D5FEF" r="1.5"></circle>
+              <circle cx="85" cy="35" fill="#5D5FEF" r="1.5"></circle>
+              <circle cx="75" cy="85" fill="#5D5FEF" r="1.5"></circle>
+              <circle cx="25" cy="85" fill="#5D5FEF" r="1.5"></circle>
+              <circle cx="15" cy="35" fill="#5D5FEF" r="1.5"></circle>
+            </svg>
+            <div className="absolute top-2 font-label text-[9px] uppercase tracking-tighter text-white">Risk Awareness</div>
+            <div className="absolute bottom-2 left-4 font-label text-[9px] uppercase tracking-tighter text-white">Policy Compliance</div>
+            <div className="absolute bottom-2 right-4 font-label text-[9px] uppercase tracking-tighter text-white">Prompt Specificity</div>
+            <div className="absolute top-1/2 -right-4 -translate-y-1/2 font-label text-[9px] uppercase tracking-tighter text-white rotate-90">Data Shielding</div>
           </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow className="border-outline-variant/10 hover:bg-transparent">
-                <TableHead className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
-                  <SortHeader field="name">Name</SortHeader>
-                </TableHead>
-                <TableHead className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
-                  Department
-                </TableHead>
-                <TableHead className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
-                  <SortHeader field="risk_score">Risk</SortHeader>
-                </TableHead>
-                <TableHead className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
-                  <SortHeader field="total_prompts">Prompts</SortHeader>
-                </TableHead>
-                <TableHead className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
-                  <SortHeader field="last_active">Last Active</SortHeader>
-                </TableHead>
-                <TableHead className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
-                  Status
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((emp) => (
-                <TableRow
-                  key={emp.id}
-                  className="cursor-pointer border-outline-variant/5 transition-colors hover:bg-surface-container-highest"
-                  onClick={() => setSelected(emp)}
-                >
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-container/20 text-xs font-bold text-primary ring-1 ring-primary-container/30">
-                        {emp.name.split(" ").map((n) => n[0]).join("")}
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-white">{emp.name}</div>
-                        <div className="font-mono text-[10px] uppercase text-on-surface-variant">{emp.email}</div>
-                      </div>
+          <div className="mt-8 space-y-2">
+            <div className="flex items-center justify-between text-xs p-3 bg-surface-container-lowest rounded border border-outline-variant/5">
+              <span className="text-on-surface-variant font-headline uppercase text-[10px]">Top Strength</span>
+              <span className="text-secondary-fixed font-mono font-bold">Prompt Specificity</span>
+            </div>
+            <div className="flex items-center justify-between text-xs p-3 bg-surface-container-lowest rounded border border-outline-variant/5">
+              <span className="text-on-surface-variant font-headline uppercase text-[10px]">Growth Area</span>
+              <span className="text-error font-mono font-bold uppercase">Data Shielding</span>
+            </div>
+          </div>
+        </article>
+
+        {/* PROFICIENCY LEADERBOARD */}
+        <article className="xl:col-span-8 bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden flex flex-col">
+          <header className="p-6 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-low/50">
+            <h2 className="font-label text-xs font-bold tracking-widest text-white uppercase">Personnel Proficiency Leaderboard</h2>
+            <button className="text-xs text-primary font-bold hover:underline transition-all">View Full Roster ({employees.length})</button>
+          </header>
+          <div className="overflow-x-auto flex-1 max-h-[460px] overflow-y-auto w-full">
+            {loading ? (
+              <div className="p-8 space-y-4">
+                {[...Array(5)].map((_, i) => <div key={i} className="h-12 bg-surface-container-highest animate-pulse rounded"></div>)}
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="p-12 text-center text-sm text-on-surface-variant font-mono uppercase">No personnel found</div>
+            ) : (
+              <table className="w-full text-left border-collapse ">
+                <thead className="sticky top-0 bg-surface-container-low z-10">
+                  <tr className="bg-surface-container-lowest/50 border-b border-outline-variant/10 shadow-sm">
+                    <th className="px-6 py-4"><SortHeader field="name">Employee</SortHeader></th>
+                    <th className="px-6 py-4 font-label text-[10px] text-on-surface-variant uppercase tracking-widest">Department</th>
+                    <th className="px-6 py-4 font-label text-[10px] text-on-surface-variant uppercase tracking-widest text-center">Prompt Master Status</th>
+                    <th className="px-6 py-4 flex justify-end"><SortHeader field="sentinel_score">Sentinel Score</SortHeader></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant/5">
+                  {filtered.map((emp) => {
+                    const sScore = emp.ai_skill_score !== undefined ? emp.ai_skill_score * 100 : Math.max(0, 100 - emp.risk_score);
+                    const stars = Math.min(5, Math.max(0, Math.round(sScore / 20)));
+                    return (
+                      <tr key={emp.id} className="hover:bg-white/[0.02] transition-colors cursor-pointer group" onClick={() => setSelected(emp)}>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full ${sScore >= 80 ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-highest text-on-surface-variant ring-1 ring-outline-variant/30'} flex items-center justify-center font-bold text-xs`}>
+                              {emp.name.split(" ").map((n) => n[0]).join("")}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-white">{emp.name}</p>
+                              <p className="text-[10px] text-on-surface-variant font-mono uppercase">ID: {emp.id.substring(0,6)}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-xs text-on-surface-variant font-medium">{emp.department}</td>
+                        <td className="px-6 py-4 text-center">
+                          <div className="flex justify-center gap-1">
+                            {[...Array(5)].map((_, i) => (
+                              <svg key={i} xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 -960 960 960" className={i < stars ? "fill-secondary-fixed" : "fill-outline-variant/30"}>
+                                <path d="m233-120 65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Z"/>
+                              </svg>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className={`font-headline text-lg font-bold ${sScore >= 80 ? 'text-secondary-fixed' : sScore >= 60 ? 'text-on-surface' : 'text-on-surface-variant'}`}>{sScore.toFixed(1)}</span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </article>
+      </div>
+
+      {/* INTERVENTION & LOGS GRID */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        {/* AUTOMATED COACHING LOGS */}
+        <section className="xl:col-span-7 bg-surface-container-low rounded-xl border border-outline-variant/10 flex flex-col h-[520px]">
+          <header className="p-6 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-low/30">
+            <div className="flex items-center gap-2">
+              <h2 className="font-label text-xs font-bold tracking-widest text-white uppercase">Automated Coaching Logs</h2>
+              <span className="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded font-mono font-bold animate-pulse">LIVE FEED</span>
+            </div>
+            <button className="hover:bg-white/5 rounded p-1 transition-colors"><Info className="w-4 h-4 text-on-surface-variant"/></button>
+          </header>
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* Mock Log 1 */}
+            <article className="flex gap-4 group">
+              <aside className="flex flex-col items-center">
+                <div className="w-2 h-2 rounded-full bg-secondary-fixed shadow-[0_0_8px_rgba(195,244,0,0.5)]"></div>
+                <div className="w-px flex-1 bg-outline-variant/20 my-2"></div>
+              </aside>
+              <div className="flex-1 bg-surface-container-lowest/50 p-4 rounded-lg border border-outline-variant/5 group-hover:border-primary/20 transition-all">
+                <div className="flex items-center justify-between mb-2">
+                  <time className="text-[10px] font-mono text-on-surface-variant uppercase tracking-tighter">Event #AI-4421 • Just Now</time>
+                  <span className="text-[10px] bg-secondary-container/10 text-secondary-fixed px-2 py-0.5 rounded uppercase font-bold border border-secondary-fixed/20">Optimization</span>
+                </div>
+                <p className="text-sm text-on-surface leading-snug mb-3">
+                  Sentinel suggested more specific context for <span className="text-white font-medium">@M.Jenkins</span> to minimize PII leakage during financial data extrapolation.
+                </p>
+                <blockquote className="p-2.5 bg-surface-container-highest rounded text-[11px] font-mono text-secondary-fixed-dim border-l-2 border-secondary-fixed italic">
+                  &quot;Refining prompt to use synthetic identifiers instead of actual client names.&quot;
+                </blockquote>
+              </div>
+            </article>
+            {/* Mock Log 2 */}
+            <article className="flex gap-4 group">
+              <aside className="flex flex-col items-center">
+                <div className="w-2 h-2 rounded-full bg-error shadow-[0_0_8px_rgba(255,180,171,0.5)]"></div>
+                <div className="w-px flex-1 bg-outline-variant/20 my-2"></div>
+              </aside>
+              <div className="flex-1 bg-surface-container-lowest/50 p-4 rounded-lg border border-outline-variant/5 group-hover:border-error/20 transition-all">
+                <div className="flex items-center justify-between mb-2">
+                  <time className="text-[10px] font-mono text-on-surface-variant uppercase tracking-tighter">Event #AI-4418 • 14m ago</time>
+                  <span className="text-[10px] bg-error/10 text-error px-2 py-0.5 rounded uppercase font-bold border border-error/20">Intervention</span>
+                </div>
+                <p className="text-sm text-on-surface leading-snug mb-4">
+                  Real-time block triggered for <span className="text-white font-medium">@UnknownUser</span>. User was attempting to bypass &quot;hallucination guards&quot; via nested roleplay prompts.
+                </p>
+                <div className="flex items-center gap-4">
+                  <button className="text-[10px] font-bold text-primary hover:text-white uppercase tracking-wider transition-colors">Review Full Transcript</button>
+                  <button className="text-[10px] font-bold text-on-surface-variant hover:text-white uppercase tracking-wider transition-colors">Flag Manager</button>
+                </div>
+              </div>
+            </article>
+            {/* Mock Log 3 */}
+            <article className="flex gap-4 group">
+              <aside className="flex flex-col items-center">
+                <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(93,95,239,0.5)]"></div>
+                <div className="w-px flex-1 bg-outline-variant/20 my-2"></div>
+              </aside>
+              <div className="flex-1 bg-surface-container-lowest/50 p-4 rounded-lg border border-outline-variant/5 group-hover:border-primary/20 transition-all">
+                <div className="flex items-center justify-between mb-2">
+                  <time className="text-[10px] font-mono text-on-surface-variant uppercase tracking-tighter">Event #AI-4390 • 1h ago</time>
+                  <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded uppercase font-bold border border-primary/20">Reinforcement</span>
+                </div>
+                <p className="text-sm text-on-surface leading-snug">
+                  System recognized <span className="text-white font-medium">@E.Kormov</span> for exemplary prompt-structuring. Efficiency gains estimated at 12% relative to department baseline.
+                </p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        {/* INCIDENT HUB & CRITICAL NEEDS */}
+        <aside className="xl:col-span-5 flex flex-col gap-6">
+          <section className="bg-primary-container rounded-xl p-6 text-on-primary-container relative overflow-hidden">
+            <div className="relative z-10">
+              <h3 className="font-headline text-xl font-bold mb-1">Incident Training Hub</h3>
+              <p className="text-on-primary-container/80 text-sm mb-6 leading-relaxed">
+                Automated enrollment modules for users exceeding risk thresholds.
+              </p>
+              <div className="space-y-2">
+                <div className="bg-on-primary-container/10 p-4 rounded flex items-center justify-between group cursor-pointer hover:bg-on-primary-container/20 transition-all border border-on-primary-container/5">
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-tight">Data Leakage 101</p>
+                      <p className="text-[10px] opacity-70">Mandatory for High-Risk Users</p>
                     </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-on-surface-variant">{emp.department}</TableCell>
-                  <TableCell>
-                    <RiskGauge score={emp.risk_score} size={40} strokeWidth={3} />
-                  </TableCell>
-                  <TableCell className="font-mono text-sm text-white">{emp.total_prompts.toLocaleString()}</TableCell>
-                  <TableCell className="text-sm text-on-surface-variant">{formatDate(emp.last_active)}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={`text-[10px] font-semibold uppercase tracking-wider ${statusStyles[emp.status]}`}>
-                      {emp.status}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
+                  </div>
+                  <span className="material-symbols-outlined text-white opacity-50 group-hover:translate-x-1 group-hover:opacity-100 transition-all">→</span>
+                </div>
+                <div className="bg-on-primary-container/10 p-4 rounded flex items-center justify-between group cursor-pointer hover:bg-on-primary-container/20 transition-all border border-on-primary-container/5">
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-tight">Advanced Sanitization</p>
+                      <p className="text-[10px] opacity-70">Optional Proficiency Booster</p>
+                    </div>
+                  </div>
+                  <span className="material-symbols-outlined text-white opacity-50 group-hover:translate-x-1 group-hover:opacity-100 transition-all">→</span>
+                </div>
+              </div>
+            </div>
+            <div className="absolute -right-8 -bottom-8 w-48 h-48 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
+          </section>
+
+          <section className="bg-surface-container-low rounded-xl p-6 border border-outline-variant/10 flex-1 flex flex-col">
+            <header className="flex items-center justify-between mb-6">
+              <h2 className="font-label text-xs font-bold tracking-widest text-white uppercase">Critical Training Needs</h2>
+              <span className="text-error text-sm animate-pulse">!</span>
+            </header>
+            <div className="space-y-6 flex-1">
+              {criticalUsers.length === 0 ? (
+                <p className="text-sm text-on-surface-variant">No critical personnel identified.</p>
+              ) : criticalUsers.map((cu) => (
+                <div key={cu.id} className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center font-bold text-sm text-on-surface border border-outline-variant/20 grayscale brightness-75">
+                    {cu.name.split(" ").map(x => x[0]).join("")}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-white uppercase tracking-tight">{cu.name}</p>
+                    <div className="w-full bg-surface-container-highest h-1 rounded-full mt-2 overflow-hidden ring-1 ring-white/5">
+                      <div className="bg-error h-full shadow-[0_0_8px_rgba(255,180,171,0.5)]" style={{ width: `${Math.min(100, cu.risk_score)}%` }}></div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-error font-mono font-bold tracking-tighter uppercase whitespace-pre">
+                    {cu.risk_score >= 80 ? "CRITICAL" : "MODERATE"}
+                  </span>
+                </div>
               ))}
-            </TableBody>
-          </Table>
-        )}
+            </div>
+            <button className="w-full mt-8 bg-surface-container-highest hover:bg-surface-bright text-white text-[10px] font-bold py-3 rounded transition-all uppercase tracking-[0.2em] border border-outline-variant/10 active:scale-[0.98]">
+              Generate Coaching Queue
+            </button>
+          </section>
+        </aside>
       </div>
 
       <Sheet open={!!selected} onOpenChange={() => setSelected(null)}>

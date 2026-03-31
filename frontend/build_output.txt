@@ -1,0 +1,105 @@
+﻿  Γû▓ Next.js 14.2.35
+  - Environments: .env.local
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully
+   Linting and checking validity of types ...
+node.exe : Failed to 
+compile.
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (Fai  
+  led to compile.:String   
+ ) [], RemoteException
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+
+./src/app/employees/page.ts
+x:264:59
+Type error: Type 
+'"name\\"' is not 
+assignable to type 
+'SortField'. Did you mean 
+'"name"'?
+
+[0m [90m 262 |[39m      
+           
+[33m<[39m[33mthead[39m 
+className[33m=[39m[32m"s
+ticky top-0 
+bg-surface-container-low 
+z-10"[39m[33m>[39m[0m
+[0m [90m 263 |[39m      
+             
+[33m<[39m[33mtr[39m cla
+ssName[33m=[39m[32m"bg-s
+urface-container-lowest/50 
+border-b 
+border-outline-variant/10 s
+hadow-sm"[39m[33m>[39m[
+0m
+[0m[31m[1m>[22m[39m[9
+0m 264 |[39m              
+       
+[33m<[39m[33mth[39m cla
+ssName[33m=[39m[32m"px-6
+ py-4"[39m[33m>[39m[33m
+<[39m[33mSortHeader[39m 
+field[33m=[39m[32m"name\
+">Employee</SortHeader></th
+>[39m[0m
+[0m [90m     |[39m      
+                           
+                          
+[31m[1m^[22m[39m[0m
+[0m [90m 265 |[39m      
+               
+[33m<[39m[33mth[39m cla
+ssName[33m=[39m[32m"px-6
+ py-4 font-label 
+text-[10px] 
+text-on-surface-variant 
+uppercase tracking-widest"
+[39m[33m>[39m[33mDepartm
+ent[39m[33m<[39m[33m/[
+39m[33mth[39m[33m>[39m
+[0m
+[0m [90m 266 |[39m      
+               
+[33m<[39m[33mth[39m cla
+ssName[33m=[39m[32m"px-6
+ py-4 font-label 
+text-[10px] 
+text-on-surface-variant 
+uppercase tracking-widest t
+ext-center"[39m[33m>[39m
+[33mPrompt[39m 
+[33mMaster[39m [33mStatu
+s[39m[33m<[39m[33m/[39
+m[33mth[39m[33m>[39m[0
+m
+[0m [90m 267 |[39m      
+               
+[33m<[39m[33mth[39m cla
+ssName[33m=[39m[32m"px-6
+ py-4 flex justify-end"[39
+m[33m>[39m[33m<[39m[33
+mSortHeader[39m field[33m
+=[39m[32m"sentinel_score"
+[39m[33m>[39m[33mSentin
+el[39m [33mScore[39m[33
+m<[39m[33m/[39m[33mSort
+Header[39m[33m>[39m[33m
+<[39m[33m/[39m[33mth[3
+9m[33m>[39m[0m
+Next.js build worker 
+exited with code: 1 and 
+signal: null
