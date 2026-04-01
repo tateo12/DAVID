@@ -37,8 +37,6 @@ export interface ScoutChatMessage {
 export interface Metrics {
   threats_blocked: number;
   threats_blocked_trend: number | null;
-  cost_saved: number;
-  cost_saved_trend: number | null;
   shadow_ai_detected: number;
   shadow_ai_trend: number | null;
   active_employees: number;

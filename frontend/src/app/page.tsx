@@ -1,8 +1,8 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import type { ShadowAISummary } from "@/lib/types";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ShadowAISummary, ScoutChatMessage } from "@/lib/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -10,10 +10,10 @@ import {
   fetchPrompts,
   fetchShadowAI,
   fetchEmployees,
-  analyzePrompt,
+  postScoutChat,
 } from "@/lib/api";
 import { getSession } from "@/lib/session";
-import type { Employee, Metrics, PromptRecord, AnalysisResult, RiskLevel } from "@/lib/types";
+import type { Employee, Metrics, PromptRecord, RiskLevel } from "@/lib/types";
 import { OrgRiskMap } from "@/components/org-risk-map";
 import { ManagerAutomationPanel } from "@/components/manager-automation-panel";
 import { MaterialIcon } from "@/components/stitch/material-icon";
@@ -99,9 +99,10 @@ export default function CommandDashboardPage() {
     employees_involved: 0,
     flags: [],
   });
-  const [analyzerPrompt, setAnalyzerPrompt] = useState("");
-  const [analyzerResult, setAnalyzerResult] = useState<AnalysisResult | null>(null);
-  const [analyzerLoading, setAnalyzerLoading] = useState(false);
+  const [scoutMessages, setScoutMessages] = useState<ScoutChatMessage[]>([]);
+  const [scoutInput, setScoutInput] = useState("");
+  const [scoutLoading, setScoutLoading] = useState(false);
+  const scoutEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchMetrics().then(setMetrics);
@@ -111,7 +112,7 @@ export default function CommandDashboardPage() {
   }, []);
 
   const healthSubtitle =
-    !metrics ? "Loading…" : metrics.load_error ? "Fix API / metrics" : riskMixTotal(metrics) === 0 ? "No mix (7d)" : "Post-Critical";
+    !metrics ? "Loading…" : metrics.load_error ? "Error" : riskMixTotal(metrics) === 0 ? "No data (7d)" : "Threat weighted";
 
   const riskFeedRows = useMemo(() => {
     type Row = {
@@ -154,34 +155,25 @@ export default function CommandDashboardPage() {
   const h = healthScore(metrics);
   const ni = networkIntegrity(metrics);
   const pa = policyAdherence(metrics);
-  const handleAnalyze = useCallback(async () => {
-    if (!analyzerPrompt.trim() || analyzerLoading) return;
-    const session = getSession();
-    const fromUser = session?.user?.employee_id;
-    const fallback = employees[0]?.id;
-    const empId =
-      fromUser != null && !Number.isNaN(Number(fromUser)) ? Number(fromUser) : fallback ? Number(fallback) : null;
-    setAnalyzerLoading(true);
-    setAnalyzerResult(null);
+
+  const handleScoutSend = useCallback(async () => {
+    const text = scoutInput.trim();
+    if (!text || scoutLoading) return;
+    const userMsg: ScoutChatMessage = { role: "user", content: text };
+    const next = [...scoutMessages, userMsg];
+    setScoutMessages(next);
+    setScoutInput("");
+    setScoutLoading(true);
     try {
-      if (empId == null) {
-        setAnalyzerResult({
-          id: "no-employee",
-          prompt: analyzerPrompt,
-          risk_level: "low",
-          risk_score: 0,
-          categories: [],
-          reasoning:
-            "Add at least one employee to the directory (or log in with a user linked to an employee) to run prompt analysis.",
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
-      setAnalyzerResult(await analyzePrompt(analyzerPrompt, empId));
+      const res = await postScoutChat(next);
+      setScoutMessages((prev) => [...prev, { role: "assistant", content: res.message }]);
+    } catch {
+      setScoutMessages((prev) => [...prev, { role: "assistant", content: "Scout is unavailable. Check backend connection." }]);
     } finally {
-      setAnalyzerLoading(false);
+      setScoutLoading(false);
+      setTimeout(() => scoutEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     }
-  }, [analyzerPrompt, analyzerLoading, employees]);
+  }, [scoutInput, scoutLoading, scoutMessages]);
 
   return (
     <div className="space-y-8">
@@ -198,8 +190,10 @@ export default function CommandDashboardPage() {
               )}
             />
             {metrics?.load_error
-              ? `API: ${metrics.load_error.slice(0, 140)}${metrics.load_error.length > 140 ? "…" : ""}`
-              : "SYSTEMS NOMINAL // ENCRYPTION: ACTIVE // THREAT SCANNING: 1.2ms LATENCY"}
+              ? `API OFFLINE — ${metrics.load_error.slice(0, 100)}${metrics.load_error.length > 100 ? "…" : ""}`
+              : metrics && metrics.threats_blocked > 0
+              ? `ACTIVE MONITORING // ${metrics.threats_blocked} THREATS BLOCKED (7D) // ${metrics.active_employees} EMPLOYEES TRACKED`
+              : "SYSTEMS NOMINAL // MONITORING ACTIVE"}
           </div>
         </div>
         <div className="glass-edge flex items-center gap-4 border border-outline-variant/10 bg-surface-container-low p-4">
@@ -396,34 +390,91 @@ export default function CommandDashboardPage() {
       </div>
 
       <section className="border border-outline-variant/10 bg-surface-container-low p-6">
-        <h2 className="mb-1 font-label text-[10px] uppercase tracking-[0.15em] text-white">Scout AI — Prompt probe</h2>
-        <p className="mb-4 font-mono text-xs text-on-surface-variant">
-          Same pipeline as <code className="text-secondary-fixed">/api/analyze</code>. Default employee id from client config.
-        </p>
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="font-label text-[10px] uppercase tracking-[0.15em] text-white">Scout AI</h2>
+            <p className="font-mono text-xs text-on-surface-variant mt-0.5">
+              Ask about company AI usage, employee activity, risk trends, or policy compliance.
+            </p>
+          </div>
+          {scoutMessages.length > 0 && (
+            <button
+              onClick={() => setScoutMessages([])}
+              className="font-mono text-[9px] uppercase text-outline hover:text-white transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* Chat history */}
+        {scoutMessages.length > 0 && (
+          <div className="mb-4 max-h-72 overflow-y-auto space-y-3 border border-outline-variant/10 bg-surface-container-lowest p-4">
+            {scoutMessages.map((msg, i) => (
+              <div key={i} className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "justify-start")}>
+                <div
+                  className={cn(
+                    "max-w-[80%] rounded-sm px-3 py-2 font-mono text-xs leading-relaxed",
+                    msg.role === "user"
+                      ? "bg-secondary-container/20 text-white"
+                      : "bg-surface-container-high text-on-surface-variant"
+                  )}
+                >
+                  {msg.role === "assistant" && (
+                    <span className="block mb-1 text-[9px] uppercase tracking-widest text-secondary-fixed">Scout</span>
+                  )}
+                  <span className="whitespace-pre-wrap">{msg.content}</span>
+                </div>
+              </div>
+            ))}
+            {scoutLoading && (
+              <div className="flex gap-3 justify-start">
+                <div className="bg-surface-container-high px-3 py-2 font-mono text-xs text-on-surface-variant rounded-sm animate-pulse">
+                  Scout is thinking…
+                </div>
+              </div>
+            )}
+            <div ref={scoutEndRef} />
+          </div>
+        )}
+
+        {/* Input */}
         <div className="flex flex-col gap-3 sm:flex-row">
           <input
-            value={analyzerPrompt}
-            onChange={(e) => setAnalyzerPrompt(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && void handleAnalyze()}
+            value={scoutInput}
+            onChange={(e) => setScoutInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && void handleScoutSend()}
             className="flex-1 border-none bg-surface-container-highest py-3 pl-4 pr-4 font-mono text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-secondary-fixed"
-            placeholder="Enter prompt for analysis…"
+            placeholder="Ask Scout about company AI usage, employee risk, blocked prompts…"
           />
           <button
             type="button"
-            disabled={analyzerLoading || !analyzerPrompt.trim()}
-            onClick={() => void handleAnalyze()}
+            disabled={scoutLoading || !scoutInput.trim()}
+            onClick={() => void handleScoutSend()}
             className="bg-secondary-container px-6 py-3 font-headline text-sm font-bold uppercase tracking-wider text-black transition-all hover:brightness-110 disabled:opacity-50"
           >
-            {analyzerLoading ? "SCANNING…" : "Analyze"}
+            {scoutLoading ? "THINKING…" : "Ask Scout"}
           </button>
         </div>
-        {analyzerResult ? (
-          <div className="mt-4 border border-outline-variant/20 bg-surface-container-lowest p-4 font-mono text-sm text-on-surface-variant">
-            <span className="text-secondary-fixed">{analyzerResult.risk_level}</span> — score{" "}
-            {analyzerResult.risk_score}
-            <p className="mt-2 text-xs leading-relaxed">{analyzerResult.reasoning}</p>
+
+        {scoutMessages.length === 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {[
+              "How many prompts this week?",
+              "Who has the highest risk?",
+              "What were the most recent threats?",
+              "Show risk breakdown",
+            ].map((hint) => (
+              <button
+                key={hint}
+                onClick={() => setScoutInput(hint)}
+                className="rounded border border-outline-variant/20 bg-surface-container-highest/50 px-2 py-1 font-mono text-[9px] text-on-surface-variant hover:text-white hover:border-outline-variant/50 transition-colors"
+              >
+                {hint}
+              </button>
+            ))}
           </div>
-        ) : null}
+        )}
       </section>
 
       <ManagerAutomationPanel />

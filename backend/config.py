@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     openrouter_api_key: str = Field(default="", validation_alias=AliasChoices("OPENROUTER_API_KEY", "API_SECRET_KEY"))
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    openrouter_site_url: str = "http://localhost:3000"
+    openrouter_site_url: str = Field(default="http://localhost:3000", validation_alias=AliasChoices("OPENROUTER_SITE_URL"))
     openrouter_app_name: str = "Sentinel"
     l2_model_name: str = "google/gemma-3-4b-it:free"
     l3_model_name: str = "nvidia/nemotron-nano-12b-v2-vl:free"

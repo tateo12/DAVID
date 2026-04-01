@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sentinel Prompt Guard",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "Intercepts and scans employee AI prompts before submission — blocks sensitive data from reaching AI tools.",
   "action": {
     "default_popup": "popup.html",

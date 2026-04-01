@@ -17,9 +17,7 @@ def build_metrics() -> MetricSnapshot:
         """
         SELECT
             COUNT(*) AS prompts_analyzed,
-            SUM(CASE WHEN action = 'block' THEN 1 ELSE 0 END) AS threats_blocked,
-            SUM(CASE WHEN risk_level IN ('high', 'critical') THEN 1 ELSE 0 END) AS high_risk_count,
-            SUM(CASE WHEN estimated_cost_usd > 0 THEN estimated_cost_usd ELSE 0 END) AS total_model_cost
+            SUM(CASE WHEN action = 'block' THEN 1 ELSE 0 END) AS threats_blocked
         FROM prompts
         """
     )
@@ -27,15 +25,11 @@ def build_metrics() -> MetricSnapshot:
     shadow = fetch_one("SELECT COUNT(*) AS c FROM shadow_ai_events")
     prompts_analyzed = int(totals["prompts_analyzed"] or 0)
     threats_blocked = int(totals["threats_blocked"] or 0)
-    high_risk = int(totals["high_risk_count"] or 0)
-    total_model_cost = float(totals["total_model_cost"] or 0.0)
-    estimated_saved = max(0.0, (high_risk * 5.0) - total_model_cost)
     return MetricSnapshot(
         threats_blocked=threats_blocked,
         prompts_analyzed=prompts_analyzed,
         active_employees=int(active["c"] or 0),
         shadow_ai_events=int(shadow["c"] or 0),
-        estimated_cost_saved_usd=round(estimated_saved, 2),
     )
 
 
@@ -43,14 +37,6 @@ def _pct_delta(cur: int, prev: int) -> float | None:
     if prev == 0 and cur == 0:
         return 0.0
     if prev == 0:
-        return None
-    return round((cur - prev) / prev * 100.0, 1)
-
-
-def _pct_delta_float(cur: float, prev: float) -> float | None:
-    if prev == 0.0 and cur == 0.0:
-        return 0.0
-    if prev == 0.0:
         return None
     return round((cur - prev) / prev * 100.0, 1)
 
@@ -68,18 +54,12 @@ def _prompt_window_row(where_clause: str, employee_id: int | None = None) -> dic
         SELECT
             COUNT(*) AS prompts_analyzed,
             COALESCE(SUM(CASE WHEN action = 'block' THEN 1 ELSE 0 END), 0) AS threats_blocked,
-            COALESCE(SUM(CASE WHEN risk_level IN ('high', 'critical') THEN 1 ELSE 0 END), 0) AS high_risk_count,
-            COALESCE(SUM(CASE WHEN estimated_cost_usd > 0 THEN estimated_cost_usd ELSE 0 END), 0) AS total_model_cost,
             COUNT(DISTINCT employee_id) AS active_employees
         FROM prompts
         WHERE {where_clause}{ef}
         """
     )
     return dict(row) if row else {}
-
-
-def _saved_usd(high_risk: int, model_cost: float) -> float:
-    return max(0.0, round((high_risk * 5.0) - model_cost, 2))
 
 
 def empty_employee_dashboard_metrics() -> DashboardMetrics:
@@ -96,9 +76,7 @@ def empty_employee_dashboard_metrics() -> DashboardMetrics:
         prompts_analyzed=0,
         active_employees=0,
         shadow_ai_events=0,
-        estimated_cost_saved_usd=0.0,
         threats_blocked_trend_pct=0.0,
-        cost_saved_trend_pct=0.0,
         shadow_ai_trend_pct=0.0,
         active_employees_trend_pct=0.0,
         threat_trend=trend,
@@ -114,14 +92,6 @@ def build_dashboard_metrics(employee_id: int | None = None) -> DashboardMetrics:
         "created_at >= datetime('now', '-14 day') AND created_at < datetime('now', '-7 day')",
         employee_id,
     )
-
-    cur_hr = int(cur.get("high_risk_count") or 0)
-    cur_cost = float(cur.get("total_model_cost") or 0.0)
-    prev_hr = int(prev.get("high_risk_count") or 0)
-    prev_cost = float(prev.get("total_model_cost") or 0.0)
-
-    saved_cur = _saved_usd(cur_hr, cur_cost)
-    saved_prev = _saved_usd(prev_hr, prev_cost)
 
     ef = _emp_filter_sql(employee_id)
     sh_cur = fetch_one(
@@ -144,9 +114,7 @@ def build_dashboard_metrics(employee_id: int | None = None) -> DashboardMetrics:
         prompts_analyzed=int(cur.get("prompts_analyzed") or 0),
         active_employees=int(cur.get("active_employees") or 0),
         shadow_ai_events=shadow_cur,
-        estimated_cost_saved_usd=saved_cur,
         threats_blocked_trend_pct=_pct_delta(int(cur.get("threats_blocked") or 0), int(prev.get("threats_blocked") or 0)),
-        cost_saved_trend_pct=_pct_delta_float(saved_cur, saved_prev),
         shadow_ai_trend_pct=_pct_delta(shadow_cur, shadow_prev),
         active_employees_trend_pct=_pct_delta(
             int(cur.get("active_employees") or 0),

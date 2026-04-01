@@ -31,9 +31,7 @@ interface BackendDashboardMetrics {
   prompts_analyzed: number;
   active_employees: number;
   shadow_ai_events: number;
-  estimated_cost_saved_usd: number;
   threats_blocked_trend_pct: number | null;
-  cost_saved_trend_pct: number | null;
   shadow_ai_trend_pct: number | null;
   active_employees_trend_pct: number | null;
   threat_trend: Array<{ day: string; threats: number; blocked: number }>;
@@ -133,8 +131,6 @@ async function apiFetch<T>(endpoint: string, options?: RequestInit, withAuth = t
 const emptyMetrics = (): Metrics => ({
   threats_blocked: 0,
   threats_blocked_trend: null,
-  cost_saved: 0,
-  cost_saved_trend: null,
   shadow_ai_detected: 0,
   shadow_ai_trend: null,
   active_employees: 0,
@@ -180,8 +176,6 @@ export async function fetchMetrics(): Promise<Metrics> {
     return {
       threats_blocked: data.threats_blocked,
       threats_blocked_trend: data.threats_blocked_trend_pct,
-      cost_saved: Math.round(data.estimated_cost_saved_usd),
-      cost_saved_trend: data.cost_saved_trend_pct,
       shadow_ai_detected: data.shadow_ai_events,
       shadow_ai_trend: data.shadow_ai_trend_pct,
       active_employees: data.active_employees,

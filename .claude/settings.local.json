@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:sentinel-ai-security.com)",
+      "Bash(python -c ':*)"
+    ]
+  }
+}

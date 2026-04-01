@@ -125,7 +125,6 @@ class MetricSnapshot(BaseModel):
     prompts_analyzed: int
     active_employees: int
     shadow_ai_events: int
-    estimated_cost_saved_usd: float
 
 
 class ThreatTrendPoint(BaseModel):
@@ -146,9 +145,7 @@ class DashboardMetrics(BaseModel):
     prompts_analyzed: int
     active_employees: int
     shadow_ai_events: int
-    estimated_cost_saved_usd: float
     threats_blocked_trend_pct: float | None = None
-    cost_saved_trend_pct: float | None = None
     shadow_ai_trend_pct: float | None = None
     active_employees_trend_pct: float | None = None
     threat_trend: list[ThreatTrendPoint] = Field(default_factory=list)
@@ -371,102 +368,6 @@ class ScoutTelemetryResponse(BaseModel):
     total_prompts: int
     digest: str
     llm_available: bool
-
-
-class AgentRecord(BaseModel):
-    id: int
-    name: str
-    budget_usd: float
-    spend_usd: float
-    quality_score: float
-    success_rate: float
-
-
-class UpdateAgentBudgetRequest(BaseModel):
-    budget_usd: float = Field(gt=0.0)
-
-
-class AgentRunCreateRequest(BaseModel):
-    agent_id: int
-    task_type: str
-    cost_usd: float = Field(ge=0.0)
-    success: bool
-    latency_ms: int = Field(ge=0)
-    quality_score: float = Field(ge=0.0, le=1.0)
-    value_score: float = Field(ge=0.0, le=1.0)
-    metadata: dict[str, Any] | None = None
-
-
-class AgentRunRecord(BaseModel):
-    id: int
-    agent_id: int
-    task_type: str
-    cost_usd: float
-    success: bool
-    latency_ms: int
-    quality_score: float
-    value_score: float
-    created_at: str
-
-
-class AgentSummaryRecord(BaseModel):
-    id: int
-    name: str
-    budget_usd: float
-    spend_usd: float
-    remaining_budget_usd: float
-    success_rate_7d: float
-    avg_quality_7d: float
-    avg_value_7d: float
-    runs_7d: int
-    roi_proxy: float
-
-
-class AgentSummaryResponse(BaseModel):
-    agents: list[AgentSummaryRecord]
-    totals: dict[str, float]
-
-
-class AgentRebalanceChange(BaseModel):
-    agent_id: int
-    old_budget_usd: float
-    new_budget_usd: float
-    reason: str
-
-
-class AgentRebalanceResponse(BaseModel):
-    changes: list[AgentRebalanceChange]
-
-
-class AgentAttributionCreateRequest(BaseModel):
-    agent_id: int
-    run_id: int | None = None
-    output_ref: str
-    revenue_impact_usd: float = Field(default=0.0)
-    cost_saved_usd: float = Field(default=0.0)
-    quality_outcome_score: float = Field(ge=0.0, le=1.0)
-    metadata: dict[str, Any] | None = None
-
-
-class AgentAttributionRecord(BaseModel):
-    id: int
-    agent_id: int
-    run_id: int | None
-    output_ref: str
-    revenue_impact_usd: float
-    cost_saved_usd: float
-    quality_outcome_score: float
-    created_at: str
-
-
-class AgentMemorySnapshot(BaseModel):
-    agent_id: int
-    run_count_30d: int
-    spend_30d_usd: float
-    revenue_impact_30d_usd: float
-    cost_saved_30d_usd: float
-    net_value_30d_usd: float
-    profitability_index: float
 
 
 class EmployeeMemoryEvent(BaseModel):

@@ -2,7 +2,7 @@ import json
 from hashlib import sha256
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from auth import get_current_user
 from database import (
@@ -12,6 +12,7 @@ from database import (
     fetch_rows,
     touch_extension_first_seen,
 )
+from engines.orchestration_queue import dispatch_post_analysis
 from engines.orchestrator_factory import get_orchestrator
 from models import (
     AnalyzeRequest,
@@ -94,7 +95,7 @@ def _attachment_audit_entries(payload: ExtensionCaptureRequest | ExtensionTurnCa
 
 
 @router.post("/capture", response_model=AnalyzeResponse)
-def extension_capture(payload: ExtensionCaptureRequest, current_user: dict = Depends(get_current_user)) -> AnalyzeResponse:
+def extension_capture(payload: ExtensionCaptureRequest, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)) -> AnalyzeResponse:
     effective_employee_id = _resolve_effective_employee_id(payload.employee_id, current_user)
     touch_extension_first_seen(effective_employee_id)
     effective_role = _policy_role_for_employee(effective_employee_id)
@@ -116,6 +117,9 @@ def extension_capture(payload: ExtensionCaptureRequest, current_user: dict = Dep
         },
     )
     analysis = get_orchestrator().run(analyze_payload)
+
+    if not payload.preview_only and analysis.prompt_id > 0:
+        background_tasks.add_task(dispatch_post_analysis, effective_employee_id, analysis.prompt_id)
 
     requires_confirmation = (
         not payload.warning_confirmed
@@ -166,6 +170,7 @@ def extension_capture(payload: ExtensionCaptureRequest, current_user: dict = Dep
 @router.post("/capture-turn", response_model=ExtensionTurnCaptureResponse)
 def extension_capture_turn(
     payload: ExtensionTurnCaptureRequest,
+    background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user),
 ) -> ExtensionTurnCaptureResponse:
     effective_employee_id = _resolve_effective_employee_id(payload.employee_id, current_user)
@@ -204,6 +209,9 @@ def extension_capture_turn(
             },
         )
     )
+    if prompt_analysis.prompt_id > 0:
+        background_tasks.add_task(dispatch_post_analysis, effective_employee_id, prompt_analysis.prompt_id)
+
     create_captured_turn_record(
         employee_id=effective_employee_id,
         target_tool=payload.target_tool,

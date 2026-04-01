@@ -624,7 +624,6 @@ def _seed_defaults() -> None:
             baseline = {
                 "threats_blocked": 0,
                 "prompts_analyzed": 0,
-                "estimated_cost_saved_usd": 0.0,
             }
             conn.execute(
                 "INSERT INTO weekly_reports (week_start, week_end, summary, kpis_json) VALUES (?, ?, ?, ?)",

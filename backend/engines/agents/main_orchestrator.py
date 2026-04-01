@@ -111,9 +111,28 @@ class MainOrchestrator:
         )
 
         profile = fetch_one(
-            "SELECT ai_skill_score, skill_class, prompts_evaluated FROM employee_skill_profiles WHERE employee_id = ?",
+            """
+            SELECT ai_skill_score, skill_class, prompts_evaluated,
+                   last_coaching_message, assigned_lessons_json
+            FROM employee_skill_profiles WHERE employee_id = ?
+            """,
             (employee_id,),
         )
+
+        # Load currently assigned lesson titles for coaching tip context
+        assigned_lesson_titles: list[str] = []
+        if profile:
+            lesson_rows = fetch_rows(
+                """
+                SELECT sl.title
+                FROM employee_lessons el
+                INNER JOIN skill_lessons sl ON sl.id = el.lesson_id
+                WHERE el.employee_id = ? AND el.status = 'assigned'
+                ORDER BY el.id DESC LIMIT 2
+                """,
+                (employee_id,),
+            )
+            assigned_lesson_titles = [str(r["title"]) for r in lesson_rows]
 
         recent_violations = sum(
             1 for m in memory_rows if m["action"] in ("block", "quarantine", "redact")
@@ -125,6 +144,8 @@ class MainOrchestrator:
             "skill_profile": dict(profile) if profile else None,
             "recent_violations": recent_violations,
             "is_repeat_offender": recent_violations >= 3,
+            "assigned_lesson_titles": assigned_lesson_titles,
+            "last_coaching_message": str(profile["last_coaching_message"] or "") if profile else "",
         }
 
     # -- L1 detection ----------------------------------------------------------
@@ -349,6 +370,13 @@ class MainOrchestrator:
             )
 
         tip = coaching_tip(action, detections, skill)
+
+        # Append active lesson reference so every coaching response acknowledges the curriculum
+        lesson_titles = ctx.get("assigned_lesson_titles", [])
+        if lesson_titles:
+            lessons_str = " | ".join(f'"{t}"' for t in lesson_titles[:2])
+            tip = f"{tip} [Active learning: {lessons_str}]"
+
         intent_assessment, warning_reasons, safer_alternatives = (
             assess_intent_and_recommendations(
                 payload.prompt_text,
