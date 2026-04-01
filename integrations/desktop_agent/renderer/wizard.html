@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';" />
+  <title>Sentinel Setup</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0d0f13;
+      color: #e2e4e8;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .progress-bar {
+      display: flex;
+      height: 3px;
+      background: #1e2025;
+    }
+    .progress-bar .fill {
+      background: #c3f400;
+      transition: width 0.4s ease;
+    }
+
+    .step-indicator {
+      display: flex;
+      gap: 8px;
+      padding: 20px 40px 0;
+    }
+    .step-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #2a2d33;
+      transition: background 0.3s;
+    }
+    .step-dot.active { background: #c3f400; }
+    .step-dot.done { background: #6b7a2a; }
+
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 32px 40px;
+      max-width: 560px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .step { display: none; }
+    .step.visible { display: flex; flex-direction: column; gap: 20px; }
+
+    h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+    p  { font-size: 14px; color: #8a8f99; line-height: 1.6; }
+
+    label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #8a8f99; margin-bottom: 6px; }
+
+    input[type="text"], input[type="password"], input[type="url"] {
+      width: 100%;
+      background: #1e2025;
+      border: 1px solid #2a2d33;
+      color: #e2e4e8;
+      padding: 11px 14px;
+      font-size: 14px;
+      font-family: 'SF Mono', 'Consolas', monospace;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: #c3f400; }
+
+    .btn {
+      padding: 12px 24px;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border: none;
+      cursor: pointer;
+      transition: filter 0.15s;
+    }
+    .btn:hover { filter: brightness(1.1); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+    .btn-primary { background: #c3f400; color: #0d0f13; }
+    .btn-secondary { background: #1e2025; color: #e2e4e8; border: 1px solid #2a2d33; }
+
+    .btn-row { display: flex; gap: 12px; justify-content: flex-end; }
+
+    .status-box {
+      padding: 14px 16px;
+      border: 1px solid #2a2d33;
+      background: #1a1c21;
+      font-size: 13px;
+      font-family: 'SF Mono', 'Consolas', monospace;
+      color: #8a8f99;
+    }
+    .status-box.ok    { border-color: #4a7a00; color: #c3f400; }
+    .status-box.error { border-color: #7a2020; color: #f44; }
+
+    .check-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    .check-icon { width: 20px; text-align: center; }
+  </style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="fill" id="progress-fill"></div></div>
+
+<div class="step-indicator" id="step-indicator"></div>
+
+<div class="content">
+
+  <!-- Step 1: Login -->
+  <div class="step visible" id="step-1">
+    <div>
+      <h2>Connect to Sentinel</h2>
+      <p style="margin-top:8px">Enter your Sentinel backend URL and credentials.</p>
+    </div>
+    <div>
+      <label>Backend URL</label>
+      <input id="api-url" type="url" value="http://localhost:8000" placeholder="https://sentinel.yourcompany.com" />
+    </div>
+    <div>
+      <label>Username</label>
+      <input id="username" type="text" placeholder="Your username" />
+    </div>
+    <div>
+      <label>Password</label>
+      <input id="password" type="password" placeholder="••••••••" />
+    </div>
+    <div id="login-status" class="status-box" style="display:none"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-login">Connect →</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Certificate -->
+  <div class="step" id="step-2">
+    <div>
+      <h2>Install Security Certificate</h2>
+      <p>Sentinel needs a trusted CA certificate to inspect encrypted AI traffic. This is the same technique used by corporate VPNs and security tools.</p>
+    </div>
+    <div id="cert-status" class="status-box">Checking certificate status…</div>
+    <div id="cert-manual" style="display:none">
+      <p>
+        <strong>Firefox users:</strong> Firefox uses its own certificate store. After installation,
+        go to <code>about:preferences#privacy</code> → Certificates → View Certificates → Authorities → Import,
+        and import the cert from your user data folder.
+      </p>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="btn-skip-cert">Skip for now</button>
+      <button class="btn btn-primary" id="btn-install-cert">Install Certificate →</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Enable Proxy -->
+  <div class="step" id="step-3">
+    <div>
+      <h2>Activate Monitoring</h2>
+      <p>Sentinel will set your system proxy to route AI traffic through the monitor. Your other internet traffic passes through unaffected.</p>
+    </div>
+    <div id="proxy-checks" style="display:flex;flex-direction:column;gap:10px">
+      <div class="check-row"><span class="check-icon" id="chk-proxy">○</span> Configure system proxy</div>
+      <div class="check-row"><span class="check-icon" id="chk-mitm">○</span> Start traffic monitor</div>
+      <div class="check-row"><span class="check-icon" id="chk-verify">○</span> Verify backend connection</div>
+    </div>
+    <div id="proxy-status" class="status-box" style="display:none"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-activate">Activate →</button>
+    </div>
+  </div>
+
+  <!-- Step 4: Done -->
+  <div class="step" id="step-4">
+    <div>
+      <h2>Sentinel is Active</h2>
+      <p>The desktop agent is running in your system tray. It will monitor AI usage across all browsers and desktop apps.</p>
+    </div>
+    <div id="done-status" class="status-box ok">● Monitoring active</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="check-row"><span class="check-icon">✓</span> Browser AI (Chrome, Edge, Arc, Comet…)</div>
+      <div class="check-row"><span class="check-icon">✓</span> Desktop apps (Claude Desktop, Cursor, ChatGPT…)</div>
+      <div class="check-row"><span class="check-icon">✓</span> CLI AI tools (claude, openai, cursor…)</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-done">Close Setup</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="wizard.js"></script>
+</body>
+</html>

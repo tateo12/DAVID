@@ -1,0 +1,122 @@
+# Sentinel Desktop Agent — Proxy Configuration
+# Extends the base terminal proxy config with additional AI domains and
+# process name mapping for the desktop environment.
+
+sentinel_api: "http://localhost:8000"
+mode: "warn"  # log-only | warn | block
+
+monitored_domains:
+  # --- Core AI APIs (same as terminal proxy) ---
+  - api.openai.com
+  - api.anthropic.com
+  - api.mistral.ai
+  - generativelanguage.googleapis.com
+  - api.cohere.ai
+  - api.together.xyz
+  - api.replicate.com
+  - api.perplexity.ai
+  - api.deepseek.com
+  # --- Desktop / Browser additions ---
+  - claude.ai
+  - api.claude.ai
+  - copilot.microsoft.com
+  - aiproxy.prod.github.com
+  - api.github.com               # Copilot completions (/copilot_internal/)
+  - api.openai.azure.com
+  - openai.azure.com
+  - gemini.google.com            # Gemini web + Chrome sidebar
+  - aistudio.google.com
+  - notebook.googleapis.com      # NotebookLM
+  - labs.perplexity.ai           # Perplexity Comet Pro
+  - api.cursor.sh
+  - api2.cursor.sh
+  - codestral.mistral.ai         # Mistral Codestral (code completion)
+  - api.groq.com
+  - api.x.ai                     # Grok / xAI
+  - api.meta.ai
+  - llama-api.meta.com
+
+approved_tools:
+  - api.openai.com
+  - api.anthropic.com
+  - claude.ai
+  - api.claude.ai
+  - gemini.google.com
+  - generativelanguage.googleapis.com
+  - copilot.microsoft.com
+  - aiproxy.prod.github.com
+  - api.github.com
+
+risk_actions:
+  low: pass
+  medium: warn
+  high: warn
+  critical: block
+
+log_file: "~/.sentinel/desktop_proxy.log"
+log_level: "INFO"
+
+cost_per_1k_tokens:
+  api.openai.com: 0.03
+  api.anthropic.com: 0.015
+  api.mistral.ai: 0.004
+  api.cursor.sh: 0.01
+  default: 0.01
+
+# ---------------------------------------------------------------------------
+# Process attribution: maps executable names to friendly display names.
+# Each entry is either:
+#   - A string:  exe_name: "Display Name"
+#   - A list of rules with optional match_path (substring of full exe path):
+#       exe_name:
+#         - match_path: "cursor"
+#           display: "Cursor"
+#         - display: "Generic Electron App"   # fallback (no match_path)
+# ---------------------------------------------------------------------------
+
+process_display_names:
+  electron.exe:
+    - match_path: "cursor"
+      display: "Cursor"
+    - match_path: "claude"
+      display: "Claude Desktop"
+    - match_path: "chatgpt"
+      display: "ChatGPT"
+    - match_path: "windsurf"
+      display: "Windsurf"
+    - match_path: "zed"
+      display: "Zed"
+    - display: "Electron App"
+  electron:
+    - match_path: "cursor"
+      display: "Cursor"
+    - match_path: "claude"
+      display: "Claude Desktop"
+    - match_path: "chatgpt"
+      display: "ChatGPT"
+    - display: "Electron App"
+  chrome.exe: "Google Chrome"
+  chrome: "Google Chrome"
+  msedge.exe: "Microsoft Edge"
+  msedge: "Microsoft Edge"
+  firefox.exe: "Firefox"
+  firefox: "Firefox"
+  brave.exe: "Brave"
+  brave: "Brave"
+  opera.exe: "Opera"
+  opera: "Opera"
+  arc.exe: "Arc Browser"
+  arc: "Arc Browser"
+  vivaldi.exe: "Vivaldi"
+  vivaldi: "Vivaldi"
+  node.exe: "VS Code Extension Host"
+  node: "VS Code Extension Host"
+  code.exe: "VS Code"
+  code: "VS Code"
+  python.exe: "Python Script"
+  python3: "Python Script"
+  python: "Python Script"
+  curl.exe: "curl"
+  curl: "curl"
+  wget.exe: "wget"
+  wget: "wget"

@@ -1,0 +1,31 @@
+{
+  "name": "sentinel-desktop-agent",
+  "version": "1.0.0",
+  "description": "Sentinel Desktop Agent — always-on AI usage monitoring",
+  "main": "dist/main/index.js",
+  "author": "Sentinel",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "npm run build && electron .",
+    "dev": "tsc -p tsconfig.json --watch & electron . --dev",
+    "pack": "npm run build && electron-builder --dir",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:linux": "npm run build && electron-builder --linux"
+  },
+  "dependencies": {
+    "keytar": "^7.9.0",
+    "sudo-prompt": "^9.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "electron": "^29.0.0",
+    "electron-builder": "^24.0.0",
+    "typescript": "^5.4.0"
+  },
+  "build": {
+    "extends": "./electron-builder.json"
+  }
+}

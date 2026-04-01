@@ -7,7 +7,13 @@
   // ═══════════════════════════════════════════════════════════
 
   const SEVERITY = { low: 0, medium: 1, high: 2, critical: 3 };
-  const BLOCK_THRESHOLD = "high";
+  // Types where we hard-block immediately without waiting for the backend LLM.
+  // These are unambiguous regex-confirmed matches (actual secret values present in text).
+  // Everything else — including high-severity keywords and contextual concerns — goes to the LLM.
+  const HARD_BLOCK_TYPES = new Set([
+    "ssn", "aws_key", "api_key", "connection_string", "private_key",
+    "github_token", "slack_token", "credit_card", "bearer_token",
+  ]);
   const BACKEND_TIMEOUT_MS = 3000;
 
   const DLP_PATTERNS = [
@@ -50,6 +56,50 @@
     { kw: "date of birth", severity: "high", label: "Date of Birth" },
     { kw: "driver's license", severity: "high", label: "Driver's License" },
     { kw: "drivers license", severity: "high", label: "Driver's License" },
+    // Pay / compensation
+    { kw: "payroll", severity: "high", label: "Payroll Information" },
+    { kw: "pay stub", severity: "high", label: "Pay Stub" },
+    { kw: "pay rate", severity: "high", label: "Pay Rate" },
+    { kw: "paycheck", severity: "medium", label: "Paycheck" },
+    { kw: "base pay", severity: "high", label: "Base Pay" },
+    { kw: "compensation", severity: "high", label: "Compensation Data" },
+    { kw: "bonus", severity: "medium", label: "Bonus Information" },
+    { kw: "raise", severity: "medium", label: "Pay Raise" },
+    // Performance
+    { kw: "performance review", severity: "high", label: "Performance Review" },
+    { kw: "performance data", severity: "high", label: "Performance Data" },
+    { kw: "performance report", severity: "high", label: "Performance Report" },
+    { kw: "pip", severity: "medium", label: "Performance Improvement Plan" },
+    { kw: "performance improvement plan", severity: "high", label: "Performance Improvement Plan" },
+    { kw: "termination", severity: "high", label: "Termination Information" },
+    // Confidential / internal information
+    { kw: "confidential information", severity: "high", label: "Confidential Information" },
+    { kw: "proprietary information", severity: "high", label: "Proprietary Information" },
+    { kw: "sensitive information", severity: "high", label: "Sensitive Information" },
+    { kw: "internal information", severity: "high", label: "Internal Information" },
+    { kw: "company information", severity: "medium", label: "Company Information" },
+    { kw: "trade secret", severity: "high", label: "Trade Secret" },
+    { kw: "nda", severity: "medium", label: "NDA Reference" },
+    { kw: "non-disclosure", severity: "high", label: "Non-Disclosure Agreement" },
+    // Invoices / financial documents
+    { kw: "invoice", severity: "medium", label: "Invoice" },
+    { kw: "purchase order", severity: "medium", label: "Purchase Order" },
+    { kw: "financial statement", severity: "high", label: "Financial Statement" },
+    { kw: "balance sheet", severity: "high", label: "Balance Sheet" },
+    { kw: "revenue", severity: "medium", label: "Revenue Data" },
+    { kw: "budget", severity: "medium", label: "Budget Information" },
+    { kw: "expense report", severity: "medium", label: "Expense Report" },
+    { kw: "quarterly earnings", severity: "high", label: "Earnings Data" },
+    { kw: "profit margin", severity: "high", label: "Profit Margin Data" },
+    // Company logs / internal systems
+    { kw: "company logs", severity: "high", label: "Company Logs" },
+    { kw: "system logs", severity: "high", label: "System Logs" },
+    { kw: "access logs", severity: "high", label: "Access Logs" },
+    { kw: "audit log", severity: "high", label: "Audit Logs" },
+    { kw: "error log", severity: "medium", label: "Error Logs" },
+    { kw: "server logs", severity: "high", label: "Server Logs" },
+    { kw: "database dump", severity: "high", label: "Database Dump" },
+    { kw: "internal report", severity: "high", label: "Internal Report" },
   ];
 
   const FIELD_SELECTORS = [
@@ -270,14 +320,17 @@
   function showBlockModal(scanResult, { onEdit, onProceed }) {
     removeEl("sentinel-block-overlay");
     const sev = scanResult.maxSeverity;
-    const isCritical = sev === "critical";
+    // Whether the user can override and send anyway is determined by the caller:
+    // - null/undefined onProceed = hard block, no override
+    // - function onProceed = soft block, override allowed
+    const canOverride = typeof onProceed === "function";
 
     const shieldSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="9" y1="12" x2="15" y2="12" stroke-width="2.5"/></svg>`;
     const warnSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
 
-    const iconClass = isCritical ? "critical" : sev === "high" ? "high" : "medium";
-    const title = isCritical ? "Submission Blocked" : "Sensitive Content Detected";
-    const subtitle = isCritical
+    const iconClass = !canOverride ? "critical" : sev === "high" ? "high" : "medium";
+    const title = !canOverride ? "Submission Blocked" : "Sensitive Content Detected";
+    const subtitle = !canOverride
       ? "Your message contains highly sensitive information that cannot be shared with AI tools. Remove the flagged content and try again."
       : "Your message may contain sensitive information. Review the findings below before proceeding.";
 
@@ -311,7 +364,7 @@
         <div class="sentinel-findings-list">${findingsHtml}</div>
         <div class="sentinel-block-actions">
           <button class="sentinel-btn-edit" id="sentinel-btn-edit">Edit Message</button>
-          ${isCritical ? "" : `<button class="sentinel-btn-proceed" id="sentinel-btn-proceed">Send Anyway</button>`}
+          ${canOverride ? `<button class="sentinel-btn-proceed" id="sentinel-btn-proceed">Send Anyway</button>` : ""}
         </div>
       </div>
     `;
@@ -322,10 +375,10 @@
       if (typeof onEdit === "function") onEdit();
     });
 
-    if (!isCritical) {
+    if (canOverride) {
       document.getElementById("sentinel-btn-proceed").addEventListener("click", async () => {
         removeEl("sentinel-block-overlay");
-        if (typeof onProceed === "function") await onProceed();
+        await onProceed();
       });
     }
   }
@@ -450,24 +503,26 @@
 
     const localResult = scanText(text);
 
-    if (localResult.blocked) {
+    // Fast-path hard block: only for unambiguous regex-confirmed critical secrets/PII.
+    // These patterns confirm actual values are present in the text — no LLM needed.
+    const hasHardBlock = localResult.findings.some(
+      (f) => f.severity === "critical" && HARD_BLOCK_TYPES.has(f.type)
+    );
+
+    if (hasHardBlock) {
       hideScanning();
       scanning = false;
-
       sendCapture(text, { event_type: "blocked_prompt", local_findings: localResult.findings.length });
-
       showBlockModal(localResult, {
-        onEdit: () => {
-          focusField();
-        },
-        onProceed: () => {
-          sendCapture(text, { event_type: "warning_override", local_findings: localResult.findings.length });
-          releaseSubmission();
-        },
+        onEdit: () => focusField(),
+        onProceed: null, // hard block — no override
       });
       return;
     }
 
+    // All other prompts go through the backend LLM before submission.
+    // This catches: contextual policy violations, jailbreaks, data exfiltration intent,
+    // high-severity keywords, and anything the LLM deems concerning — not just regex matches.
     let backendBlocked = false;
     try {
       const result = await Promise.race([
@@ -489,26 +544,36 @@
             matchText: "",
           }));
 
-          const backendResult = {
-            findings: backendFindings,
-            maxSeverity: analysis.risk_level || "high",
-            blocked: true,
-          };
+          // Backend decides whether override is allowed:
+          // critical risk or explicit block action = hard block, no "Send Anyway"
+          const allowOverride = analysis.risk_level !== "critical" && analysis.action !== "block";
 
-          showBlockModal(backendResult, {
-            onEdit: () => focusField(),
-            onProceed: async () => {
-              await sendMessage("sentinel_capture_prompt", {
-                prompt_text: text,
-                target_tool: inferTargetTool(),
-                page_url: window.location.href,
-                warning_confirmed: true,
-                warning_context_id: analysis.warning_context_id,
-                metadata: { event_type: "warning_confirmed", source: "browser_extension" },
-              });
-              releaseSubmission();
-            },
-          });
+          showBlockModal(
+            { findings: backendFindings, maxSeverity: analysis.risk_level || "high", blocked: true },
+            {
+              onEdit: () => {
+                // Pre-check was preview_only — persist the blocked attempt now
+                sendCapture(text, {
+                  event_type: "blocked_prompt",
+                  warning_context_id: analysis.warning_context_id,
+                });
+                focusField();
+              },
+              onProceed: allowOverride
+                ? async () => {
+                    await sendMessage("sentinel_capture_prompt", {
+                      prompt_text: text,
+                      target_tool: inferTargetTool(),
+                      page_url: window.location.href,
+                      warning_confirmed: true,
+                      warning_context_id: analysis.warning_context_id,
+                      metadata: { event_type: "warning_confirmed", source: "browser_extension" },
+                    });
+                    releaseSubmission();
+                  }
+                : null,
+            }
+          );
         }
       }
     } catch (err) {
@@ -518,8 +583,7 @@
     if (!backendBlocked) {
       hideScanning();
       scanning = false;
-
-      sendCapture(text, { event_type: "submitted_prompt" });
+      sendCapture(text, { event_type: "submitted_prompt", local_risk: localResult.maxSeverity });
       releaseSubmission();
     }
   }

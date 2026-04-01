@@ -1,0 +1,51 @@
+{
+  "appId": "com.sentinel.desktop-agent",
+  "productName": "Sentinel Desktop Agent",
+  "copyright": "Copyright © Sentinel",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "renderer/**/*",
+    "assets/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "proxy",
+      "to": "proxy",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "scripts",
+      "to": "scripts",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "resources/python",
+      "to": "resources/python",
+      "filter": ["**/*"]
+    }
+  ],
+  "win": {
+    "target": [{ "target": "nsis", "arch": ["x64"] }],
+    "icon": "assets/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": false,
+    "createStartMenuShortcut": true,
+    "runAfterFinish": true
+  },
+  "mac": {
+    "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
+    "icon": "assets/icon.icns",
+    "category": "public.app-category.productivity"
+  },
+  "linux": {
+    "target": [{ "target": "AppImage", "arch": ["x64"] }],
+    "icon": "assets/icon.png",
+    "category": "Utility"
+  }
+}

@@ -108,12 +108,12 @@ def extension_capture(payload: ExtensionCaptureRequest, background_tasks: Backgr
         attachments=payload.attachments,
         persist_prompt=not payload.preview_only,
         metadata={
-            "source": "browser_extension",
             "attachments_count": len(payload.attachments),
             "attachments_audit": _attachment_audit_entries(payload),
             "warning_confirmed": payload.warning_confirmed,
             "warning_context_id": payload.warning_context_id,
             **(payload.metadata or {}),
+            "source": (payload.metadata or {}).get("source", "browser_extension"),
         },
     )
     analysis = get_orchestrator().run(analyze_payload)
@@ -184,13 +184,13 @@ def extension_capture_turn(
             target_tool=payload.target_tool,
             attachments=payload.attachments,
             metadata={
-                "source": "browser_extension",
                 "event_type": "user_prompt_turn",
                 "conversation_id": payload.conversation_id,
                 "turn_id": payload.turn_id,
                 "attachments_count": len(payload.attachments),
                 "attachments_audit": _attachment_audit_entries(payload),
                 **(payload.metadata or {}),
+                "source": (payload.metadata or {}).get("source", "browser_extension"),
             },
         )
     )
@@ -201,11 +201,11 @@ def extension_capture_turn(
             target_tool=payload.target_tool,
             attachments=[],
             metadata={
-                "source": "browser_extension",
                 "event_type": "ai_output_turn",
                 "conversation_id": payload.conversation_id,
                 "turn_id": payload.turn_id,
                 **(payload.metadata or {}),
+                "source": (payload.metadata or {}).get("source", "browser_extension"),
             },
         )
     )

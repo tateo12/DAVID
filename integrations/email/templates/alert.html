@@ -5,42 +5,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sentinel Security Alert</title>
 </head>
-<body style="margin:0; padding:0; background-color:#f1f5f9; font-family:Arial, Helvetica, sans-serif; -webkit-font-smoothing:antialiased;">
+<body style="margin:0; padding:0; background-color:#0a0c0f; font-family:Arial, Helvetica, sans-serif; -webkit-font-smoothing:antialiased;">
 
-  <!-- Outer wrapper -->
-  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f1f5f9;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#0a0c0f;">
     <tr>
-      <td align="center" style="padding:24px 16px;">
+      <td align="center" style="padding:28px 16px;">
 
-        <!-- Main container -->
-        <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px; width:100%; background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 4px 6px rgba(0,0,0,0.07);">
+        <!-- Main card -->
+        <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px; width:100%; background-color:#13161b; border-radius:12px; overflow:hidden; border:1px solid #1e2330;">
 
-          <!-- Red Header -->
+          <!-- Lime accent bar -->
           <tr>
-            <td style="background-color:#ef4444; padding:6px 40px; text-align:center;">
-              <!-- Top accent bar -->
-            </td>
+            <td style="background-color:#c3f400; height:4px; font-size:1px; line-height:4px;">&nbsp;</td>
           </tr>
+
+          <!-- Header -->
           <tr>
-            <td style="background-color:#0f172a; padding:24px 40px;">
+            <td style="background-color:#0d0f12; padding:28px 40px 24px 40px;">
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
-                  <td style="text-align:center;">
-                    <table border="0" cellpadding="0" cellspacing="0" align="center">
+                  <td style="vertical-align:middle; width:48px;">
+                    <!-- Shield logo SVG as data URI -->
+                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='38' height='44' viewBox='0 0 38 44' fill='none'%3E%3Cpath d='M19 1L1 9v13c0 11 8 20.5 18 22 10-1.5 18-11 18-22V9L19 1z' fill='%23c3f400'/%3E%3Cpolyline points='11,22 16.5,28.5 27,16' stroke='%230d0f12' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E" alt="Sentinel" width="38" height="44" style="display:block;" />
+                  </td>
+                  <td style="vertical-align:middle; padding-left:14px;">
+                    <div style="color:#c3f400; font-size:19px; font-weight:bold; letter-spacing:3px; font-family:'Courier New', monospace; line-height:1;">SENTINEL</div>
+                    <div style="color:#4a5568; font-size:11px; letter-spacing:2px; margin-top:4px; font-family:'Courier New', monospace;">AI SECURITY PLATFORM</div>
+                  </td>
+                  <td style="text-align:right; vertical-align:middle;">
+                    <!-- Severity badge -->
+                    <table border="0" cellpadding="0" cellspacing="0" align="right">
                       <tr>
-                        <td style="color:#ffffff; font-size:22px; font-weight:bold; letter-spacing:1px; text-align:center;">
-                          &#x26A0;&#xFE0F; SECURITY ALERT
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="text-align:center; padding-top:10px;">
-                          <table border="0" cellpadding="0" cellspacing="0" align="center">
-                            <tr>
-                              <td style="font-size:12px; font-weight:bold; color:#ffffff; background-color:{% if severity == 'critical' %}#ef4444{% elif severity == 'high' %}#ef4444{% elif severity == 'medium' %}#f59e0b{% else %}#3b82f6{% endif %}; padding:5px 16px; border-radius:12px; text-transform:uppercase; letter-spacing:1px;">
-                                {{ severity }}
-                              </td>
-                            </tr>
-                          </table>
+                        <td style="font-size:11px; font-weight:bold; letter-spacing:2px; color:#0d0f12; background-color:{% if severity == 'critical' %}#ef4444{% elif severity == 'high' %}#f97316{% elif severity == 'medium' %}#f59e0b{% else %}#3b82f6{% endif %}; padding:5px 14px; border-radius:4px; text-transform:uppercase; font-family:'Courier New', monospace;">
+                          {{ severity }}
                         </td>
                       </tr>
                     </table>
@@ -50,65 +47,57 @@
             </td>
           </tr>
 
-          <!-- Body -->
+          <!-- Alert title bar -->
           <tr>
-            <td style="padding:32px 40px 12px 40px;">
-
-              <!-- Alert Summary -->
+            <td style="background-color:{% if severity == 'critical' %}#450a0a{% elif severity == 'high' %}#431407{% elif severity == 'medium' %}#451a03{% else %}#172554{% endif %}; padding:16px 40px; border-top:1px solid {% if severity == 'critical' %}#7f1d1d{% elif severity == 'high' %}#7c2d12{% elif severity == 'medium' %}#78350f{% else %}#1e3a8a{% endif %}; border-bottom:1px solid {% if severity == 'critical' %}#7f1d1d{% elif severity == 'high' %}#7c2d12{% elif severity == 'medium' %}#78350f{% else %}#1e3a8a{% endif %};">
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
-                  <td style="color:#0f172a; font-size:16px; line-height:24px; padding-bottom:24px;">
-                    A <strong style="color:#ef4444; text-transform:uppercase;">{{ severity }}</strong> security event was detected and requires your attention.
+                  <td>
+                    <div style="color:#ffffff; font-size:15px; font-weight:bold; letter-spacing:1px; font-family:'Courier New', monospace;">// SECURITY EVENT DETECTED</div>
+                    <div style="color:#94a3b8; font-size:12px; margin-top:4px; font-family:'Courier New', monospace;">{{ timestamp }}</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:28px 40px 12px 40px; background-color:#13161b;">
+
+              <!-- Intro text -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:24px;">
+                <tr>
+                  <td style="color:#cbd5e1; font-size:14px; line-height:22px;">
+                    A <strong style="color:{% if severity == 'critical' %}#ef4444{% elif severity == 'high' %}#f97316{% elif severity == 'medium' %}#f59e0b{% else %}#3b82f6{% endif %}; text-transform:uppercase; letter-spacing:1px; font-family:'Courier New', monospace;">{{ severity }}</strong> severity security event was intercepted and requires review.
                   </td>
                 </tr>
               </table>
 
-              <!-- Event Details Table -->
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:28px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+              <!-- Event Details -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:20px; border:1px solid #1e2330; border-radius:8px; overflow:hidden;">
                 <tr>
-                  <td style="background-color:#0f172a; padding:12px 20px; color:#ffffff; font-size:13px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">
-                    Event Details
+                  <td style="background-color:#0d0f12; padding:10px 18px; border-bottom:1px solid #1e2330;">
+                    <span style="color:#c3f400; font-size:11px; font-weight:bold; letter-spacing:2px; font-family:'Courier New', monospace;">EVENT DETAILS</span>
                   </td>
                 </tr>
                 <tr>
                   <td style="padding:0;">
                     <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                      <!-- Employee -->
                       <tr>
-                        <td style="padding:12px 20px; border-bottom:1px solid #f1f5f9; width:35%; color:#64748b; font-size:13px; font-weight:600; vertical-align:top;">
-                          Employee
-                        </td>
-                        <td style="padding:12px 20px; border-bottom:1px solid #f1f5f9; color:#0f172a; font-size:14px; font-weight:600;">
-                          {{ employee_name }} <span style="color:#64748b; font-weight:normal;">({{ department }})</span>
-                        </td>
+                        <td style="padding:11px 18px; border-bottom:1px solid #1a1f2a; width:38%; color:#4a5568; font-size:12px; font-weight:600; letter-spacing:1px; text-transform:uppercase; font-family:'Courier New', monospace; vertical-align:top;">Employee</td>
+                        <td style="padding:11px 18px; border-bottom:1px solid #1a1f2a; color:#e2e8f0; font-size:14px; font-weight:600;">{{ employee_name }} <span style="color:#4a5568; font-weight:normal; font-size:13px;">({{ department }})</span></td>
                       </tr>
-                      <!-- Time -->
                       <tr>
-                        <td style="padding:12px 20px; border-bottom:1px solid #f1f5f9; color:#64748b; font-size:13px; font-weight:600; vertical-align:top;">
-                          Time
-                        </td>
-                        <td style="padding:12px 20px; border-bottom:1px solid #f1f5f9; color:#0f172a; font-size:14px;">
-                          {{ timestamp }}
-                        </td>
+                        <td style="padding:11px 18px; border-bottom:1px solid #1a1f2a; color:#4a5568; font-size:12px; font-weight:600; letter-spacing:1px; text-transform:uppercase; font-family:'Courier New', monospace; vertical-align:top;">AI Tool</td>
+                        <td style="padding:11px 18px; border-bottom:1px solid #1a1f2a; color:#e2e8f0; font-size:14px;">{{ target_tool }}</td>
                       </tr>
-                      <!-- Tool -->
                       <tr>
-                        <td style="padding:12px 20px; border-bottom:1px solid #f1f5f9; color:#64748b; font-size:13px; font-weight:600; vertical-align:top;">
-                          AI Tool
-                        </td>
-                        <td style="padding:12px 20px; border-bottom:1px solid #f1f5f9; color:#0f172a; font-size:14px;">
-                          {{ target_tool }}
-                        </td>
-                      </tr>
-                      <!-- Action Taken -->
-                      <tr>
-                        <td style="padding:12px 20px; color:#64748b; font-size:13px; font-weight:600; vertical-align:top;">
-                          Action Taken
-                        </td>
-                        <td style="padding:12px 20px;">
+                        <td style="padding:11px 18px; color:#4a5568; font-size:12px; font-weight:600; letter-spacing:1px; text-transform:uppercase; font-family:'Courier New', monospace; vertical-align:top;">Action</td>
+                        <td style="padding:11px 18px;">
                           <table border="0" cellpadding="0" cellspacing="0">
                             <tr>
-                              <td style="font-size:13px; font-weight:bold; color:#ffffff; background-color:{% if action_taken == 'Blocked' %}#ef4444{% elif action_taken == 'Auto-Redacted' %}#f59e0b{% else %}#3b82f6{% endif %}; padding:4px 12px; border-radius:4px;">
+                              <td style="font-size:11px; font-weight:bold; letter-spacing:1.5px; color:#0d0f12; background-color:{% if action_taken == 'Blocked' %}#ef4444{% elif action_taken == 'Auto-Redacted' %}#f59e0b{% elif action_taken == 'Quarantined' %}#a855f7{% else %}#3b82f6{% endif %}; padding:4px 12px; border-radius:3px; text-transform:uppercase; font-family:'Courier New', monospace;">
                                 {{ action_taken }}
                               </td>
                             </tr>
@@ -121,51 +110,33 @@
               </table>
 
               <!-- Detections Table -->
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:28px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:20px; border:1px solid #1e2330; border-radius:8px; overflow:hidden;">
                 <tr>
-                  <td style="background-color:#0f172a; padding:12px 20px; color:#ffffff; font-size:13px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">
-                    Detections
+                  <td style="background-color:#0d0f12; padding:10px 18px; border-bottom:1px solid #1e2330;">
+                    <span style="color:#c3f400; font-size:11px; font-weight:bold; letter-spacing:2px; font-family:'Courier New', monospace;">DETECTIONS</span>
                   </td>
                 </tr>
                 <tr>
                   <td style="padding:0;">
                     <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                      <!-- Table Header -->
-                      <tr style="background-color:#f8fafc;">
-                        <td style="padding:10px 12px; font-size:11px; font-weight:bold; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0; width:22%;">
-                          Type
-                        </td>
-                        <td style="padding:10px 12px; font-size:11px; font-weight:bold; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0; width:20%;">
-                          Severity
-                        </td>
-                        <td style="padding:10px 12px; font-size:11px; font-weight:bold; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0; width:38%;">
-                          Detail
-                        </td>
-                        <td style="padding:10px 12px; font-size:11px; font-weight:bold; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e2e8f0; width:20%; text-align:center;">
-                          Confidence
-                        </td>
+                      <tr style="background-color:#0d0f12;">
+                        <td style="padding:8px 12px; font-size:10px; font-weight:bold; color:#4a5568; text-transform:uppercase; letter-spacing:1px; font-family:'Courier New', monospace; border-bottom:1px solid #1e2330; width:20%;">Type</td>
+                        <td style="padding:8px 12px; font-size:10px; font-weight:bold; color:#4a5568; text-transform:uppercase; letter-spacing:1px; font-family:'Courier New', monospace; border-bottom:1px solid #1e2330; width:18%;">Severity</td>
+                        <td style="padding:8px 12px; font-size:10px; font-weight:bold; color:#4a5568; text-transform:uppercase; letter-spacing:1px; font-family:'Courier New', monospace; border-bottom:1px solid #1e2330;">Detail</td>
+                        <td style="padding:8px 12px; font-size:10px; font-weight:bold; color:#4a5568; text-transform:uppercase; letter-spacing:1px; font-family:'Courier New', monospace; border-bottom:1px solid #1e2330; width:14%; text-align:center;">Conf.</td>
                       </tr>
-                      <!-- Detection Rows -->
                       {% for detection in detections %}
                       <tr>
-                        <td style="padding:10px 12px; font-size:13px; color:#0f172a; border-bottom:1px solid #f1f5f9; font-weight:600;">
-                          {{ detection.type }}
-                        </td>
-                        <td style="padding:10px 12px; border-bottom:1px solid #f1f5f9;">
+                        <td style="padding:10px 12px; font-size:12px; color:#e2e8f0; border-bottom:1px solid #1a1f2a; font-family:'Courier New', monospace; font-weight:600;">{{ detection.type }}</td>
+                        <td style="padding:10px 12px; border-bottom:1px solid #1a1f2a;">
                           <table border="0" cellpadding="0" cellspacing="0">
                             <tr>
-                              <td style="font-size:11px; font-weight:bold; color:#ffffff; background-color:{% if detection.severity == 'critical' %}#ef4444{% elif detection.severity == 'high' %}#ef4444{% elif detection.severity == 'medium' %}#f59e0b{% else %}#3b82f6{% endif %}; padding:2px 8px; border-radius:4px; text-transform:uppercase;">
-                                {{ detection.severity }}
-                              </td>
+                              <td style="font-size:10px; font-weight:bold; color:#0d0f12; background-color:{% if detection.severity == 'critical' %}#ef4444{% elif detection.severity == 'high' %}#f97316{% elif detection.severity == 'medium' %}#f59e0b{% else %}#3b82f6{% endif %}; padding:2px 8px; border-radius:3px; text-transform:uppercase; letter-spacing:1px; font-family:'Courier New', monospace;">{{ detection.severity }}</td>
                             </tr>
                           </table>
                         </td>
-                        <td style="padding:10px 12px; font-size:13px; color:#475569; border-bottom:1px solid #f1f5f9;">
-                          {{ detection.detail }}
-                        </td>
-                        <td style="padding:10px 12px; font-size:13px; color:#0f172a; border-bottom:1px solid #f1f5f9; text-align:center; font-weight:600;">
-                          {{ detection.confidence }}%
-                        </td>
+                        <td style="padding:10px 12px; font-size:12px; color:#94a3b8; border-bottom:1px solid #1a1f2a; line-height:18px;">{{ detection.detail }}</td>
+                        <td style="padding:10px 12px; font-size:12px; color:#c3f400; border-bottom:1px solid #1a1f2a; text-align:center; font-weight:bold; font-family:'Courier New', monospace;">{{ detection.confidence }}%</td>
                       </tr>
                       {% endfor %}
                     </table>
@@ -176,26 +147,24 @@
               <!-- Prompt Excerpt -->
               <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:28px;">
                 <tr>
-                  <td style="color:#64748b; font-size:13px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; padding-bottom:8px;">
-                    Prompt Excerpt
-                  </td>
+                  <td style="color:#4a5568; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:2px; padding-bottom:8px; font-family:'Courier New', monospace;">PROMPT EXCERPT</td>
                 </tr>
                 <tr>
-                  <td style="background-color:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:14px 18px; font-family:'Courier New', monospace; font-size:13px; color:#334155; line-height:20px;">
-                    {{ prompt_excerpt }}{% if prompt_truncated %}<span style="color:#94a3b8;"> ...</span>{% endif %}
+                  <td style="background-color:#0a0c0f; border:1px solid #1e2330; border-left:3px solid #c3f400; border-radius:0 6px 6px 0; padding:14px 18px; font-family:'Courier New', monospace; font-size:13px; color:#94a3b8; line-height:20px;">
+                    {{ prompt_excerpt }}{% if prompt_truncated %}<span style="color:#4a5568;"> …</span>{% endif %}
                   </td>
                 </tr>
               </table>
 
-              <!-- CTA Button -->
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:12px;">
+              <!-- CTA -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:16px;">
                 <tr>
-                  <td align="center" style="padding:4px 0 16px 0;">
+                  <td align="center" style="padding-bottom:20px;">
                     <table border="0" cellpadding="0" cellspacing="0">
                       <tr>
-                        <td align="center" style="background-color:#3b82f6; border-radius:8px;">
-                          <a href="{{ dashboard_url }}" target="_blank" style="display:inline-block; padding:14px 36px; color:#ffffff; font-size:15px; font-weight:bold; text-decoration:none; letter-spacing:0.3px;">
-                            Review in Sentinel Dashboard &rarr;
+                        <td style="background-color:#c3f400; border-radius:6px;">
+                          <a href="{{ dashboard_url }}" target="_blank" style="display:inline-block; padding:13px 32px; color:#0d0f12; font-size:13px; font-weight:bold; text-decoration:none; letter-spacing:2px; font-family:'Courier New', monospace; text-transform:uppercase;">
+                            REVIEW IN DASHBOARD &rarr;
                           </a>
                         </td>
                       </tr>
@@ -209,12 +178,12 @@
 
           <!-- Footer -->
           <tr>
-            <td style="padding:20px 40px 28px 40px; border-top:1px solid #e2e8f0;">
+            <td style="background-color:#0d0f12; padding:18px 40px 22px 40px; border-top:1px solid #1e2330;">
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
-                  <td style="color:#94a3b8; font-size:12px; line-height:18px; text-align:center;">
-                    This is an automated security alert from <strong>Sentinel</strong><br />
-                    Do not reply to this email. For questions, contact your security team.
+                  <td style="color:#2d3748; font-size:11px; line-height:18px; text-align:center; font-family:'Courier New', monospace;">
+                    SENTINEL AI SECURITY &mdash; AUTOMATED SECURITY ALERT<br />
+                    <span style="color:#1a2030;">Do not reply. Contact your security team for questions.</span>
                   </td>
                 </tr>
               </table>
@@ -222,12 +191,10 @@
           </tr>
 
         </table>
-        <!-- /Main container -->
 
       </td>
     </tr>
   </table>
-  <!-- /Outer wrapper -->
 
 </body>
 </html>

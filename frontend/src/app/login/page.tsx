@@ -1,14 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginUser, registerOtpRequest, registerOtpVerify } from "@/lib/api";
-import { setSession } from "@/lib/session";
+import { getSession, setSession } from "@/lib/session";
 import { ShieldMark } from "@/components/shield-mark";
 import { MaterialIcon } from "@/components/stitch/material-icon";
 
 export default function LoginPage() {
   const router = useRouter();
+
+  useEffect(() => {
+    if (getSession()) {
+      router.replace("/");
+    }
+  }, [router]);
   
   // View state
   const [view, setView] = useState<"login" | "register">("login");

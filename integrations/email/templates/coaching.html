@@ -5,98 +5,112 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sentinel Security Coaching</title>
 </head>
-<body style="margin:0; padding:0; background-color:#f1f5f9; font-family:Arial, Helvetica, sans-serif; -webkit-font-smoothing:antialiased;">
+<body style="margin:0; padding:0; background-color:#0a0c0f; font-family:Arial, Helvetica, sans-serif; -webkit-font-smoothing:antialiased;">
 
-  <!-- Outer wrapper -->
-  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f1f5f9;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#0a0c0f;">
     <tr>
-      <td align="center" style="padding:24px 16px;">
+      <td align="center" style="padding:28px 16px;">
 
-        <!-- Main container -->
-        <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px; width:100%; background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 4px 6px rgba(0,0,0,0.07);">
+        <!-- Main card -->
+        <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px; width:100%; background-color:#13161b; border-radius:12px; overflow:hidden; border:1px solid #1e2330;">
+
+          <!-- Lime accent bar -->
+          <tr>
+            <td style="background-color:#c3f400; height:4px; font-size:1px; line-height:4px;">&nbsp;</td>
+          </tr>
 
           <!-- Header -->
           <tr>
-            <td style="background-color:#0f172a; padding:28px 40px; text-align:center;">
+            <td style="background-color:#0d0f12; padding:28px 40px 24px 40px;">
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
-                  <td style="color:#ffffff; font-size:24px; font-weight:bold; text-align:center; letter-spacing:0.5px;">
-                    &#x1F6E1;&#xFE0F; Sentinel Security Coaching
+                  <td style="vertical-align:middle; width:48px;">
+                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='38' height='44' viewBox='0 0 38 44' fill='none'%3E%3Cpath d='M19 1L1 9v13c0 11 8 20.5 18 22 10-1.5 18-11 18-22V9L19 1z' fill='%23c3f400'/%3E%3Cpolyline points='11,22 16.5,28.5 27,16' stroke='%230d0f12' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E" alt="Sentinel" width="38" height="44" style="display:block;" />
                   </td>
-                </tr>
-                <tr>
-                  <td style="color:#94a3b8; font-size:13px; text-align:center; padding-top:6px;">
-                    Helping you stay secure, one prompt at a time
+                  <td style="vertical-align:middle; padding-left:14px;">
+                    <div style="color:#c3f400; font-size:19px; font-weight:bold; letter-spacing:3px; font-family:'Courier New', monospace; line-height:1;">SENTINEL</div>
+                    <div style="color:#4a5568; font-size:11px; letter-spacing:2px; margin-top:4px; font-family:'Courier New', monospace;">AI SECURITY COACHING</div>
+                  </td>
+                  <td style="text-align:right; vertical-align:middle;">
+                    <table border="0" cellpadding="0" cellspacing="0" align="right">
+                      <tr>
+                        <td style="font-size:11px; font-weight:bold; letter-spacing:2px; color:#0d0f12; background-color:#c3f400; padding:5px 14px; border-radius:4px; text-transform:uppercase; font-family:'Courier New', monospace;">
+                          COACHING
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
 
+          <!-- Subtitle bar -->
+          <tr>
+            <td style="background-color:#111418; padding:14px 40px; border-top:1px solid #1a1f2a; border-bottom:1px solid #1a1f2a;">
+              <span style="color:#94a3b8; font-size:13px; font-family:'Courier New', monospace;">// Helping you stay secure, one prompt at a time</span>
+            </td>
+          </tr>
+
           <!-- Body -->
           <tr>
-            <td style="padding:36px 40px 12px 40px;">
+            <td style="padding:30px 40px 12px 40px; background-color:#13161b;">
 
               <!-- Greeting -->
-              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:22px;">
                 <tr>
-                  <td style="color:#0f172a; font-size:18px; font-weight:bold; padding-bottom:16px;">
+                  <td style="color:#e2e8f0; font-size:18px; font-weight:bold; padding-bottom:12px;">
                     Hi {{ employee_name }},
                   </td>
                 </tr>
                 <tr>
-                  <td style="color:#475569; font-size:15px; line-height:24px; padding-bottom:24px;">
-                    We noticed a potential <strong style="color:#0f172a;">{{ detection_type }}</strong> in a recent prompt you submitted to <strong style="color:#0f172a;">{{ target_tool }}</strong>. Don't worry &mdash; this is a coaching moment, not a warning.
+                  <td style="color:#94a3b8; font-size:14px; line-height:22px;">
+                    We noticed a potential <strong style="color:#e2e8f0;">{{ detection_type }}</strong> issue in a recent prompt you submitted to <strong style="color:#e2e8f0;">{{ target_tool }}</strong>. This is a coaching moment &mdash; not a disciplinary action.
                   </td>
                 </tr>
               </table>
 
-              <!-- Detection Details Box -->
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f8fafc; border-radius:8px; border:1px solid #e2e8f0; margin-bottom:24px;">
+              <!-- Detection card -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:22px; border:1px solid #1e2330; border-radius:8px; overflow:hidden;">
                 <tr>
-                  <td style="padding:20px 24px;">
+                  <td style="background-color:#0d0f12; padding:10px 18px; border-bottom:1px solid #1e2330;">
+                    <span style="color:#c3f400; font-size:11px; font-weight:bold; letter-spacing:2px; font-family:'Courier New', monospace;">WHAT WE DETECTED</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:18px 20px;">
                     <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <!-- Severity badge -->
                       <tr>
-                        <td style="color:#0f172a; font-size:14px; font-weight:bold; padding-bottom:14px; text-transform:uppercase; letter-spacing:0.5px;">
-                          What We Detected
-                        </td>
-                      </tr>
-                      <!-- Severity Badge -->
-                      <tr>
-                        <td style="padding-bottom:12px;">
+                        <td style="padding-bottom:14px;">
                           <table border="0" cellpadding="0" cellspacing="0">
                             <tr>
-                              <td style="font-size:12px; font-weight:bold; color:#ffffff; background-color:{% if severity == 'critical' %}#ef4444{% elif severity == 'high' %}#ef4444{% elif severity == 'medium' %}#f59e0b{% else %}#3b82f6{% endif %}; padding:4px 12px; border-radius:12px; text-transform:uppercase; letter-spacing:0.5px;">
-                                {{ severity }} severity
+                              <td style="font-size:11px; font-weight:bold; letter-spacing:1.5px; color:#0d0f12; background-color:{% if severity == 'critical' %}#ef4444{% elif severity == 'high' %}#f97316{% elif severity == 'medium' %}#f59e0b{% else %}#3b82f6{% endif %}; padding:4px 12px; border-radius:3px; text-transform:uppercase; font-family:'Courier New', monospace;">
+                                {{ severity }} SEVERITY
                               </td>
                             </tr>
                           </table>
                         </td>
                       </tr>
-                      <!-- Detection Type -->
+                      <!-- Type row -->
                       <tr>
-                        <td style="padding-bottom:10px;">
+                        <td style="padding-bottom:12px;">
                           <table border="0" cellpadding="0" cellspacing="0" width="100%">
                             <tr>
-                              <td style="color:#64748b; font-size:13px; width:100px; vertical-align:top; padding-bottom:4px;">Type:</td>
-                              <td style="color:#0f172a; font-size:14px; font-weight:600; vertical-align:top;">{{ detection_type }}</td>
+                              <td style="color:#4a5568; font-size:11px; letter-spacing:1px; text-transform:uppercase; font-family:'Courier New', monospace; width:90px; vertical-align:top; padding-top:1px;">Type</td>
+                              <td style="color:#e2e8f0; font-size:14px; font-weight:600;">{{ detection_type }}</td>
                             </tr>
                           </table>
                         </td>
                       </tr>
-                      <!-- Prompt Excerpt -->
+                      <!-- Excerpt label -->
                       <tr>
-                        <td style="padding-bottom:4px;">
-                          <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                            <tr>
-                              <td style="color:#64748b; font-size:13px; padding-bottom:6px;">Your prompt excerpt:</td>
-                            </tr>
-                            <tr>
-                              <td style="background-color:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:12px 16px; font-family:'Courier New', monospace; font-size:13px; color:#334155; line-height:20px;">
-                                {{ prompt_excerpt }}
-                              </td>
-                            </tr>
-                          </table>
+                        <td style="color:#4a5568; font-size:11px; letter-spacing:1px; text-transform:uppercase; font-family:'Courier New', monospace; padding-bottom:8px;">Your prompt excerpt</td>
+                      </tr>
+                      <!-- Excerpt box -->
+                      <tr>
+                        <td style="background-color:#0a0c0f; border:1px solid #1e2330; border-left:3px solid #f59e0b; border-radius:0 6px 6px 0; padding:12px 16px; font-family:'Courier New', monospace; font-size:13px; color:#94a3b8; line-height:20px;">
+                          {{ prompt_excerpt }}
                         </td>
                       </tr>
                     </table>
@@ -104,18 +118,16 @@
                 </tr>
               </table>
 
-              <!-- Coaching Section -->
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-left:4px solid #3b82f6; margin-bottom:24px;">
+              <!-- Coaching tip -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:20px; border:1px solid #1e2330; border-left:3px solid #c3f400; border-radius:0 8px 8px 0; overflow:hidden;">
                 <tr>
-                  <td style="padding:16px 20px; background-color:#eff6ff; border-radius:0 8px 8px 0;">
+                  <td style="background-color:#0f1a00; padding:16px 20px;">
                     <table border="0" cellpadding="0" cellspacing="0" width="100%">
                       <tr>
-                        <td style="color:#1e40af; font-size:15px; font-weight:bold; padding-bottom:8px;">
-                          &#x1F4A1; Here's how to stay safe:
-                        </td>
+                        <td style="color:#c3f400; font-size:11px; font-weight:bold; letter-spacing:2px; font-family:'Courier New', monospace; padding-bottom:10px;">HOW TO STAY SAFE</td>
                       </tr>
                       <tr>
-                        <td style="color:#1e40af; font-size:14px; line-height:22px;">
+                        <td style="color:#a3e635; font-size:14px; line-height:22px;">
                           {{ coaching_tip }}
                         </td>
                       </tr>
@@ -124,18 +136,18 @@
                 </tr>
               </table>
 
-              <!-- Safe Alternative Box -->
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border:2px solid #22c55e; border-radius:8px; margin-bottom:24px;">
+              <!-- Safe alternative -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:22px; border:1px solid #1e2330; border-radius:8px; overflow:hidden;">
+                <tr>
+                  <td style="background-color:#0d0f12; padding:10px 18px; border-bottom:1px solid #1e2330;">
+                    <span style="color:#4ade80; font-size:11px; font-weight:bold; letter-spacing:2px; font-family:'Courier New', monospace;">TRY THIS INSTEAD</span>
+                  </td>
+                </tr>
                 <tr>
                   <td style="padding:16px 20px;">
                     <table border="0" cellpadding="0" cellspacing="0" width="100%">
                       <tr>
-                        <td style="color:#15803d; font-size:15px; font-weight:bold; padding-bottom:10px;">
-                          &#x2705; Try this instead:
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="background-color:#f0fdf4; border-radius:6px; padding:12px 16px; font-family:'Courier New', monospace; font-size:13px; color:#166534; line-height:20px;">
+                        <td style="background-color:#0a0c0f; border:1px solid #1e2330; border-left:3px solid #4ade80; border-radius:0 6px 6px 0; padding:12px 16px; font-family:'Courier New', monospace; font-size:13px; color:#86efac; line-height:20px;">
                           {{ safe_prompt_example }}
                         </td>
                       </tr>
@@ -144,32 +156,23 @@
                 </tr>
               </table>
 
-              <!-- Helpful Links -->
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:24px;">
+              <!-- Policy link -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:22px;">
                 <tr>
-                  <td style="color:#475569; font-size:14px; line-height:22px;">
-                    &#x1F4DA; <strong>Learn more:</strong> Review our
-                    <a href="{{ policy_url }}" style="color:#3b82f6; text-decoration:underline; font-weight:600;">AI Usage Security Policy</a>
-                    for detailed guidelines on safe prompt practices.
+                  <td style="color:#4a5568; font-size:13px; line-height:21px;">
+                    Review our <a href="{{ policy_url }}" style="color:#c3f400; text-decoration:none; font-weight:bold; font-family:'Courier New', monospace;">AI Usage Security Policy &rarr;</a> for detailed guidelines on safe prompt practices.
                   </td>
                 </tr>
               </table>
 
-              <!-- Encouraging Closing -->
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f8fafc; border-radius:8px; margin-bottom:12px;">
+              <!-- Closing note -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:16px; border:1px solid #1e2330; border-radius:8px;">
                 <tr>
-                  <td style="padding:20px 24px; text-align:center;">
-                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                      <tr>
-                        <td style="font-size:20px; padding-bottom:8px; text-align:center;">&#x1F64C;</td>
-                      </tr>
-                      <tr>
-                        <td style="color:#475569; font-size:14px; line-height:22px; text-align:center;">
-                          <strong style="color:#0f172a;">We're here to help, not to penalize.</strong><br />
-                          Great security habits protect everyone &mdash; and you're doing great by learning!
-                        </td>
-                      </tr>
-                    </table>
+                  <td style="padding:18px 22px; text-align:center;">
+                    <div style="color:#4a5568; font-size:13px; line-height:21px; font-family:'Courier New', monospace;">
+                      <span style="color:#c3f400;">&#x2192;</span> <strong style="color:#94a3b8;">We are here to help, not to penalize.</strong><br />
+                      <span style="color:#2d3748;">Great security habits protect your team and your company.</span>
+                    </div>
                   </td>
                 </tr>
               </table>
@@ -179,12 +182,12 @@
 
           <!-- Footer -->
           <tr>
-            <td style="padding:20px 40px 28px 40px; border-top:1px solid #e2e8f0;">
+            <td style="background-color:#0d0f12; padding:18px 40px 22px 40px; border-top:1px solid #1e2330;">
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
-                  <td style="color:#94a3b8; font-size:12px; line-height:18px; text-align:center;">
-                    &#x1F6E1;&#xFE0F; <strong>Sentinel AI Security</strong> | Acme Corp<br />
-                    This is an automated coaching message. Questions? Contact your security team.
+                  <td style="color:#2d3748; font-size:11px; line-height:18px; text-align:center; font-family:'Courier New', monospace;">
+                    SENTINEL AI SECURITY &mdash; AUTOMATED COACHING MESSAGE<br />
+                    <span style="color:#1a2030;">Questions? Contact your security team. Do not reply to this email.</span>
                   </td>
                 </tr>
               </table>
@@ -192,12 +195,10 @@
           </tr>
 
         </table>
-        <!-- /Main container -->
 
       </td>
     </tr>
   </table>
-  <!-- /Outer wrapper -->
 
 </body>
 </html>
