@@ -104,15 +104,15 @@ def heuristic_scout_reply(user_message: str, data: dict[str, Any]) -> str:
         return (
             "I answer from Sentinel's **prompts** table: counts, risk levels, actions, "
             "who submitted the most, and recent snippets. "
-            "Example questions: "How many prompts?", "Who has the most activity?", "
-            ""Summarize high risk", "What actions are most common?""
+            'Example questions: "How many prompts?", "Who has the most activity?", '
+            '"Summarize high risk", "What actions are most common?"'
         )
 
     total = data["total_prompts"]
     if any(k in u for k in ("how many", "total", "count", "volume")) and "prompt" in u:
         return f"There are **{total}** prompts stored in Sentinel."
     if "how many" in u and "prompt" not in u and total >= 0:
-        return f"There are **{total}** prompts logged. Say "prompts" for this count, or ask about risk or employees."
+        return f'There are **{total}** prompts logged. Say "prompts" for this count, or ask about risk or employees.'
 
     if any(k in u for k in ("risk", "critical", "high risk", "distribution", "breakdown")):
         parts = [f"**{r['risk_level']}**: {r['count']}" for r in data["by_risk"]]
