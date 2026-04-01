@@ -1,9 +1,10 @@
 import secrets
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
-from auth import create_session, get_current_user, hash_password
+from auth import create_session, get_current_user, hash_password, refresh_session
 from database import _utc_now, execute, fetch_one, init_db
+from rate_limit import limiter
 from models import AuthUser, InviteRegisterRequest, LoginRequest, LoginResponse, OtpRegisterRequest, OtpVerifyRequest
 from engines.email_sender import send_otp_email
 
@@ -11,7 +12,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register-request")
-def register_request(payload: OtpRegisterRequest):
+@limiter.limit("5/minute")
+def register_request(request: Request, payload: OtpRegisterRequest):
     init_db()
     email = payload.email.strip().lower()
     company = payload.company_name.strip()
@@ -34,16 +36,19 @@ def register_request(payload: OtpRegisterRequest):
 
 
 @router.post("/register-verify", response_model=LoginResponse)
-def register_verify(payload: OtpVerifyRequest) -> LoginResponse:
+@limiter.limit("10/minute")
+def register_verify(request: Request, payload: OtpVerifyRequest) -> LoginResponse:
     init_db()
     email = payload.email.strip().lower()
     code = payload.code.strip()
     username = payload.username.strip()
     password = payload.password
     
+    if len(username) < 2 or len(password) < 12:
+        raise HTTPException(status_code=400, detail="Username (min 2 chars) and password (min 12 chars) are required")
     if fetch_one("SELECT id FROM users WHERE username = ?", (username,)):
         raise HTTPException(status_code=400, detail="Username already taken")
-        
+
     now = _utc_now()
     otp_row = fetch_one(
         "SELECT id, role, company_name FROM auth_otps WHERE email = ? AND code = ? AND expires_at > ? ORDER BY id DESC LIMIT 1",
@@ -81,7 +86,8 @@ def register_verify(payload: OtpVerifyRequest) -> LoginResponse:
 
 
 @router.post("/login", response_model=LoginResponse)
-def login(payload: LoginRequest) -> LoginResponse:
+@limiter.limit("10/minute")
+def login(request: Request, payload: LoginRequest) -> LoginResponse:
     session = create_session(payload.username, payload.password)
     return LoginResponse(
         access_token=session["access_token"],
@@ -91,7 +97,8 @@ def login(payload: LoginRequest) -> LoginResponse:
 
 
 @router.post("/register-invite", response_model=LoginResponse)
-def register_invite(payload: InviteRegisterRequest) -> LoginResponse:
+@limiter.limit("10/minute")
+def register_invite(request: Request, payload: InviteRegisterRequest) -> LoginResponse:
     init_db()
     token = (payload.token or "").strip()
     if not token:
@@ -109,8 +116,8 @@ def register_invite(payload: InviteRegisterRequest) -> LoginResponse:
         raise HTTPException(status_code=400, detail="This invite was already used")
     username = (payload.username or "").strip()
     password = payload.password or ""
-    if len(username) < 2 or len(password) < 4:
-        raise HTTPException(status_code=400, detail="Username and password are required (password min 4 chars)")
+    if len(username) < 2 or len(password) < 12:
+        raise HTTPException(status_code=400, detail="Username (min 2 chars) and password (min 12 chars) are required")
     if fetch_one("SELECT id FROM users WHERE username = ?", (username,)):
         raise HTTPException(status_code=400, detail="Username already taken")
     display = (payload.display_name or "").strip() or (username.split("@")[0] if "@" in username else username)
@@ -127,6 +134,21 @@ def register_invite(payload: InviteRegisterRequest) -> LoginResponse:
         (display, _utc_now(), int(row["id"])),
     )
     session = create_session(username, password)
+    return LoginResponse(
+        access_token=session["access_token"],
+        expires_at=session["expires_at"],
+        user=AuthUser(**session["user"]),
+    )
+
+
+@router.post("/refresh-token", response_model=LoginResponse)
+def refresh_token(request: Request) -> LoginResponse:
+    """Extend an active session without re-authenticating. Call when expires_at is within 15 minutes."""
+    token_header = request.headers.get("authorization") or ""
+    if not token_header.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing token")
+    token = token_header.split(" ", 1)[1].strip()
+    session = refresh_session(token)
     return LoginResponse(
         access_token=session["access_token"],
         expires_at=session["expires_at"],

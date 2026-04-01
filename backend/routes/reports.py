@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from auth import require_ops_manager
 from database import fetch_rows
 from engines.reporting_engine import latest_weekly_report
 from models import AutomationAnalysisResponse, AutomationOpportunity, WeeklyReportResponse
@@ -8,7 +9,7 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 
 
 @router.get("/weekly", response_model=WeeklyReportResponse)
-def weekly_report() -> WeeklyReportResponse:
+def weekly_report(_current_user: dict = Depends(require_ops_manager)) -> WeeklyReportResponse:
     return latest_weekly_report()
 
 
@@ -41,7 +42,7 @@ HUMAN_BASELINES = {
 }
 
 @router.get("/automation-analysis", response_model=AutomationAnalysisResponse)
-def automation_analysis() -> AutomationAnalysisResponse:
+def automation_analysis(_current_user: dict = Depends(require_ops_manager)) -> AutomationAnalysisResponse:
     rows = fetch_rows(
         """
         SELECT 

@@ -9,6 +9,7 @@ export type AuthUser = {
 
 export type StoredSession = {
   access_token: string;
+  expires_at?: string;
   user: AuthUser;
 };
 
@@ -33,6 +34,13 @@ export function setSession(session: StoredSession): void {
 export function clearSession(): void {
   localStorage.removeItem(AUTH_STORAGE_KEY);
   window.dispatchEvent(new Event("sentinel-auth"));
+}
+
+/** Returns true if the session expires within the next 15 minutes (or has already expired). */
+export function sessionNeedsRefresh(session: StoredSession): boolean {
+  if (!session.expires_at) return false;
+  const expiresMs = new Date(session.expires_at).getTime();
+  return Date.now() >= expiresMs - 15 * 60 * 1000;
 }
 
 /** Employers (managers) may create and edit policies; employees are read-only on the policies page. */

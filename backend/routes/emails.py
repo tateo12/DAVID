@@ -5,8 +5,10 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
+
+from auth import require_ops_manager
 
 from config import frontend_base_url
 from database import execute, fetch_one, fetch_rows
@@ -203,7 +205,7 @@ def _get_employee_or_404(employee_id: int) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 @router.get("/preview/coaching", response_class=HTMLResponse)
-def preview_coaching_email(employee_id: int) -> HTMLResponse:
+def preview_coaching_email(employee_id: int, _current_user: dict = Depends(require_ops_manager)) -> HTMLResponse:
     emp = _get_employee_or_404(employee_id)
 
     # Grab the most recent flagged prompt for this employee
@@ -256,7 +258,7 @@ def preview_coaching_email(employee_id: int) -> HTMLResponse:
 # ---------------------------------------------------------------------------
 
 @router.get("/preview/alert", response_class=HTMLResponse)
-def preview_alert_email(alert_id: int) -> HTMLResponse:
+def preview_alert_email(alert_id: int, _current_user: dict = Depends(require_ops_manager)) -> HTMLResponse:
     alert = fetch_one("SELECT id, alert_type, severity, detail, is_active, created_at FROM alerts WHERE id = ?", (alert_id,))
     if not alert:
         raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found")
@@ -339,7 +341,7 @@ def preview_alert_email(alert_id: int) -> HTMLResponse:
 # ---------------------------------------------------------------------------
 
 @router.get("/preview/weekly-report", response_class=HTMLResponse)
-def preview_weekly_report() -> HTMLResponse:
+def preview_weekly_report(_current_user: dict = Depends(require_ops_manager)) -> HTMLResponse:
     now = datetime.now(timezone.utc)
     start = (now - timedelta(days=7)).date().isoformat()
     end = now.date().isoformat()
@@ -492,7 +494,7 @@ def preview_weekly_report() -> HTMLResponse:
 # ---------------------------------------------------------------------------
 
 @router.get("/preview/weekly-learning", response_class=HTMLResponse)
-def preview_weekly_learning(employee_id: int) -> HTMLResponse:
+def preview_weekly_learning(employee_id: int, _current_user: dict = Depends(require_ops_manager)) -> HTMLResponse:
     from engines.learning_engine import build_learning_email_context
 
     ctx = build_learning_email_context(employee_id, persist_study_focus=False)
@@ -523,7 +525,7 @@ def _trend(current: int, previous: int) -> str:
 # ---------------------------------------------------------------------------
 
 @router.post("/send-coaching", response_class=HTMLResponse)
-def send_coaching_email(employee_id: int) -> HTMLResponse:
+def send_coaching_email(employee_id: int, _current_user: dict = Depends(require_ops_manager)) -> HTMLResponse:
     # Render the same coaching email
     emp = _get_employee_or_404(employee_id)
 

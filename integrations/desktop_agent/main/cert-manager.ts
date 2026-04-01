@@ -14,6 +14,13 @@ const execFileAsync = promisify(execFile);
 
 const _scriptsDir = path.join(__dirname, "..", "scripts");
 
+/** Reject paths that contain shell metacharacters to prevent command injection. */
+function _assertSafePath(p: string): void {
+  if (/[;&|`$<>!\n\r"']/.test(p)) {
+    throw new Error(`Unsafe characters in path: ${p}`);
+  }
+}
+
 export function getCertPath(): string {
   return path.join(app.getPath("userData"), "mitmproxy", "mitmproxy-ca-cert.pem");
 }
@@ -61,9 +68,11 @@ export async function installCert(certPath: string): Promise<void> {
 }
 
 async function _installCertWindows(certPath: string): Promise<void> {
+  _assertSafePath(certPath);
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const sudo = require("sudo-prompt") as typeof import("sudo-prompt");
   const script = path.join(_scriptsDir, "install-cert-windows.ps1");
+  _assertSafePath(script);
 
   await new Promise<void>((resolve, reject) => {
     sudo.exec(
@@ -75,6 +84,7 @@ async function _installCertWindows(certPath: string): Promise<void> {
 }
 
 async function _installCertMacos(certPath: string): Promise<void> {
+  _assertSafePath(certPath);
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const sudo = require("sudo-prompt") as typeof import("sudo-prompt");
 
@@ -88,6 +98,7 @@ async function _installCertMacos(certPath: string): Promise<void> {
 }
 
 async function _installCertLinux(certPath: string): Promise<void> {
+  _assertSafePath(certPath);
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const sudo = require("sudo-prompt") as typeof import("sudo-prompt");
 

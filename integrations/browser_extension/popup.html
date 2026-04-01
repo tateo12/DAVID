@@ -33,11 +33,7 @@
     background: #111316;
   }
   .header-brand { display: flex; align-items: center; gap: 8px; }
-  .header-icon {
-    width: 26px; height: 26px; background: #5d5fef; display: flex; align-items: center;
-    justify-content: center; border-radius: 2px;
-  }
-  .header-icon .material-symbols-outlined { font-size: 16px; color: #faf7ff; font-variation-settings: 'FILL' 1; }
+  .header-logo { width: 26px; height: 26px; object-fit: contain; }
   .header-title { font-family: 'Space Grotesk'; font-weight: 900; font-size: 15px; letter-spacing: -0.5px; color: #fff; }
   .header-status {
     display: flex; align-items: center; gap: 6px; padding: 3px 8px;
@@ -198,7 +194,7 @@
   <!-- Header -->
   <header class="header">
     <div class="header-brand">
-      <div class="header-icon"><span class="material-symbols-outlined">security</span></div>
+      <img class="header-logo" src="sentinel-logo.png" alt="Sentinel" />
       <span class="header-title">SENTINEL</span>
     </div>
     <div class="header-status">

@@ -10,3 +10,4 @@ httpx
 psycopg[binary]
 bcrypt
 resend
+slowapi

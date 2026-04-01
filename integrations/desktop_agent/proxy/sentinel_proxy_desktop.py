@@ -133,7 +133,18 @@ class SentinelDesktopProxy(SentinelProxy):
     ) -> None:
         """Override: POST to /api/extension/capture instead of /api/terminal-events."""
         api_base = self.config.get("sentinel_api", "http://localhost:8000")
-        token = os.environ.get("SENTINEL_TOKEN", "")
+        # Read token from temp file (never stored in env to avoid process listing exposure).
+        token = ""
+        token_file = os.environ.get("SENTINEL_TOKEN_FILE", "")
+        if token_file:
+            try:
+                with open(token_file, "r") as _tf:
+                    token = _tf.read().strip()
+                os.unlink(token_file)  # consume immediately
+            except OSError:
+                pass
+        if not token:
+            token = os.environ.get("SENTINEL_TOKEN", "")  # fallback for dev
         employee_id_raw = os.environ.get("SENTINEL_EMPLOYEE_ID", "")
         employee_id = int(employee_id_raw) if employee_id_raw.isdigit() else None
 

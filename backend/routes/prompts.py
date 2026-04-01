@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from auth import get_current_user_optional
+from auth import get_current_user, get_current_user_optional
 from database import fetch_one, fetch_rows
 from models import Detection, PromptDetail, PromptSummary
 
@@ -45,10 +45,15 @@ def list_prompts(
 
 
 @router.get("/{prompt_id}", response_model=PromptDetail)
-def get_prompt(prompt_id: int) -> PromptDetail:
+def get_prompt(prompt_id: int, current_user: dict = Depends(get_current_user)) -> PromptDetail:
     row = fetch_one("SELECT * FROM prompts WHERE id = ?", (prompt_id,))
     if not row:
         raise HTTPException(status_code=404, detail="Prompt not found")
+
+    # Employees can only view their own prompts; managers/admins can view any.
+    if current_user.get("role") == "employee":
+        if row["employee_id"] != current_user.get("employee_id"):
+            raise HTTPException(status_code=403, detail="Access denied")
 
     detection_rows = fetch_rows(
         """

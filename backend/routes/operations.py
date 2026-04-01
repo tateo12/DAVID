@@ -271,7 +271,7 @@ def review_engineer_code_submit(payload: CodeReviewSubmitRequest) -> AnalyzeResp
 
 
 @router.post("/reset")
-def reset_all_data() -> dict:
+def reset_all_data(_current_user: dict = Depends(require_ops_manager)) -> dict:
     """Wipe all transactional data, keep employees and config."""
     with get_conn() as conn:
         # Order respects FKs when foreign_keys=ON (children before parents).

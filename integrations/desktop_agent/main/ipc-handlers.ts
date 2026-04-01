@@ -18,12 +18,31 @@ export type LoginPayload = {
 
 export type LoginResult = { ok: true; employeeId: string } | { ok: false; error: string };
 
+/** Validate that the given string is a safe https URL (http allowed only for localhost). */
+function _validateApiBaseUrl(raw: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw.trim());
+  } catch {
+    throw new Error("Invalid API URL — must be a full http(s) URL");
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("API URL must use http or https");
+  }
+  const isLocalhost = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+  if (parsed.protocol === "http:" && !isLocalhost) {
+    throw new Error("API URL must use HTTPS for non-localhost hosts");
+  }
+  return parsed.origin;
+}
+
 export function registerIpcHandlers(): void {
   // ---- Auth ----------------------------------------------------------------
 
   ipcMain.handle("sentinel:login", async (_e, payload: LoginPayload): Promise<LoginResult> => {
     try {
-      const url = `${payload.apiBaseUrl.replace(/\/$/, "")}/api/auth/login`;
+      const safeBase = _validateApiBaseUrl(payload.apiBaseUrl);
+      const url = `${safeBase}/api/auth/login`;
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -40,7 +59,7 @@ export function registerIpcHandlers(): void {
 
       await saveCredentials({
         accessToken: data.access_token,
-        apiBaseUrl: payload.apiBaseUrl,
+        apiBaseUrl: safeBase,
         employeeId,
         password: payload.password,
       });

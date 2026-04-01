@@ -18,7 +18,7 @@ import {
   SkillLessonDetail,
   EmployeeTeamMember,
 } from "./types";
-import { getSession } from "./session";
+import { clearSession, getSession, sessionNeedsRefresh, setSession } from "./session";
 import type { AuthUser } from "./session";
 
 /** API origin; set NEXT_PUBLIC_API_BASE in deployed environments. */
@@ -92,7 +92,36 @@ interface BackendShadowAIEvent {
 }
 
 // ===== Generic Fetch Helper =====
+let _refreshPromise: Promise<void> | null = null;
+
+async function _maybeRefreshSession(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const session = getSession();
+  if (!session || !sessionNeedsRefresh(session)) return;
+
+  // Deduplicate concurrent refresh calls
+  if (!_refreshPromise) {
+    _refreshPromise = fetch(`${API_BASE}/api/auth/refresh-token`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then(async (r) => {
+        if (r.ok) {
+          const data = (await r.json()) as { access_token: string; expires_at: string; user: AuthUser };
+          setSession({ access_token: data.access_token, expires_at: data.expires_at, user: data.user });
+        } else if (r.status === 401) {
+          clearSession();
+        }
+      })
+      .catch(() => {})
+      .finally(() => { _refreshPromise = null; });
+  }
+  return _refreshPromise;
+}
+
 async function apiFetch<T>(endpoint: string, options?: RequestInit, withAuth = true): Promise<T> {
+  if (withAuth) await _maybeRefreshSession();
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options?.headers as Record<string, string> | undefined),
@@ -115,6 +144,9 @@ async function apiFetch<T>(endpoint: string, options?: RequestInit, withAuth = t
     body = text;
   }
   if (!res.ok) {
+    if (res.status === 401 && withAuth && typeof window !== "undefined") {
+      clearSession();
+    }
     const detail =
       typeof body === "object" && body !== null && "detail" in body
         ? String((body as { detail: unknown }).detail)
@@ -523,6 +555,7 @@ export async function registerOtpVerify(payload: { email: string; code: string; 
 
 export async function loginUser(username: string, password: string): Promise<{
   access_token: string;
+  expires_at: string;
   user: AuthUser;
 }> {
   return apiFetch(

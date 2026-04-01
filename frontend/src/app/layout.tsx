@@ -27,8 +27,8 @@ export const metadata: Metadata = {
   description:
     "Tactical command interface for AI security, policy enforcement, and threat monitoring.",
   icons: {
-    icon: "/shield-icon.svg",
-    apple: "/shield-icon.svg",
+    icon: "/sentinel-logo.png",
+    apple: "/sentinel-logo.png",
   },
 };
 

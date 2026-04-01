@@ -2,7 +2,21 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:sentinel-ai-security.com)",
-      "Bash(python -c ':*)"
+      "Bash(python -c ':*)",
+      "Bash(cp \"C:/Users/Smech/Downloads/Untitled design \\(13\\).png\" \"C:/Users/Smech/OneDrive/Documents/GitHub/DAVID/frontend/public/sentinel-logo.png\")",
+      "Bash(cp \"C:/Users/Smech/Downloads/Untitled design \\(13\\).png\" \"C:/Users/Smech/OneDrive/Documents/GitHub/DAVID/integrations/browser_extension/sentinel-logo.png\")",
+      "Bash(cp \"C:/Users/Smech/Downloads/Untitled design \\(13\\).png\" \"C:/Users/Smech/OneDrive/Documents/GitHub/DAVID/integrations/desktop_agent/assets/icon.png\")",
+      "Bash(cp \"C:/Users/Smech/Downloads/Untitled design \\(13\\).png\" \"C:/Users/Smech/OneDrive/Documents/GitHub/DAVID/integrations/desktop_agent/assets/sentinel-logo.png\")",
+      "Bash(magick --version)",
+      "Bash(pip --version)",
+      "Bash(pip show:*)",
+      "Bash(git -C \"C:/Users/Smech/OneDrive/Documents/GitHub/DAVID\" log --oneline -3)",
+      "Bash(curl -s https://sentinel-ai-security.com/api/health)",
+      "Bash(python -c \"import urllib.request; print\\(urllib.request.urlopen\\('https://sentinel-ai-security.com/api/health'\\).read\\(\\)\\)\")",
+      "Bash(python:*)",
+      "Bash(git -C \"C:/Users/Smech/OneDrive/Documents/GitHub/DAVID\" log --all --oneline --source)",
+      "Bash(git -C \"C:/Users/Smech/OneDrive/Documents/GitHub/DAVID\" log -p --all -- \"**/.env\" \"*.env\")",
+      "Bash(pip list:*)"
     ]
   }
 }

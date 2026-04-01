@@ -6,6 +6,8 @@
  */
 
 import { ChildProcess, spawn } from "child_process";
+import fs from "fs";
+import os from "os";
 import path from "path";
 import { app } from "electron";
 import { loadCredentials } from "./keychain";
@@ -91,10 +93,14 @@ export async function startProxy(): Promise<void> {
   const addonScript = getAddonScriptPath();
   const certDir = getCertDir();
 
+  // Write the token to a 0600 temp file so it's never visible in the process environment.
+  const tokenFile = path.join(os.tmpdir(), `sentinel-token-${process.pid}.tmp`);
+  fs.writeFileSync(tokenFile, creds.accessToken ?? "", { mode: 0o600 });
+
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     SENTINEL_API_URL: creds.apiBaseUrl ?? "http://localhost:8000",
-    SENTINEL_TOKEN: creds.accessToken ?? "",
+    SENTINEL_TOKEN_FILE: tokenFile,
     SENTINEL_EMPLOYEE_ID: creds.employeeId ?? "",
     PYTHONUNBUFFERED: "1",
   };
@@ -137,6 +143,8 @@ export async function startProxy(): Promise<void> {
 
   child.on("exit", (code) => {
     child = null;
+    // Clean up token file regardless of exit reason
+    try { fs.unlinkSync(tokenFile); } catch { /* already gone */ }
     if (status === "running" || status === "starting") {
       // Unexpected exit — attempt restart
       if (restartCount < MAX_RESTARTS) {

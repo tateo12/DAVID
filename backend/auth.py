@@ -1,3 +1,4 @@
+import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -19,8 +20,8 @@ def verify_password(plain: str, hashed: str) -> bool:
     # Support legacy plain-text passwords by checking if it looks like a bcrypt hash
     if hashed.startswith("$2b$") or hashed.startswith("$2a$"):
         return bcrypt.checkpw(plain.encode(), hashed.encode())
-    # Legacy plain-text match — migrate to hashed on successful login
-    return plain == hashed
+    # Legacy plain-text match — migrate to hashed on successful login (constant-time)
+    return hmac.compare_digest(plain.encode(), hashed.encode())
 
 
 def _parse_bearer(authorization: str | None) -> str:
@@ -45,8 +46,11 @@ def create_session(username: str, password: str) -> dict:
     if not stored_pw.startswith("$2b$") and not stored_pw.startswith("$2a$"):
         execute("UPDATE users SET password = ? WHERE id = ?", (hash_password(password), user["id"]))
 
+    # Invalidate all existing sessions for this user before creating a new one.
+    execute("DELETE FROM auth_sessions WHERE user_id = ?", (user["id"],))
+
     token = secrets.token_urlsafe(32)
-    expires_at = _utc_now() + timedelta(hours=12)
+    expires_at = _utc_now() + timedelta(hours=8)
     execute(
         "INSERT INTO auth_sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)",
         (user["id"], token, expires_at.isoformat(), _utc_now().isoformat()),
@@ -113,6 +117,40 @@ def get_current_user(authorization: str | None = Header(default=None)) -> dict:
         "username": row["username"],
         "role": row["role"],
         "employee_id": row["employee_id"],
+    }
+
+
+def refresh_session(token: str) -> dict:
+    """Extend an active session by another 8 hours. Returns updated session data."""
+    init_db()
+    row = fetch_one(
+        """
+        SELECT u.id, u.username, u.role, u.employee_id, s.expires_at
+        FROM auth_sessions s
+        INNER JOIN users u ON u.id = s.user_id
+        WHERE s.token = ?
+        """,
+        (token,),
+    )
+    if not row:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    if _utc_now() > datetime.fromisoformat(row["expires_at"]):
+        raise HTTPException(status_code=401, detail="Session expired")
+
+    new_expires = _utc_now() + timedelta(hours=8)
+    execute(
+        "UPDATE auth_sessions SET expires_at = ? WHERE token = ?",
+        (new_expires.isoformat(), token),
+    )
+    return {
+        "access_token": token,
+        "expires_at": new_expires.isoformat(),
+        "user": {
+            "id": row["id"],
+            "username": row["username"],
+            "role": row["role"],
+            "employee_id": row["employee_id"],
+        },
     }
 
 

@@ -41,7 +41,7 @@ export default function LoginPage() {
     setAuthLoading(true);
     loginUser(username.trim(), password)
       .then((res) => {
-        setSession({ access_token: res.access_token, user: res.user });
+        setSession({ access_token: res.access_token, expires_at: res.expires_at, user: res.user });
         router.push("/");
         router.refresh();
       })
@@ -74,7 +74,7 @@ export default function LoginPage() {
           username: regUsername.trim(),
           password: regPassword,
         });
-        setSession({ access_token: res.access_token, user: res.user });
+        setSession({ access_token: res.access_token, expires_at: res.expires_at, user: res.user });
         router.push("/");
         router.refresh();
       }

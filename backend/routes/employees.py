@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from auth import get_current_user_optional
+from auth import get_current_user, get_current_user_optional, require_ops_manager
 from config import frontend_base_url
 from curriculum_assign import (
     assign_next_curriculum_lesson,
@@ -74,8 +74,8 @@ def _next_employee_id() -> int:
 
 
 @router.get("", response_model=list[EmployeeSummary])
-def list_employees(current_user: dict | None = Depends(get_current_user_optional)) -> list[EmployeeSummary]:
-    if current_user and current_user.get("role") == "employee":
+def list_employees(current_user: dict = Depends(get_current_user)) -> list[EmployeeSummary]:
+    if current_user.get("role") == "employee":
         eid = current_user.get("employee_id")
         if eid is None:
             return []
@@ -438,7 +438,7 @@ def auto_assign_skill_lessons(
 
 
 @router.post("/{employee_id}/skill/lessons/assign", response_model=EmployeeLessonStatus)
-def assign_skill_lesson(employee_id: int, payload: SkillLessonAssignRequest) -> EmployeeLessonStatus:
+def assign_skill_lesson(employee_id: int, payload: SkillLessonAssignRequest, _current_user: dict = Depends(require_ops_manager)) -> EmployeeLessonStatus:
     employee = fetch_one("SELECT id FROM employees WHERE id = ?", (employee_id,))
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
