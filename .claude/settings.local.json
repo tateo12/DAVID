@@ -16,7 +16,10 @@
       "Bash(python:*)",
       "Bash(git -C \"C:/Users/Smech/OneDrive/Documents/GitHub/DAVID\" log --all --oneline --source)",
       "Bash(git -C \"C:/Users/Smech/OneDrive/Documents/GitHub/DAVID\" log -p --all -- \"**/.env\" \"*.env\")",
-      "Bash(pip list:*)"
+      "Bash(pip list:*)",
+      "Bash(git -C \"C:/Users/Smech/OneDrive/Documents/GitHub/DAVID\" log -p --all -- \"**/.env\" \"*.env\" \"**/.env*\")",
+      "Bash(grep -v -iE \"\\(your-key|example|changeme|placeholder|#|=\\\\s*$|=\\\\\"\\\\\"$|=''$|your-openrouter\\)\")",
+      "Bash(pip install:*)"
     ]
   }
 }
