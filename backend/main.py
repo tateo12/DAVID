@@ -46,7 +46,7 @@ async def _global_exception_handler(request: Request, exc: Exception):
     )
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
