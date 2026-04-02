@@ -501,12 +501,20 @@ export async function deleteEmployee(employeeId: number): Promise<void> {
   await apiFetch<{ status: string }>(`/api/employees/${employeeId}`, { method: "DELETE" });
 }
 
-export async function signInWithSupabase(
+export async function sendLoginOtp(email: string): Promise<void> {
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: true },
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function verifyLoginOtp(
   email: string,
-  password: string
+  token: string
 ): Promise<{ access_token: string; expires_at: string; user: AuthUser }> {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error || !data.session) throw new Error(error?.message ?? "Sign-in failed");
+  const { data, error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
+  if (error || !data.session) throw new Error(error?.message ?? "Invalid or expired code");
 
   const r = await fetch(`${API_BASE}/api/auth/provision`, {
     method: "POST",
@@ -522,29 +530,6 @@ export async function signInWithSupabase(
     expires_at: prov.expires_at,
     user: prov.user,
   };
-}
-
-export async function signUpWithSupabase(
-  email: string,
-  password: string
-): Promise<{ needsConfirmation: boolean }> {
-  const { data, error } = await supabase.auth.signUp({ email, password });
-  if (error) throw new Error(error.message);
-  // If session is immediately present, email confirmation is disabled
-  if (data.session) {
-    const r = await fetch(`${API_BASE}/api/auth/provision`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${data.session.access_token}` },
-    });
-    if (!r.ok) {
-      const body = await r.json().catch(() => ({})) as { detail?: string };
-      throw new Error(body.detail ?? "Failed to provision user");
-    }
-    const prov = (await r.json()) as { access_token: string; expires_at: string; user: AuthUser };
-    setSession({ access_token: data.session.access_token, expires_at: prov.expires_at, user: prov.user });
-    return { needsConfirmation: false };
-  }
-  return { needsConfirmation: true };
 }
 
 export async function postPolicyAssistantChat(payload: {
