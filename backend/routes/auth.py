@@ -33,11 +33,12 @@ def provision(
         else ""
     )
 
-    user = provision_user(supabase_uid, email, org_id=org_id)
+    user, is_new = provision_user(supabase_uid, email, org_id=org_id)
     return LoginResponse(
         access_token=token,
         expires_at=expires_at,
         user=AuthUser(**user),
+        is_new_user=is_new,
     )
 
 

@@ -439,6 +439,7 @@ class LoginResponse(BaseModel):
     token_type: str = "bearer"
     expires_at: str
     user: AuthUser
+    is_new_user: bool = False
 
 
 class ExtensionCaptureRequest(BaseModel):

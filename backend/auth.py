@@ -177,18 +177,18 @@ def _slug_from_email(email: str) -> str:
     return slug
 
 
-def provision_user(supabase_uid: str, email: str, org_id: int | None = None) -> dict:
+def provision_user(supabase_uid: str, email: str, org_id: int | None = None) -> tuple[dict, bool]:
     """
     Get or create a local DB user mapped to the given Supabase UID.
     If org_id is provided, the user joins that org.
     Otherwise, a new org is created and the user becomes its manager.
     First user of an org is auto-assigned 'manager', subsequent users get 'employee'.
-    Returns user dict {id, username, role, employee_id, org_id, org_name}.
+    Returns (user_dict, is_new_user).
     """
     init_db()
     row = _get_db_user(supabase_uid)
     if row:
-        return row
+        return row, False
 
     username = email or supabase_uid
 
@@ -218,7 +218,7 @@ def provision_user(supabase_uid: str, email: str, org_id: int | None = None) -> 
     row = _get_db_user(supabase_uid)
     if not row:
         raise HTTPException(status_code=500, detail="Failed to provision user")
-    return row
+    return row, True
 
 
 def get_current_user_optional(authorization: str | None = Header(default=None)) -> dict | None:

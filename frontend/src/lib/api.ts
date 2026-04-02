@@ -528,18 +528,13 @@ export async function verifyLoginOtp(
     const body = await r.json().catch(() => ({})) as { detail?: string };
     throw new Error(body.detail ?? "Failed to provision user");
   }
-  const prov = (await r.json()) as { access_token: string; expires_at: string; user: AuthUser };
-
-  // Detect new user: Supabase sets created_at ~= last_sign_in_at for brand new accounts
-  const createdAt = data.user?.created_at ? new Date(data.user.created_at).getTime() : 0;
-  const lastSignIn = data.user?.last_sign_in_at ? new Date(data.user.last_sign_in_at).getTime() : 0;
-  const isNewUser = Math.abs(createdAt - lastSignIn) < 5000; // within 5 seconds = first login
+  const prov = (await r.json()) as { access_token: string; expires_at: string; user: AuthUser; is_new_user: boolean };
 
   return {
     access_token: data.session.access_token,
     expires_at: prov.expires_at,
     user: prov.user,
-    isNewUser,
+    isNewUser: prov.is_new_user,
   };
 }
 
