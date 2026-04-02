@@ -23,7 +23,8 @@
       "Bash(grep:*)",
       "Bash(npx tsc:*)",
       "Bash(npm install:*)",
-      "WebFetch(domain:jvkeayfkmlatccpqapiz.supabase.co)"
+      "WebFetch(domain:jvkeayfkmlatccpqapiz.supabase.co)",
+      "Bash(curl:*)"
     ]
   }
 }
