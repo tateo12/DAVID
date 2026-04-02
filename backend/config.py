@@ -93,4 +93,15 @@ def openrouter_chat_completions_url() -> str:
 
 def cors_allowed_origins() -> list[str]:
     parts = [p.strip() for p in get_settings().allowed_origins.split(",") if p.strip()]
-    return parts if parts else ["*"]
+    if not parts:
+        return ["*"]
+    # Auto-include www variant so both apex and www domains work
+    expanded: list[str] = []
+    for origin in parts:
+        expanded.append(origin)
+        if origin.startswith("https://") and not origin.startswith("https://www."):
+            domain = origin[len("https://"):]
+            www = f"https://www.{domain}"
+            if www not in parts:
+                expanded.append(www)
+    return expanded
