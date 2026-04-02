@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from auth import require_ops_manager
 
-from database import execute, fetch_one, fetch_rows, get_conn
+from database import execute, fetch_one, fetch_rows, get_conn, sql_ago
 from json_utils import loads_json
 from engines.orchestrator_factory import get_orchestrator
 from models import (
@@ -72,7 +72,7 @@ def trigger_agent_assessment(payload: AgentActionEventRequest) -> DispatchResult
         """
         INSERT INTO agent_runs (
             agent_id, task_type, cost_usd, success, latency_ms, quality_score, value_score, metadata_json, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         """,
         (
             payload.agent_id,
@@ -91,7 +91,7 @@ def trigger_agent_assessment(payload: AgentActionEventRequest) -> DispatchResult
                COALESCE(AVG(quality_score), 0.8) AS quality_score,
                COALESCE(AVG(CASE WHEN success = 1 THEN 1.0 ELSE 0.0 END), 0.8) AS success_rate
         FROM agent_runs
-        WHERE agent_id = ? AND created_at >= datetime('now', '-7 day')
+        WHERE agent_id = ? AND created_at >= {sql_ago(7)}
         """,
         (payload.agent_id,),
     )
@@ -116,7 +116,7 @@ def dispatch_daily_coaching() -> DispatchResult:
         INNER JOIN employee_skill_profiles esp ON esp.employee_id = e.id
         WHERE EXISTS (
             SELECT 1 FROM prompts p
-            WHERE p.employee_id = e.id AND p.created_at >= datetime('now', '-1 day')
+            WHERE p.employee_id = e.id AND p.created_at >= {sql_ago(1)}
         )
         """
     )
@@ -151,7 +151,7 @@ def dispatch_weekly_manager_report(_: dict = Depends(require_ops_manager)) -> Di
             COUNT(*) AS prompt_count,
             SUM(CASE WHEN risk_level IN ('high', 'critical') THEN 1 ELSE 0 END) AS high_risk_count
         FROM prompts
-        WHERE created_at >= datetime('now', '-7 day')
+        WHERE created_at >= {sql_ago(7)}
         """
     )
     skill = fetch_one(
@@ -206,7 +206,7 @@ def dispatch_weekly_learning_emails(_: dict = Depends(require_ops_manager)) -> D
         SELECT DISTINCT e.id AS employee_id
         FROM employees e
         INNER JOIN prompts p ON p.employee_id = e.id
-        WHERE p.created_at >= datetime('now', '-7 day')
+        WHERE p.created_at >= {sql_ago(7)}
         """
     )
     count = 0

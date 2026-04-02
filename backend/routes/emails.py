@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse
 from auth import require_ops_manager
 
 from config import frontend_base_url
-from database import execute, fetch_one, fetch_rows
+from database import execute, fetch_one, fetch_rows, sql_ago
 
 router = APIRouter(prefix="/emails", tags=["emails"])
 
@@ -348,24 +348,24 @@ def preview_weekly_report(_current_user: dict = Depends(require_ops_manager)) ->
 
     # Prompts analyzed
     prompt_stats = fetch_one(
-        "SELECT COUNT(*) AS total FROM prompts WHERE created_at >= datetime('now', '-7 day')"
+        f"SELECT COUNT(*) AS total FROM prompts WHERE created_at >= {sql_ago(7)}"
     )
     total_prompts = int(prompt_stats["total"] or 0) if prompt_stats else 0
 
     prev_prompts_row = fetch_one(
-        "SELECT COUNT(*) AS total FROM prompts WHERE created_at >= datetime('now', '-14 day') AND created_at < datetime('now', '-7 day')"
+        f"SELECT COUNT(*) AS total FROM prompts WHERE created_at >= {sql_ago(14)} AND created_at < {sql_ago(7)}"
     )
     prev_prompts = int(prev_prompts_row["total"] or 0) if prev_prompts_row else 0
     prompts_trend = _trend(total_prompts, prev_prompts)
 
     # Threats blocked
     threats_row = fetch_one(
-        "SELECT COUNT(*) AS total FROM prompts WHERE risk_level IN ('high', 'critical') AND action IN ('block', 'redact') AND created_at >= datetime('now', '-7 day')"
+        f"SELECT COUNT(*) AS total FROM prompts WHERE risk_level IN ('high', 'critical') AND action IN ('block', 'redact') AND created_at >= {sql_ago(7)}"
     )
     threats_blocked = int(threats_row["total"] or 0) if threats_row else 0
 
     prev_threats_row = fetch_one(
-        "SELECT COUNT(*) AS total FROM prompts WHERE risk_level IN ('high', 'critical') AND action IN ('block', 'redact') AND created_at >= datetime('now', '-14 day') AND created_at < datetime('now', '-7 day')"
+        f"SELECT COUNT(*) AS total FROM prompts WHERE risk_level IN ('high', 'critical') AND action IN ('block', 'redact') AND created_at >= {sql_ago(14)} AND created_at < {sql_ago(7)}"
     )
     prev_threats = int(prev_threats_row["total"] or 0) if prev_threats_row else 0
     threats_trend = _trend(threats_blocked, prev_threats)
@@ -375,7 +375,7 @@ def preview_weekly_report(_current_user: dict = Depends(require_ops_manager)) ->
 
     # Shadow AI events
     shadow_row = fetch_one(
-        "SELECT COUNT(*) AS total FROM shadow_ai_events WHERE created_at >= datetime('now', '-7 day')"
+        f"SELECT COUNT(*) AS total FROM shadow_ai_events WHERE created_at >= {sql_ago(7)}"
     )
     shadow_ai_count = int(shadow_row["total"] or 0) if shadow_row else 0
 
@@ -385,7 +385,7 @@ def preview_weekly_report(_current_user: dict = Depends(require_ops_manager)) ->
         SELECT d.type, COUNT(*) AS cnt
         FROM detections d
         INNER JOIN prompts p ON p.id = d.prompt_id
-        WHERE p.created_at >= datetime('now', '-7 day')
+        WHERE p.created_at >= {sql_ago(7)}
         GROUP BY d.type
         """
     )
@@ -412,8 +412,8 @@ def preview_weekly_report(_current_user: dict = Depends(require_ops_manager)) ->
                COUNT(p.id) AS incidents
         FROM employees e
         LEFT JOIN prompts p ON p.employee_id = e.id AND p.risk_level IN ('high', 'critical')
-                               AND p.created_at >= datetime('now', '-7 day')
-        GROUP BY e.id
+                               AND p.created_at >= {sql_ago(7)}
+        GROUP BY e.id, e.name, e.department, e.risk_score
         ORDER BY e.risk_score DESC
         LIMIT 5
         """
@@ -435,7 +435,7 @@ def preview_weekly_report(_current_user: dict = Depends(require_ops_manager)) ->
                COUNT(p.id) AS total_prompts,
                SUM(CASE WHEN p.risk_level IN ('medium', 'high', 'critical') THEN 1 ELSE 0 END) AS flagged
         FROM employees e
-        LEFT JOIN prompts p ON p.employee_id = e.id AND p.created_at >= datetime('now', '-7 day')
+        LEFT JOIN prompts p ON p.employee_id = e.id AND p.created_at >= {sql_ago(7)}
         GROUP BY e.department
         ORDER BY total_prompts DESC
         """

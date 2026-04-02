@@ -19,6 +19,7 @@ from database import (
     execute,
     fetch_one,
     fetch_rows,
+    sql_ago,
 )
 from engines.email_sender import process_pending_employee_invite_reminders, send_employee_invite_email
 from json_utils import loads_json
@@ -89,7 +90,7 @@ def list_employees(current_user: dict = Depends(get_current_user)) -> list[Emplo
             LEFT JOIN prompts p ON p.employee_id = e.id
             LEFT JOIN employee_skill_profiles esp ON esp.employee_id = e.id
             WHERE e.id = ? AND e.org_id = ?
-            GROUP BY e.id
+            GROUP BY e.id, e.name, e.department, e.risk_score, esp.ai_skill_score, e.email
             ORDER BY e.risk_score DESC
             """,
             (eid, org_id),
@@ -104,7 +105,7 @@ def list_employees(current_user: dict = Depends(get_current_user)) -> list[Emplo
             LEFT JOIN prompts p ON p.employee_id = e.id
             LEFT JOIN employee_skill_profiles esp ON esp.employee_id = e.id
             WHERE e.org_id = ?
-            GROUP BY e.id
+            GROUP BY e.id, e.name, e.department, e.risk_score, esp.ai_skill_score, e.email
             ORDER BY e.risk_score DESC
             """,
             (org_id,),
@@ -254,7 +255,7 @@ def get_employee(employee_id: int, current_user: dict | None = Depends(get_curre
         LEFT JOIN prompts p ON p.employee_id = e.id
         LEFT JOIN employee_skill_profiles esp ON esp.employee_id = e.id
         WHERE e.id = ?
-        GROUP BY e.id
+        GROUP BY e.id, e.name, e.department, e.risk_score, esp.ai_skill_score, e.email
         """,
         (employee_id,),
     )
@@ -579,7 +580,7 @@ def get_employee_memory_snapshot(
                 ELSE 0.2 END), 0.0) AS avg_risk_score_30d,
             COALESCE(AVG(skill_score), 0.0) AS avg_skill_score_30d
         FROM employee_interaction_memory
-        WHERE employee_id = ? AND created_at >= datetime('now', '-30 day')
+        WHERE employee_id = ? AND created_at >= {sql_ago(30)}
         """,
         (employee_id,),
     )

@@ -20,6 +20,20 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def sql_ago(days: int) -> str:
+    """SQL expression for 'now minus N days', compatible with both SQLite and PostgreSQL."""
+    if is_postgresql_database():
+        return f"(CURRENT_TIMESTAMP - INTERVAL '{days} day')"
+    return f"datetime('now', '-{days} day')"
+
+
+def sql_date(col: str) -> str:
+    """SQL expression to extract a date from a timestamp column."""
+    if is_postgresql_database():
+        return f"{col}::date"
+    return f"date({col})"
+
+
 def _db_path() -> Path:
     settings = get_settings()
     return Path(__file__).resolve().parent / settings.sqlite_path

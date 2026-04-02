@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from database import fetch_one, fetch_rows
+from database import fetch_one, fetch_rows, sql_ago as _ago, sql_date as _date
 from json_utils import loads_json
 from models import (
     DashboardMetrics,
@@ -100,9 +100,9 @@ def empty_employee_dashboard_metrics() -> DashboardMetrics:
 def build_dashboard_metrics(employee_id: int | None = None, org_id: int | None = None) -> DashboardMetrics:
     """Rolling 7-day KPIs vs prior 7 days + chart series for the web dashboard.
     When employee_id is set, all series are limited to that employee (employee session)."""
-    cur = _prompt_window_row("p.created_at >= datetime('now', '-7 day')", employee_id, org_id)
+    cur = _prompt_window_row(f"p.created_at >= {_ago(7)}", employee_id, org_id)
     prev = _prompt_window_row(
-        "p.created_at >= datetime('now', '-14 day') AND p.created_at < datetime('now', '-7 day')",
+        f"p.created_at >= {_ago(14)} AND p.created_at < {_ago(7)}",
         employee_id,
         org_id,
     )
@@ -110,12 +110,12 @@ def build_dashboard_metrics(employee_id: int | None = None, org_id: int | None =
     ef = _emp_filter_sql(employee_id)
     of = "" if org_id is None else f" AND e.org_id = {int(org_id)}"
     sh_cur = fetch_one(
-        f"SELECT COUNT(*) AS c FROM shadow_ai_events s JOIN employees e ON e.id = s.employee_id WHERE s.created_at >= datetime('now', '-7 day'){ef}{of}"
+        f"SELECT COUNT(*) AS c FROM shadow_ai_events s JOIN employees e ON e.id = s.employee_id WHERE s.created_at >= {_ago(7)}{ef}{of}"
     )
     sh_prev = fetch_one(
         f"""
         SELECT COUNT(*) AS c FROM shadow_ai_events s JOIN employees e ON e.id = s.employee_id
-        WHERE s.created_at >= datetime('now', '-14 day') AND s.created_at < datetime('now', '-7 day'){ef}{of}
+        WHERE s.created_at >= {_ago(14)} AND s.created_at < {_ago(7)}{ef}{of}
         """
     )
     shadow_cur = int(sh_cur["c"] or 0) if sh_cur else 0
@@ -144,13 +144,13 @@ def _dashboard_threat_series(org_id: int | None = None) -> list[ThreatTrendPoint
     of = "" if org_id is None else f" AND e.org_id = {int(org_id)}"
     rows = fetch_rows(
         f"""
-        SELECT date(p.created_at) AS d,
+        SELECT {_date('p.created_at')} AS d,
                SUM(CASE WHEN p.risk_level IN ('high', 'critical') THEN 1 ELSE 0 END) AS threats,
                SUM(CASE WHEN p.action = 'block' THEN 1 ELSE 0 END) AS blocked
         FROM prompts p
         JOIN employees e ON e.id = p.employee_id
-        WHERE p.created_at >= datetime('now', '-7 day'){of}
-        GROUP BY date(p.created_at)
+        WHERE p.created_at >= {_ago(7)}{of}
+        GROUP BY {_date('p.created_at')}
         """
     )
     by_date = {str(r["d"]): (int(r["threats"] or 0), int(r["blocked"] or 0)) for r in rows}
@@ -173,7 +173,7 @@ def _dashboard_risk_distribution(employee_id: int | None = None, org_id: int | N
         SELECT p.risk_level, COUNT(*) AS c
         FROM prompts p
         JOIN employees e ON e.id = p.employee_id
-        WHERE p.created_at >= datetime('now', '-30 day'){ef}{of}
+        WHERE p.created_at >= {_ago(30)}{ef}{of}
         GROUP BY p.risk_level
         """
     )
@@ -186,13 +186,13 @@ def _weekly_threat_trend(org_id: int | None = None) -> list[dict]:
     of = "" if org_id is None else f" AND e.org_id = {int(org_id)}"
     rows = fetch_rows(
         f"""
-        SELECT date(p.created_at) AS d,
+        SELECT {_date('p.created_at')} AS d,
                SUM(CASE WHEN p.risk_level IN ('high', 'critical') THEN 1 ELSE 0 END) AS threats,
                SUM(CASE WHEN p.risk_level IN ('low', 'medium') THEN 1 ELSE 0 END) AS safe_count
         FROM prompts p
         JOIN employees e ON e.id = p.employee_id
-        WHERE p.created_at >= datetime('now', '-7 day'){of}
-        GROUP BY date(p.created_at)
+        WHERE p.created_at >= {_ago(7)}{of}
+        GROUP BY {_date('p.created_at')}
         ORDER BY d ASC
         """
     )
@@ -219,7 +219,7 @@ def _weekly_live_kpis(org_id: int | None = None) -> dict[str, Any]:
             END) AS high_risk_users
         FROM prompts p
         JOIN employees e ON e.id = p.employee_id
-        WHERE p.created_at >= datetime('now', '-7 day'){of}
+        WHERE p.created_at >= {_ago(7)}{of}
         """
     )
     avg_row = fetch_one(
@@ -229,7 +229,7 @@ def _weekly_live_kpis(org_id: int | None = None) -> dict[str, Any]:
         WHERE e.org_id IS NOT NULL{of}
         AND EXISTS (
             SELECT 1 FROM prompts p
-            WHERE p.employee_id = e.id AND p.created_at >= datetime('now', '-7 day')
+            WHERE p.employee_id = e.id AND p.created_at >= {_ago(7)}
         )
         """
     )
@@ -256,9 +256,9 @@ def _top_risk_employees(org_id: int | None = None) -> list[dict]:
         FROM employees e
         LEFT JOIN prompts p ON p.employee_id = e.id
         WHERE 1=1{of}
-        GROUP BY e.id
-        HAVING flagged_prompts > 0 OR e.risk_score > 0.15
-        ORDER BY flagged_prompts DESC, e.risk_score DESC
+        GROUP BY e.id, e.name, e.department, e.risk_score
+        HAVING COALESCE(SUM(CASE WHEN p.risk_level IN ('high', 'critical') THEN 1 ELSE 0 END), 0) > 0 OR COALESCE(e.risk_score, 0) > 0.15
+        ORDER BY flagged_prompts DESC, risk_score DESC
         LIMIT 8
         """
     )
