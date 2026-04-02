@@ -1,27 +1,9 @@
-import hmac
-import secrets
-from datetime import datetime, timedelta, timezone
-
-import bcrypt
 from fastapi import Depends, Header, HTTPException
 
-from database import execute, fetch_one, init_db
+import jwt  # PyJWT
 
-
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def hash_password(plain: str) -> str:
-    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
-
-
-def verify_password(plain: str, hashed: str) -> bool:
-    # Support legacy plain-text passwords by checking if it looks like a bcrypt hash
-    if hashed.startswith("$2b$") or hashed.startswith("$2a$"):
-        return bcrypt.checkpw(plain.encode(), hashed.encode())
-    # Legacy plain-text match — migrate to hashed on successful login (constant-time)
-    return hmac.compare_digest(plain.encode(), hashed.encode())
+from config import get_settings
+from database import _utc_now, execute, fetch_one, init_db
 
 
 def _parse_bearer(authorization: str | None) -> str:
@@ -32,130 +14,94 @@ def _parse_bearer(authorization: str | None) -> str:
     return authorization.split(" ", 1)[1].strip()
 
 
-def create_session(username: str, password: str) -> dict:
+def _verify_supabase_jwt(token: str) -> dict:
+    """Verify a Supabase JWT (HS256) and return the decoded payload."""
+    secret = get_settings().supabase_jwt_secret
+    if not secret:
+        raise HTTPException(status_code=500, detail="SUPABASE_JWT_SECRET not configured on backend")
+    try:
+        payload = jwt.decode(
+            token,
+            secret,
+            algorithms=["HS256"],
+            options={"verify_aud": False},
+        )
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError as exc:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {exc}")
+
+
+def _get_db_user(supabase_uid: str) -> dict | None:
+    """Return the local DB user row for the given Supabase UID, or None."""
+    return fetch_one(
+        "SELECT id, username, role, employee_id FROM users WHERE supabase_uid = ?",
+        (supabase_uid,),
+    )
+
+
+def provision_user(supabase_uid: str, email: str) -> dict:
+    """
+    Get or create a local DB user mapped to the given Supabase UID.
+    First user auto-assigned 'manager', all subsequent users get 'employee'.
+    Returns user dict {id, username, role, employee_id}.
+    """
     init_db()
-    user = fetch_one(
-        "SELECT id, username, password, role, employee_id FROM users WHERE username = ?",
-        (username,),
-    )
-    if not user or not verify_password(password, user["password"]):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+    row = _get_db_user(supabase_uid)
+    if row:
+        return dict(row)
 
-    # Auto-migrate plain-text passwords to bcrypt on successful login
-    stored_pw = user["password"]
-    if not stored_pw.startswith("$2b$") and not stored_pw.startswith("$2a$"):
-        execute("UPDATE users SET password = ? WHERE id = ?", (hash_password(password), user["id"]))
+    count_row = fetch_one("SELECT COUNT(*) as cnt FROM users", ())
+    role = "manager" if (count_row and count_row["cnt"] == 0) else "employee"
+    username = email or supabase_uid
 
-    # Invalidate all existing sessions for this user before creating a new one.
-    execute("DELETE FROM auth_sessions WHERE user_id = ?", (user["id"],))
-
-    token = secrets.token_urlsafe(32)
-    expires_at = _utc_now() + timedelta(hours=8)
     execute(
-        "INSERT INTO auth_sessions (user_id, token, expires_at, created_at) VALUES (?, ?, ?, ?)",
-        (user["id"], token, expires_at.isoformat(), _utc_now().isoformat()),
+        "INSERT INTO users (supabase_uid, username, password, role, employee_id, created_at) VALUES (?, ?, '', ?, NULL, ?)",
+        (supabase_uid, username, role, _utc_now()),
     )
-    return {
-        "access_token": token,
-        "expires_at": expires_at.isoformat(),
-        "user": {
-            "id": user["id"],
-            "username": user["username"],
-            "role": user["role"],
-            "employee_id": user["employee_id"],
-        },
-    }
+    row = fetch_one(
+        "SELECT id, username, role, employee_id FROM users WHERE supabase_uid = ?",
+        (supabase_uid,),
+    )
+    if not row:
+        raise HTTPException(status_code=500, detail="Failed to provision user")
+    return dict(row)
 
 
 def get_current_user_optional(authorization: str | None = Header(default=None)) -> dict | None:
-    """Bearer JWT when present and valid; None if missing or invalid (no 401)."""
+    """Verify Supabase JWT when present; None if missing or invalid (no 401)."""
     if not authorization or not authorization.lower().startswith("bearer "):
         return None
-    init_db()
     token = authorization.split(" ", 1)[1].strip()
     if not token:
         return None
-    row = fetch_one(
-        """
-        SELECT u.id, u.username, u.role, u.employee_id, s.expires_at
-        FROM auth_sessions s
-        INNER JOIN users u ON u.id = s.user_id
-        WHERE s.token = ?
-        """,
-        (token,),
-    )
-    if not row:
+    try:
+        payload = _verify_supabase_jwt(token)
+    except HTTPException:
         return None
-    if _utc_now() > datetime.fromisoformat(row["expires_at"]):
+    supabase_uid = payload.get("sub")
+    if not supabase_uid:
         return None
-    return {
-        "id": row["id"],
-        "username": row["username"],
-        "role": row["role"],
-        "employee_id": row["employee_id"],
-    }
+    init_db()
+    return _get_db_user(supabase_uid)
 
 
 def get_current_user(authorization: str | None = Header(default=None)) -> dict:
-    init_db()
     token = _parse_bearer(authorization)
-    row = fetch_one(
-        """
-        SELECT u.id, u.username, u.role, u.employee_id, s.expires_at
-        FROM auth_sessions s
-        INNER JOIN users u ON u.id = s.user_id
-        WHERE s.token = ?
-        """,
-        (token,),
-    )
-    if not row:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    if _utc_now() > datetime.fromisoformat(row["expires_at"]):
-        raise HTTPException(status_code=401, detail="Session expired")
-    return {
-        "id": row["id"],
-        "username": row["username"],
-        "role": row["role"],
-        "employee_id": row["employee_id"],
-    }
-
-
-def refresh_session(token: str) -> dict:
-    """Extend an active session by another 8 hours. Returns updated session data."""
+    payload = _verify_supabase_jwt(token)
+    supabase_uid = payload.get("sub")
+    if not supabase_uid:
+        raise HTTPException(status_code=401, detail="Invalid token: missing sub claim")
     init_db()
-    row = fetch_one(
-        """
-        SELECT u.id, u.username, u.role, u.employee_id, s.expires_at
-        FROM auth_sessions s
-        INNER JOIN users u ON u.id = s.user_id
-        WHERE s.token = ?
-        """,
-        (token,),
-    )
+    row = _get_db_user(supabase_uid)
     if not row:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    if _utc_now() > datetime.fromisoformat(row["expires_at"]):
-        raise HTTPException(status_code=401, detail="Session expired")
-
-    new_expires = _utc_now() + timedelta(hours=8)
-    execute(
-        "UPDATE auth_sessions SET expires_at = ? WHERE token = ?",
-        (new_expires.isoformat(), token),
-    )
-    return {
-        "access_token": token,
-        "expires_at": new_expires.isoformat(),
-        "user": {
-            "id": row["id"],
-            "username": row["username"],
-            "role": row["role"],
-            "employee_id": row["employee_id"],
-        },
-    }
+        raise HTTPException(status_code=401, detail="User not provisioned — call POST /api/auth/provision after sign-in")
+    return dict(row)
 
 
 def require_ops_manager(current_user: dict = Depends(get_current_user)) -> dict:
-    """Dispatch, tick, and reset are manager/admin only (Bearer session)."""
+    """Dispatch, tick, and reset are manager/admin only."""
     role = (current_user.get("role") or "").strip().lower()
     if role not in ("manager", "admin"):
         raise HTTPException(status_code=403, detail="Manager or admin role required for this operation")

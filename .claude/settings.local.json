@@ -19,7 +19,9 @@
       "Bash(pip list:*)",
       "Bash(git -C \"C:/Users/Smech/OneDrive/Documents/GitHub/DAVID\" log -p --all -- \"**/.env\" \"*.env\" \"**/.env*\")",
       "Bash(grep -v -iE \"\\(your-key|example|changeme|placeholder|#|=\\\\s*$|=\\\\\"\\\\\"$|=''$|your-openrouter\\)\")",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(grep:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

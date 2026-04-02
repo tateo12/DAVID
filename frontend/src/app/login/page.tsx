@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { loginUser, registerOtpRequest, registerOtpVerify } from "@/lib/api";
+import { signInWithSupabase, signUpWithSupabase } from "@/lib/api";
 import { getSession, setSession } from "@/lib/session";
 import { ShieldMark } from "@/components/shield-mark";
 import { MaterialIcon } from "@/components/stitch/material-icon";
@@ -15,71 +15,45 @@ export default function LoginPage() {
       router.replace("/");
     }
   }, [router]);
-  
-  // View state
+
   const [view, setView] = useState<"login" | "register">("login");
-  
-  // Login State
   const [showPw, setShowPw] = useState(false);
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
+  const [regConfirm, setRegConfirm] = useState(false);
 
-  // Register State
-  const [regStep, setRegStep] = useState(1);
-  const [regRole, setRegRole] = useState<"employee" | "manager">("employee");
-  const [regEmail, setRegEmail] = useState("");
-  const [regCompany, setRegCompany] = useState("");
-  const [regCode, setRegCode] = useState("");
-  const [regUsername, setRegUsername] = useState("");
-  const [regPassword, setRegPassword] = useState("");
-  
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
     setAuthLoading(true);
-    loginUser(username.trim(), password)
+    signInWithSupabase(email.trim(), password)
       .then((res) => {
         setSession({ access_token: res.access_token, expires_at: res.expires_at, user: res.user });
         router.push("/");
         router.refresh();
       })
-      .catch(() => {
-        setAuthError("Invalid username or password.");
+      .catch((err: unknown) => {
+        setAuthError(err instanceof Error ? err.message : "Invalid email or password.");
       })
       .finally(() => setAuthLoading(false));
   };
 
-  const handleRegisterNext = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
     setAuthLoading(true);
-
     try {
-      if (regStep === 1) {
-        setRegStep(2);
-      } else if (regStep === 2) {
-        // Send OTP Request
-        await registerOtpRequest({ email: regEmail.trim(), company_name: regCompany.trim(), role: regRole });
-        setRegStep(3);
-      } else if (regStep === 3) {
-        // Proceed to Password
-        setRegStep(4);
-      } else if (regStep === 4) {
-        // Final Verify
-        const res = await registerOtpVerify({
-          email: regEmail.trim(),
-          code: regCode.trim(),
-          username: regUsername.trim(),
-          password: regPassword,
-        });
-        setSession({ access_token: res.access_token, expires_at: res.expires_at, user: res.user });
+      const result = await signUpWithSupabase(email.trim(), password);
+      if (result.needsConfirmation) {
+        setRegConfirm(true);
+      } else {
         router.push("/");
         router.refresh();
       }
     } catch (err: unknown) {
-      setAuthError(err instanceof Error ? err.message : "An error occurred.");
+      setAuthError(err instanceof Error ? err.message : "Registration failed.");
     } finally {
       setAuthLoading(false);
     }
@@ -150,7 +124,7 @@ export default function LoginPage() {
           </div>
           <div className="border-l border-outline-variant/30 bg-surface-container-low/50 p-4 backdrop-blur-sm">
             <div className="mb-2 font-mono text-[10px] uppercase text-on-surface-variant">Identity_Provider</div>
-            <div className="font-mono text-[9px] text-on-surface">AUTH_GATE_4_ACTIVE</div>
+            <div className="font-mono text-[9px] text-on-surface">SUPABASE_AUTH_ACTIVE</div>
           </div>
         </footer>
       </main>
@@ -162,22 +136,22 @@ export default function LoginPage() {
             <ShieldMark size={32} className="text-secondary-fixed" title="Sentinel" />
             <h1 className="font-headline text-xl font-black tracking-tighter">SENTINEL</h1>
           </header>
-          
+
           <div className="mb-10 flex justify-between items-end border-b border-outline-variant/30 pb-4">
             <section>
               <h3 className="mb-2 font-headline text-3xl font-bold tracking-tight">
                 {view === "login" ? "Authorize Access" : "Create Account"}
               </h3>
               <p className="text-sm text-on-surface-variant">
-                {view === "login" ? "Deployment v2.4.0 requires valid credentials." : `Step ${regStep} of 4: Setup your credentials`}
+                {view === "login" ? "Deployment v2.4.0 requires valid credentials." : "Register your Sentinel account."}
               </p>
             </section>
-            
-            <button 
+
+            <button
               onClick={() => {
                 setView(view === "login" ? "register" : "login");
                 setAuthError(null);
-                setRegStep(1);
+                setRegConfirm(false);
               }}
               className="text-xs text-secondary-fixed hover:underline"
             >
@@ -188,18 +162,18 @@ export default function LoginPage() {
           {view === "login" ? (
             <form className="space-y-6" onSubmit={handleLogin}>
               <div>
-                <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">Username</label>
+                <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">Email</label>
                 <div className="group relative">
                   <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
-                    <MaterialIcon name="person" className="text-lg" />
+                    <MaterialIcon name="email" className="text-lg" />
                   </div>
                   <input
-                    type="text"
+                    type="email"
                     required
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 font-mono text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-0"
-                    placeholder="Your Sentinel username"
+                    placeholder="you@company.com"
                   />
                   <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
                 </div>
@@ -238,154 +212,72 @@ export default function LoginPage() {
                 <MaterialIcon name="arrow_forward" className="text-lg" />
               </button>
             </form>
+          ) : regConfirm ? (
+            <div className="space-y-4 text-center">
+              <MaterialIcon name="mark_email_read" className="text-5xl text-secondary-fixed" />
+              <p className="font-headline text-lg font-bold">Check your email</p>
+              <p className="text-sm text-on-surface-variant">
+                We sent a confirmation link to <span className="text-on-surface">{email}</span>.
+                Click it to activate your account, then sign in.
+              </p>
+              <button
+                onClick={() => { setView("login"); setRegConfirm(false); }}
+                className="text-xs text-secondary-fixed hover:underline"
+              >
+                Back to sign in
+              </button>
+            </div>
           ) : (
-            <form className="space-y-6" onSubmit={handleRegisterNext}>
-              {regStep === 1 && (
-                <div className="space-y-4">
-                  <label className="block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">Select Role</label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <button
-                      type="button"
-                      onClick={() => setRegRole("employee")}
-                      className={`flex flex-col items-center justify-center rounded-lg border p-6 transition-all ${
-                        regRole === "employee" 
-                          ? "border-secondary-fixed bg-secondary-fixed/10 text-secondary-fixed" 
-                          : "border-outline-variant/30 bg-surface-container-highest text-on-surface hover:border-outline"
-                      }`}
-                    >
-                      <MaterialIcon name="badge" className="mb-2 text-3xl" />
-                      <span className="font-headline font-semibold">Employee</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRegRole("manager")}
-                      className={`flex flex-col items-center justify-center rounded-lg border p-6 transition-all ${
-                        regRole === "manager" 
-                          ? "border-secondary-fixed bg-secondary-fixed/10 text-secondary-fixed" 
-                          : "border-outline-variant/30 bg-surface-container-highest text-on-surface hover:border-outline"
-                      }`}
-                    >
-                      <MaterialIcon name="manage_accounts" className="mb-2 text-3xl" />
-                      <span className="font-headline font-semibold">Manager</span>
-                    </button>
+            <form className="space-y-6" onSubmit={handleRegister}>
+              <div>
+                <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">Work Email</label>
+                <div className="group relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
+                    <MaterialIcon name="email" className="text-lg" />
                   </div>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 font-mono text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-0"
+                    placeholder="you@company.com"
+                  />
+                  <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
                 </div>
-              )}
-
-              {regStep === 2 && (
-                <div className="space-y-6 flex-col flex">
-                  <div>
-                    <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">Work Email</label>
-                    <div className="group relative">
-                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
-                        <MaterialIcon name="email" className="text-lg" />
-                      </div>
-                      <input
-                        type="email"
-                        required
-                        value={regEmail}
-                        onChange={(e) => setRegEmail(e.target.value)}
-                        className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 font-mono text-sm text-on-surface focus:outline-none focus:ring-0"
-                        placeholder="you@company.com"
-                      />
-                      <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
-                    </div>
+              </div>
+              <div>
+                <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">Password</label>
+                <div className="group relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
+                    <MaterialIcon name="vpn_key" className="text-lg" />
                   </div>
-                  <div>
-                    <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">Company Name</label>
-                    <div className="group relative">
-                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
-                        <MaterialIcon name="business" className="text-lg" />
-                      </div>
-                      <input
-                        type="text"
-                        required
-                        value={regCompany}
-                        onChange={(e) => setRegCompany(e.target.value)}
-                        className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 font-mono text-sm text-on-surface focus:outline-none focus:ring-0"
-                        placeholder="Acme Corp"
-                      />
-                      <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
-                    </div>
-                  </div>
+                  <input
+                    type={showPw ? "text" : "password"}
+                    required
+                    minLength={8}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-12 font-mono text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-0"
+                    placeholder="••••••••••••"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-outline-variant hover:text-on-surface"
+                    onClick={() => setShowPw((s) => !s)}
+                  >
+                    <MaterialIcon name={showPw ? "visibility_off" : "visibility"} className="text-lg" />
+                  </button>
+                  <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
                 </div>
-              )}
-
-              {regStep === 3 && (
-                <div>
-                  <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">Verification Code</label>
-                  <p className="mb-4 text-xs text-on-surface-variant">We sent a 6-digit code to {regEmail}. Please enter it below.</p>
-                  <div className="group relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
-                      <MaterialIcon name="pin" className="text-lg" />
-                    </div>
-                    <input
-                      type="text"
-                      required
-                      maxLength={6}
-                      value={regCode}
-                      onChange={(e) => setRegCode(e.target.value)}
-                      className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 font-mono text-xl tracking-widest text-center text-on-surface focus:outline-none focus:ring-0"
-                      placeholder="000000"
-                    />
-                    <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
-                  </div>
-                </div>
-              )}
-
-              {regStep === 4 && (
-                <div className="space-y-6 flex-col flex">
-                  <div>
-                    <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">Choose Username</label>
-                    <div className="group relative">
-                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
-                        <MaterialIcon name="person_add" className="text-lg" />
-                      </div>
-                      <input
-                        type="text"
-                        required
-                        value={regUsername}
-                        onChange={(e) => setRegUsername(e.target.value)}
-                        className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 font-mono text-sm text-on-surface focus:outline-none focus:ring-0"
-                        placeholder="Unique username"
-                      />
-                      <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">Create Password</label>
-                    <div className="group relative">
-                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
-                        <MaterialIcon name="vpn_key" className="text-lg" />
-                      </div>
-                      <input
-                        type={showPw ? "text" : "password"}
-                        required
-                        value={regPassword}
-                        onChange={(e) => setRegPassword(e.target.value)}
-                        className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-12 font-mono text-sm text-on-surface focus:outline-none focus:ring-0"
-                        placeholder="••••••••••••"
-                      />
-                      <button
-                        type="button"
-                        className="absolute inset-y-0 right-0 flex items-center pr-3 text-outline-variant hover:text-on-surface"
-                        onClick={() => setShowPw((s) => !s)}
-                      >
-                        <MaterialIcon name={showPw ? "visibility_off" : "visibility"} className="text-lg" />
-                      </button>
-                      <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
-                    </div>
-                  </div>
-                </div>
-              )}
-
+              </div>
               {authError && <p className="text-center text-xs text-error">{authError}</p>}
               <button
                 type="submit"
                 disabled={authLoading}
                 className="flex w-full items-center justify-center gap-3 rounded-sm bg-secondary-container py-4 font-headline text-sm font-bold uppercase tracking-widest text-black transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
               >
-                {authLoading ? "Processing…" : regStep === 4 ? "Complete Verification" : "Next Phase"}
+                {authLoading ? "Creating account…" : "Create Account"}
                 <MaterialIcon name="arrow_forward" className="text-lg" />
               </button>
             </form>
@@ -397,7 +289,7 @@ export default function LoginPage() {
               <div>
                 <div className="mb-1 font-mono text-[10px] leading-tight text-on-surface">ACCESS LAWS</div>
                 <p className="font-mono text-[9px] leading-relaxed text-on-surface-variant">
-                  Registering a new account establishes an initial identity. Multi-tenant isolation is soft; you will join the global Sentinal schema node unless independently hosted. 
+                  Authentication is secured via Supabase Auth. Your first account is auto-assigned the Manager role.
                 </p>
               </div>
             </div>

@@ -11,3 +11,4 @@ psycopg[binary]
 bcrypt
 resend
 slowapi
+PyJWT

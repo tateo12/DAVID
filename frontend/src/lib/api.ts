@@ -20,6 +20,7 @@ import {
 } from "./types";
 import { clearSession, getSession, sessionNeedsRefresh, setSession } from "./session";
 import type { AuthUser } from "./session";
+import { supabase } from "./supabase";
 
 /** API origin; set NEXT_PUBLIC_API_BASE in deployed environments. */
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
@@ -101,15 +102,20 @@ async function _maybeRefreshSession(): Promise<void> {
 
   // Deduplicate concurrent refresh calls
   if (!_refreshPromise) {
-    _refreshPromise = fetch(`${API_BASE}/api/auth/refresh-token`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
-      .then(async (r) => {
-        if (r.ok) {
-          const data = (await r.json()) as { access_token: string; expires_at: string; user: AuthUser };
-          setSession({ access_token: data.access_token, expires_at: data.expires_at, user: data.user });
-        } else if (r.status === 401) {
+    _refreshPromise = supabase.auth.refreshSession()
+      .then(async ({ data }) => {
+        if (data.session) {
+          const r = await fetch(`${API_BASE}/api/auth/provision`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${data.session.access_token}` },
+          });
+          if (r.ok) {
+            const prov = (await r.json()) as { access_token: string; expires_at: string; user: AuthUser };
+            setSession({ access_token: data.session.access_token, expires_at: prov.expires_at, user: prov.user });
+          } else {
+            clearSession();
+          }
+        } else {
           clearSession();
         }
       })
@@ -495,16 +501,50 @@ export async function deleteEmployee(employeeId: number): Promise<void> {
   await apiFetch<{ status: string }>(`/api/employees/${employeeId}`, { method: "DELETE" });
 }
 
-export async function registerInvite(payload: {
-  token: string;
-  username: string;
-  password: string;
-  display_name?: string;
-}): Promise<{ access_token: string; expires_at: string; user: AuthUser }> {
-  return apiFetch("/api/auth/register-invite", {
+export async function signInWithSupabase(
+  email: string,
+  password: string
+): Promise<{ access_token: string; expires_at: string; user: AuthUser }> {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !data.session) throw new Error(error?.message ?? "Sign-in failed");
+
+  const r = await fetch(`${API_BASE}/api/auth/provision`, {
     method: "POST",
-    body: JSON.stringify(payload),
-  }, false);
+    headers: { Authorization: `Bearer ${data.session.access_token}` },
+  });
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({})) as { detail?: string };
+    throw new Error(body.detail ?? "Failed to provision user");
+  }
+  const prov = (await r.json()) as { access_token: string; expires_at: string; user: AuthUser };
+  return {
+    access_token: data.session.access_token,
+    expires_at: prov.expires_at,
+    user: prov.user,
+  };
+}
+
+export async function signUpWithSupabase(
+  email: string,
+  password: string
+): Promise<{ needsConfirmation: boolean }> {
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  if (error) throw new Error(error.message);
+  // If session is immediately present, email confirmation is disabled
+  if (data.session) {
+    const r = await fetch(`${API_BASE}/api/auth/provision`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${data.session.access_token}` },
+    });
+    if (!r.ok) {
+      const body = await r.json().catch(() => ({})) as { detail?: string };
+      throw new Error(body.detail ?? "Failed to provision user");
+    }
+    const prov = (await r.json()) as { access_token: string; expires_at: string; user: AuthUser };
+    setSession({ access_token: data.session.access_token, expires_at: prov.expires_at, user: prov.user });
+    return { needsConfirmation: false };
+  }
+  return { needsConfirmation: true };
 }
 
 export async function postPolicyAssistantChat(payload: {
@@ -539,34 +579,6 @@ export async function createPolicy(payload: {
   });
 }
 
-export async function registerOtpRequest(payload: { email: string; company_name: string; role: string }) {
-  return apiFetch("/api/auth/register-request", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  }, false);
-}
-
-export async function registerOtpVerify(payload: { email: string; code: string; username: string; password: string }): Promise<{ access_token: string; expires_at: string; user: AuthUser }> {
-  return apiFetch("/api/auth/register-verify", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  }, false);
-}
-
-export async function loginUser(username: string, password: string): Promise<{
-  access_token: string;
-  expires_at: string;
-  user: AuthUser;
-}> {
-  return apiFetch(
-    "/api/auth/login",
-    {
-      method: "POST",
-      body: JSON.stringify({ username, password }),
-    },
-    false
-  );
-}
 
 // ----- Operations / automation (manager dashboard) -----
 

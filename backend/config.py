@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     alert_email: str = ""
     skill_model_name: str = "google/gemma-3-4b-it:free"
 
+    # Supabase Auth
+    supabase_url: str = Field(default="", validation_alias=AliasChoices("SUPABASE_URL"))
+    supabase_jwt_secret: str = Field(default="", validation_alias=AliasChoices("SUPABASE_JWT_SECRET"))
+
     # First-time setup: when the users table is empty, create one manager account (no fake employees).
     initial_admin_username: str = Field(
         default="",

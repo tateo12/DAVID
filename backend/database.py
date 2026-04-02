@@ -208,6 +208,17 @@ def _ensure_employee_skill_profile_columns_postgres() -> None:
         pass
 
 
+def _ensure_supabase_uid_column_sqlite(conn: Any) -> None:
+    try:
+        cur = conn.execute("PRAGMA table_info(users)")
+        cols = {row[1] for row in cur.fetchall()}
+        if "supabase_uid" not in cols:
+            conn.execute("ALTER TABLE users ADD COLUMN supabase_uid TEXT")
+            conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_supabase_uid ON users(supabase_uid)")
+    except Exception:
+        pass
+
+
 def _ensure_employee_directory_columns_sqlite(conn: Any) -> None:
     try:
         cur = conn.execute("PRAGMA table_info(employees)")
@@ -238,6 +249,23 @@ def _ensure_employee_directory_columns_postgres() -> None:
         "ALTER TABLE employees ADD COLUMN IF NOT EXISTS account_claimed_at TEXT",
         "ALTER TABLE employees ADD COLUMN IF NOT EXISTS extension_first_seen_at TEXT",
         "ALTER TABLE employees ADD COLUMN IF NOT EXISTS company_name TEXT NOT NULL DEFAULT ''",
+    ]
+    try:
+        with psycopg.connect(_pg_dsn(), autocommit=True) as conn:
+            with conn.cursor() as cur:
+                for s in stmts:
+                    try:
+                        cur.execute(s)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+
+def _ensure_supabase_uid_column_postgres() -> None:
+    stmts = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS supabase_uid TEXT",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_supabase_uid ON users(supabase_uid)",
     ]
     try:
         with psycopg.connect(_pg_dsn(), autocommit=True) as conn:
@@ -307,6 +335,7 @@ def init_db() -> None:
         _ensure_skill_lesson_columns_postgres()
         _ensure_employee_skill_profile_columns_postgres()
         _ensure_employee_weekly_study_focus_postgres()
+        _ensure_supabase_uid_column_postgres()
         _seed_defaults()
         return
 
@@ -398,8 +427,9 @@ def init_db() -> None:
 
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL UNIQUE,
-                password TEXT NOT NULL,
+                supabase_uid TEXT UNIQUE,
+                username TEXT NOT NULL DEFAULT '',
+                password TEXT NOT NULL DEFAULT '',
                 role TEXT NOT NULL,
                 employee_id INTEGER,
                 created_at TEXT NOT NULL,
@@ -589,6 +619,7 @@ def init_db() -> None:
         _ensure_skill_lesson_columns_sqlite(conn)
         _ensure_employee_skill_profile_extra_columns_sqlite(conn)
         _ensure_employee_directory_columns_sqlite(conn)
+        _ensure_supabase_uid_column_sqlite(conn)
     _seed_defaults()
 
 
@@ -634,17 +665,6 @@ def _seed_defaults() -> None:
                     json.dumps(baseline),
                 ),
             )
-
-        user_count = conn.execute("SELECT COUNT(1) as c FROM users").fetchone()["c"]
-        if user_count == 0:
-            settings = get_settings()
-            u, p = (settings.initial_admin_username or "").strip(), (settings.initial_admin_password or "").strip()
-            if u and p:
-                from auth import hash_password
-                conn.execute(
-                    "INSERT INTO users (username, password, role, employee_id, created_at) VALUES (?, ?, 'manager', NULL, ?)",
-                    (u, hash_password(p), _utc_now()),
-                )
 
         job_count = conn.execute("SELECT COUNT(1) as c FROM system_jobs").fetchone()["c"]
         if job_count == 0:

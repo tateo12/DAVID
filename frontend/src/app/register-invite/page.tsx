@@ -3,8 +3,7 @@
 import React, { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { registerInvite } from "@/lib/api";
-import { setSession } from "@/lib/session";
+import { signUpWithSupabase } from "@/lib/api";
 import { ShieldMark } from "@/components/shield-mark";
 
 function RegisterInviteForm() {
@@ -12,28 +11,23 @@ function RegisterInviteForm() {
   const params = useSearchParams();
   const token = params.get("token") ?? "";
 
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
 
   const submit = async () => {
-    if (!token || busy) return;
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
-      const res = await registerInvite({
-        token,
-        username: username.trim(),
-        password,
-        display_name: displayName.trim() || undefined,
-      });
-      setSession({
-        access_token: res.access_token,
-        user: res.user,
-      });
-      router.push("/");
+      const result = await signUpWithSupabase(email.trim(), password);
+      if (result.needsConfirmation) {
+        setDone(true);
+      } else {
+        router.push("/");
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Registration failed");
     } finally {
@@ -51,22 +45,27 @@ function RegisterInviteForm() {
         </div>
       </div>
       <div className="w-full max-w-md border border-outline-variant/15 bg-surface-container-low p-8">
-        {!token ? (
-          <p className="font-mono text-sm text-error">Missing invite token. Open the link from your email.</p>
+        {done ? (
+          <div className="space-y-4 text-center font-mono">
+            <p className="text-sm text-on-surface">Check your email for a confirmation link, then sign in.</p>
+            <Link href="/login" className="text-secondary-fixed hover:underline text-xs">Go to sign in</Link>
+          </div>
         ) : (
           <>
             <p className="mb-6 font-mono text-xs text-on-surface-variant">
-              Create your dashboard login. Use the same credentials in the Sentinel browser extension.
+              {token ? "You have been invited to Sentinel. " : ""}
+              Create your account with your work email.
             </p>
             <div className="space-y-4 font-mono text-sm">
               <label className="block">
-                <span className="text-[10px] uppercase text-outline">Username</span>
+                <span className="text-[10px] uppercase text-outline">Work Email</span>
                 <input
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="mt-1 w-full border border-outline-variant/25 bg-surface-container-high px-3 py-2 text-white"
-                  placeholder="Often your work email"
-                  autoComplete="username"
+                  placeholder="you@company.com"
+                  autoComplete="email"
                 />
               </label>
               <label className="block">
@@ -77,20 +76,13 @@ function RegisterInviteForm() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="mt-1 w-full border border-outline-variant/25 bg-surface-container-high px-3 py-2 text-white"
                   autoComplete="new-password"
-                />
-              </label>
-              <label className="block">
-                <span className="text-[10px] uppercase text-outline">Display name (optional)</span>
-                <input
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  className="mt-1 w-full border border-outline-variant/25 bg-surface-container-high px-3 py-2 text-white"
+                  minLength={8}
                 />
               </label>
               {error ? <p className="text-xs text-error">{error}</p> : null}
               <button
                 type="button"
-                disabled={busy || username.trim().length < 2 || password.length < 4}
+                disabled={busy || email.trim().length < 5 || password.length < 8}
                 onClick={() => void submit()}
                 className="w-full bg-secondary-container py-3 font-headline text-xs font-bold uppercase text-black disabled:opacity-40"
               >
@@ -101,7 +93,7 @@ function RegisterInviteForm() {
         )}
         <p className="mt-6 text-center font-mono text-[10px] text-on-surface-variant">
           <Link href="/login" className="text-secondary-fixed hover:underline">
-            Manager login
+            Already have an account? Sign in
           </Link>
         </p>
       </div>

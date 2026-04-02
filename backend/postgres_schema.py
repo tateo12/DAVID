@@ -93,8 +93,9 @@ INIT_STATEMENTS: list[str] = [
     """
     CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
-        username TEXT NOT NULL UNIQUE,
-        password TEXT NOT NULL,
+        supabase_uid TEXT UNIQUE,
+        username TEXT NOT NULL DEFAULT '',
+        password TEXT NOT NULL DEFAULT '',
         role TEXT NOT NULL,
         employee_id INTEGER REFERENCES employees (id),
         created_at TEXT NOT NULL

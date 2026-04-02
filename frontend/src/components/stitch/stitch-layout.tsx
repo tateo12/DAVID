@@ -4,6 +4,7 @@ import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { clearSession, getSession, isTeamManager } from "@/lib/session";
+import { supabase } from "@/lib/supabase";
 import { AppShellContext, type AppShellContextValue } from "@/components/shell-context";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
@@ -45,8 +46,10 @@ function SidebarSessionFooter() {
           <button
             type="button"
             onClick={() => {
-              clearSession();
-              router.refresh();
+              supabase.auth.signOut().finally(() => {
+                clearSession();
+                router.push("/login");
+              });
             }}
             className="flex w-full items-center gap-3 py-2 font-label text-[10px] uppercase tracking-widest text-error/90 hover:text-error"
           >
