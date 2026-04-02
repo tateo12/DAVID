@@ -1,9 +1,44 @@
+from __future__ import annotations
+
+import time
+from typing import Any
+
 from fastapi import Depends, Header, HTTPException
 
 import jwt  # PyJWT
+import requests
 
 from config import get_settings
 from database import _utc_now, execute, fetch_one, init_db
+
+# ── JWKS cache for ES256 / asymmetric verification ────────────────────────────
+_jwks_cache: dict[str, Any] = {"keys": [], "fetched_at": 0.0}
+_JWKS_TTL_SECONDS = 300  # re-fetch every 5 minutes
+
+
+def _get_jwks_keys() -> list[dict]:
+    """Fetch and cache JWKS public keys from Supabase."""
+    now = time.time()
+    if _jwks_cache["keys"] and (now - _jwks_cache["fetched_at"]) < _JWKS_TTL_SECONDS:
+        return _jwks_cache["keys"]
+
+    supabase_url = get_settings().supabase_url
+    if not supabase_url:
+        return []
+
+    jwks_url = f"{supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+    try:
+        resp = requests.get(jwks_url, timeout=5)
+        resp.raise_for_status()
+        keys = resp.json().get("keys", [])
+        _jwks_cache["keys"] = keys
+        _jwks_cache["fetched_at"] = now
+        return keys
+    except Exception:
+        # If fetch fails but we have stale keys, use them
+        if _jwks_cache["keys"]:
+            return _jwks_cache["keys"]
+        return []
 
 
 def _parse_bearer(authorization: str | None) -> str:
@@ -16,10 +51,9 @@ def _parse_bearer(authorization: str | None) -> str:
 
 def _verify_supabase_jwt(token: str) -> dict:
     """Verify a Supabase JWT and return the decoded payload.
-    Supports both HS256 (default Supabase) and HS384/HS512 variants."""
-    secret = get_settings().supabase_jwt_secret
-    if not secret:
-        raise HTTPException(status_code=500, detail="SUPABASE_JWT_SECRET not configured on backend")
+    Supports HMAC (HS256/HS384/HS512) and asymmetric (ES256, RS256) algorithms.
+    For asymmetric algorithms, the public key is fetched from Supabase's JWKS endpoint."""
+    settings = get_settings()
 
     # Peek at the token header to see what algorithm Supabase used
     try:
@@ -29,35 +63,82 @@ def _verify_supabase_jwt(token: str) -> dict:
 
     token_alg = unverified_header.get("alg", "unknown")
 
-    # Accept any HMAC-based algorithm that Supabase might use
-    allowed_algs = ["HS256", "HS384", "HS512"]
+    hmac_algs = ["HS256", "HS384", "HS512"]
+    asymmetric_algs = ["ES256", "RS256", "RS384", "RS512"]
 
-    if token_alg not in allowed_algs:
+    if token_alg in hmac_algs:
+        # ── HMAC verification using JWT secret ──
+        secret = settings.supabase_jwt_secret
+        if not secret:
+            raise HTTPException(status_code=500, detail="SUPABASE_JWT_SECRET not configured on backend")
+        try:
+            return jwt.decode(token, secret, algorithms=hmac_algs, options={"verify_aud": False})
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Token expired")
+        except jwt.InvalidSignatureError:
+            raise HTTPException(
+                status_code=401,
+                detail="JWT signature verification failed. Check SUPABASE_JWT_SECRET."
+            )
+        except jwt.InvalidTokenError as exc:
+            raise HTTPException(status_code=401, detail=f"Invalid token: {exc}")
+
+    elif token_alg in asymmetric_algs:
+        # ── Asymmetric verification using JWKS public key ──
+        jwks_keys = _get_jwks_keys()
+        if not jwks_keys:
+            raise HTTPException(
+                status_code=500,
+                detail="Cannot verify ES256/RS256 token: SUPABASE_URL not configured or JWKS fetch failed. "
+                       "Set SUPABASE_URL in your backend environment."
+            )
+
+        # Find the matching key by kid (key ID) if present
+        token_kid = unverified_header.get("kid")
+        matching_key = None
+        for key_data in jwks_keys:
+            if token_kid and key_data.get("kid") == token_kid:
+                matching_key = key_data
+                break
+        # If no kid match, use the first key that matches the algorithm
+        if not matching_key:
+            for key_data in jwks_keys:
+                if key_data.get("kty") == ("EC" if token_alg.startswith("ES") else "RSA"):
+                    matching_key = key_data
+                    break
+        if not matching_key:
+            raise HTTPException(
+                status_code=401,
+                detail=f"No matching public key found in JWKS for algorithm '{token_alg}'."
+            )
+
+        try:
+            from jwt.algorithms import ECAlgorithm, RSAAlgorithm
+            if token_alg.startswith("ES"):
+                public_key = ECAlgorithm.from_jwk(matching_key)
+            else:
+                public_key = RSAAlgorithm.from_jwk(matching_key)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Failed to construct public key from JWKS: {exc}")
+
+        try:
+            return jwt.decode(token, public_key, algorithms=[token_alg], options={"verify_aud": False})
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Token expired")
+        except jwt.InvalidSignatureError:
+            raise HTTPException(
+                status_code=401,
+                detail="JWT signature verification failed against Supabase JWKS public key."
+            )
+        except jwt.InvalidTokenError as exc:
+            raise HTTPException(status_code=401, detail=f"Invalid token: {exc}")
+
+    else:
         raise HTTPException(
             status_code=401,
-            detail=f"JWT uses algorithm '{token_alg}' but backend expects HMAC (HS256/HS384/HS512). "
-                   f"Check your Supabase JWT settings."
+            detail=f"JWT uses unsupported algorithm '{token_alg}'. "
+                   f"Expected HMAC (HS256) or ECDSA (ES256) or RSA (RS256)."
         )
-
-    try:
-        payload = jwt.decode(
-            token,
-            secret,
-            algorithms=allowed_algs,
-            options={"verify_aud": False},
-        )
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidSignatureError:
-        raise HTTPException(
-            status_code=401,
-            detail="JWT signature verification failed. The SUPABASE_JWT_SECRET on the backend "
-                   "does not match the one in your Supabase project. Go to Supabase → "
-                   "Project Settings → API → JWT Settings → copy the 'JWT Secret' value."
-        )
-    except jwt.InvalidTokenError as exc:
-        raise HTTPException(status_code=401, detail=f"Invalid token: {exc}")
 
 
 def _get_db_user(supabase_uid: str) -> dict | None:
