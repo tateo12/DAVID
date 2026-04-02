@@ -186,7 +186,7 @@ export default function LoginPage() {
             </h3>
             <p className="text-sm text-on-surface-variant">
               {step === "email" && "Enter your work email to receive a one-time access code."}
-              {step === "code" && `A 6-digit code was sent to ${email}.`}
+              {step === "code" && `A verification code was sent to ${email}.`}
               {step === "set-password" && "Create a password for future sign-ins."}
               {step === "password-login" && "Enter your email and password."}
             </p>
@@ -247,11 +247,11 @@ export default function LoginPage() {
                     type="text"
                     required
                     autoFocus
-                    maxLength={6}
+                    maxLength={8}
                     value={code}
                     onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                     className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 text-center font-mono text-2xl tracking-[0.5em] text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-0"
-                    placeholder="000000"
+                    placeholder="00000000"
                   />
                   <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
                 </div>
@@ -259,7 +259,7 @@ export default function LoginPage() {
               {error && <p className="text-center text-xs text-error">{error}</p>}
               <button
                 type="submit"
-                disabled={loading || code.length < 6}
+                disabled={loading || code.length < 6 || code.length > 8}
                 className="flex w-full items-center justify-center gap-3 rounded-sm bg-secondary-container py-4 font-headline text-sm font-bold uppercase tracking-widest text-black transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
               >
                 {loading ? "Verifying…" : "Authorize"}

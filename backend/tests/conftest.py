@@ -64,13 +64,13 @@ TEST_MANAGER_UID = "test-uid-manager"
 
 if not fetch_one("SELECT 1 FROM users WHERE supabase_uid = ?", (TEST_EMPLOYEE_UID,)):
     execute(
-        "INSERT INTO users (supabase_uid, username, password, role, employee_id, created_at) VALUES (?, 'test_employee', '', 'employee', 1, ?)",
+        "INSERT INTO users (supabase_uid, username, password, role, employee_id, org_id, created_at) VALUES (?, 'test_employee', '', 'employee', 1, 1, ?)",
         (TEST_EMPLOYEE_UID, _utc_now()),
     )
 
 if not fetch_one("SELECT 1 FROM users WHERE supabase_uid = ?", (TEST_MANAGER_UID,)):
     execute(
-        "INSERT INTO users (supabase_uid, username, password, role, employee_id, created_at) VALUES (?, 'test_manager', '', 'manager', NULL, ?)",
+        "INSERT INTO users (supabase_uid, username, password, role, employee_id, org_id, created_at) VALUES (?, 'test_manager', '', 'manager', NULL, 1, ?)",
         (TEST_MANAGER_UID, _utc_now()),
     )
 

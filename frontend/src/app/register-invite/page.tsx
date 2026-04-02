@@ -14,6 +14,7 @@ function RegisterInviteForm() {
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get("token") ?? "";
+  const orgIdParam = params.get("org_id");
 
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
@@ -40,7 +41,7 @@ function RegisterInviteForm() {
     setBusy(true);
     setError(null);
     try {
-      const res = await verifyLoginOtp(email.trim(), code.trim());
+      const res = await verifyLoginOtp(email.trim(), code.trim(), orgIdParam ? parseInt(orgIdParam, 10) : undefined);
       setSession({ access_token: res.access_token, expires_at: res.expires_at, user: res.user });
       router.push("/");
       router.refresh();
@@ -101,7 +102,7 @@ function RegisterInviteForm() {
         ) : (
           <>
             <p className="mb-6 font-mono text-xs text-on-surface-variant">
-              A 6-digit code was sent to {email}.
+              A verification code was sent to {email}.
             </p>
             <div className="space-y-4 font-mono text-sm">
               <label className="block">
@@ -114,18 +115,18 @@ function RegisterInviteForm() {
                     type="text"
                     required
                     autoFocus
-                    maxLength={6}
+                    maxLength={8}
                     value={code}
                     onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                     className="w-full border border-outline-variant/25 bg-surface-container-high py-3 pl-12 pr-4 text-center text-2xl tracking-[0.5em] text-white placeholder:text-on-surface-variant/30 focus:outline-none"
-                    placeholder="000000"
+                    placeholder="00000000"
                   />
                 </div>
               </label>
               {error && <p className="text-xs text-error">{error}</p>}
               <button
                 type="button"
-                disabled={busy || code.length < 6}
+                disabled={busy || code.length < 6 || code.length > 8}
                 onClick={() => void handleVerify()}
                 className="flex w-full items-center justify-center gap-3 bg-secondary-container py-3 font-headline text-xs font-bold uppercase text-black disabled:opacity-40"
               >
