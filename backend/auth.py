@@ -15,20 +15,47 @@ def _parse_bearer(authorization: str | None) -> str:
 
 
 def _verify_supabase_jwt(token: str) -> dict:
-    """Verify a Supabase JWT (HS256) and return the decoded payload."""
+    """Verify a Supabase JWT and return the decoded payload.
+    Supports both HS256 (default Supabase) and HS384/HS512 variants."""
     secret = get_settings().supabase_jwt_secret
     if not secret:
         raise HTTPException(status_code=500, detail="SUPABASE_JWT_SECRET not configured on backend")
+
+    # Peek at the token header to see what algorithm Supabase used
+    try:
+        unverified_header = jwt.get_unverified_header(token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Malformed JWT — could not decode header")
+
+    token_alg = unverified_header.get("alg", "unknown")
+
+    # Accept any HMAC-based algorithm that Supabase might use
+    allowed_algs = ["HS256", "HS384", "HS512"]
+
+    if token_alg not in allowed_algs:
+        raise HTTPException(
+            status_code=401,
+            detail=f"JWT uses algorithm '{token_alg}' but backend expects HMAC (HS256/HS384/HS512). "
+                   f"Check your Supabase JWT settings."
+        )
+
     try:
         payload = jwt.decode(
             token,
             secret,
-            algorithms=["HS256"],
+            algorithms=allowed_algs,
             options={"verify_aud": False},
         )
         return payload
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidSignatureError:
+        raise HTTPException(
+            status_code=401,
+            detail="JWT signature verification failed. The SUPABASE_JWT_SECRET on the backend "
+                   "does not match the one in your Supabase project. Go to Supabase → "
+                   "Project Settings → API → JWT Settings → copy the 'JWT Secret' value."
+        )
     except jwt.InvalidTokenError as exc:
         raise HTTPException(status_code=401, detail=f"Invalid token: {exc}")
 

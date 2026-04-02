@@ -44,3 +44,39 @@ def provision(
 @router.get("/me", response_model=AuthUser)
 def me(current_user: dict = Depends(get_current_user)) -> AuthUser:
     return AuthUser(**current_user)
+
+
+@router.post("/debug-jwt")
+def debug_jwt(authorization: str | None = Header(default=None)) -> dict:
+    """Temporary diagnostic endpoint — decode JWT header without verifying.
+    Shows what algorithm the token uses and whether the secret is configured.
+    Remove this endpoint before going to production with real customers."""
+    import jwt as pyjwt
+    from config import get_settings
+
+    token = _parse_bearer(authorization)
+    try:
+        header = pyjwt.get_unverified_header(token)
+    except Exception as exc:
+        return {"error": f"Could not decode JWT header: {exc}"}
+
+    secret = get_settings().supabase_jwt_secret
+    secret_preview = f"{secret[:4]}...{secret[-4:]}" if secret and len(secret) > 8 else "(not set or too short)"
+
+    try:
+        payload = pyjwt.decode(token, options={"verify_signature": False})
+        sub = payload.get("sub", "?")
+        email = payload.get("email", "?")
+        exp = payload.get("exp", "?")
+    except Exception:
+        sub = email = exp = "decode_failed"
+
+    return {
+        "jwt_header": header,
+        "token_algorithm": header.get("alg", "unknown"),
+        "jwt_secret_configured": bool(secret),
+        "jwt_secret_preview": secret_preview,
+        "jwt_sub": sub,
+        "jwt_email": email,
+        "jwt_exp": exp,
+    }
