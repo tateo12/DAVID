@@ -438,7 +438,7 @@ function ManagerCurriculumView() {
         <div className="col-span-12 lg:col-span-4 p-6 bg-surface-container-high rounded-lg flex flex-col justify-center border border-outline-variant/10">
           <h3 className="font-label text-[11px] uppercase tracking-widest text-secondary-fixed mb-4">Curriculum Units</h3>
           <div className="space-y-2">
-            {outline.slice(0, 4).map((unit, i) => (
+            {outline.slice(0, 4).map((unit) => (
               <div key={unit.unit_title} className="flex items-center justify-between text-xs">
                 <span className="text-on-surface-variant truncate">{unit.unit_title}</span>
                 <span className="text-outline ml-2 shrink-0">{unit.lessons.length} lessons</span>
