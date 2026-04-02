@@ -102,15 +102,6 @@ INIT_STATEMENTS: list[str] = [
     )
     """,
     """
-    CREATE TABLE IF NOT EXISTS auth_sessions (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES users (id),
-        token TEXT NOT NULL UNIQUE,
-        expires_at TEXT NOT NULL,
-        created_at TEXT NOT NULL
-    )
-    """,
-    """
     CREATE TABLE IF NOT EXISTS captured_turns (
         id SERIAL PRIMARY KEY,
         employee_id INTEGER NOT NULL REFERENCES employees (id),
@@ -266,17 +257,6 @@ INIT_STATEMENTS: list[str] = [
         alert_id INTEGER NOT NULL REFERENCES alerts (id),
         notified_at TEXT NOT NULL,
         UNIQUE(alert_id)
-    )
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS auth_otps (
-        id SERIAL PRIMARY KEY,
-        email TEXT NOT NULL,
-        code TEXT NOT NULL,
-        role TEXT NOT NULL,
-        company_name TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        expires_at TEXT NOT NULL
     )
     """,
 ]

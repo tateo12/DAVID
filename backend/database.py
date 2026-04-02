@@ -436,15 +436,6 @@ def init_db() -> None:
                 FOREIGN KEY (employee_id) REFERENCES employees (id)
             );
 
-            CREATE TABLE IF NOT EXISTS auth_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                token TEXT NOT NULL UNIQUE,
-                expires_at TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES users (id)
-            );
-
             CREATE TABLE IF NOT EXISTS captured_turns (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 employee_id INTEGER NOT NULL,
@@ -604,15 +595,6 @@ def init_db() -> None:
                 notified_at TEXT NOT NULL,
                 UNIQUE(alert_id),
                 FOREIGN KEY (alert_id) REFERENCES alerts (id)
-            );
-            CREATE TABLE IF NOT EXISTS auth_otps (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT NOT NULL,
-                code TEXT NOT NULL,
-                role TEXT NOT NULL,
-                company_name TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                expires_at TEXT NOT NULL
             );
             """
         )

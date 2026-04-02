@@ -1,6 +1,10 @@
 from fastapi.testclient import TestClient
 
 from main import app
+from tests.conftest import EMPLOYEE_TOKEN, MANAGER_TOKEN
+
+_EMP = {"Authorization": f"Bearer {EMPLOYEE_TOKEN}"}
+_MGR = {"Authorization": f"Bearer {MANAGER_TOKEN}"}
 
 
 def test_policy_assistant_presets_public() -> None:
@@ -16,12 +20,6 @@ def test_policy_assistant_presets_public() -> None:
 
 def test_policy_assistant_chat_requires_manager() -> None:
     with TestClient(app) as client:
-        login = client.post(
-            "/api/auth/login",
-            json={"username": "test_employee", "password": "testpass"},
-        )
-        assert login.status_code == 200
-        token = login.json()["access_token"]
         r = client.post(
             "/api/policies/assistant/chat",
             json={
@@ -29,19 +27,13 @@ def test_policy_assistant_chat_requires_manager() -> None:
                 "selected_presets": ["forbid_confidential_language"],
                 "draft_rule": {},
             },
-            headers={"Authorization": f"Bearer {token}"},
+            headers=_EMP,
         )
         assert r.status_code == 403
 
 
 def test_policy_assistant_chat_manager() -> None:
     with TestClient(app) as client:
-        login = client.post(
-            "/api/auth/login",
-            json={"username": "test_manager", "password": "testpass"},
-        )
-        assert login.status_code == 200
-        token = login.json()["access_token"]
         r = client.post(
             "/api/policies/assistant/chat",
             json={
@@ -49,7 +41,7 @@ def test_policy_assistant_chat_manager() -> None:
                 "selected_presets": ["forbid_confidential_language", "block_unknown_ai"],
                 "draft_rule": {},
             },
-            headers={"Authorization": f"Bearer {token}"},
+            headers=_MGR,
         )
         assert r.status_code == 200
         body = r.json()

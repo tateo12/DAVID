@@ -8,7 +8,5 @@ requests
 pytest
 httpx
 psycopg[binary]
-bcrypt
 resend
-slowapi
 PyJWT

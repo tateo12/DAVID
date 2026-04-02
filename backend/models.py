@@ -425,31 +425,6 @@ class EmployeePatch(BaseModel):
     role: str | None = None
 
 
-class InviteRegisterRequest(BaseModel):
-    token: str
-    username: str
-    password: str
-    display_name: str | None = None
-
-
-class OtpRegisterRequest(BaseModel):
-    email: str
-    company_name: str
-    role: str
-
-
-class OtpVerifyRequest(BaseModel):
-    email: str
-    code: str
-    username: str
-    password: str
-
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-
 class AuthUser(BaseModel):
     id: int
     username: str

@@ -1,6 +1,9 @@
 from fastapi.testclient import TestClient
 
 from main import app
+from tests.conftest import MANAGER_TOKEN
+
+_MGR = {"Authorization": f"Bearer {MANAGER_TOKEN}"}
 
 
 def test_ops_dispatch_and_code_review() -> None:
@@ -19,21 +22,13 @@ def test_ops_dispatch_and_code_review() -> None:
         )
         assert agent_event.status_code == 200
 
-        login = client.post(
-            "/api/auth/login",
-            json={"username": "test_manager", "password": "testpass"},
-        )
-        assert login.status_code == 200
-        token = login.json()["access_token"]
-        mgr_headers = {"Authorization": f"Bearer {token}"}
-
-        daily = client.post("/api/ops/dispatch/daily-coaching", headers=mgr_headers)
+        daily = client.post("/api/ops/dispatch/daily-coaching", headers=_MGR)
         assert daily.status_code == 200
 
-        weekly = client.post("/api/ops/dispatch/weekly-manager-report", headers=mgr_headers)
+        weekly = client.post("/api/ops/dispatch/weekly-manager-report", headers=_MGR)
         assert weekly.status_code == 200
 
-        security = client.post("/api/ops/dispatch/security-notices", headers=mgr_headers)
+        security = client.post("/api/ops/dispatch/security-notices", headers=_MGR)
         assert security.status_code == 200
 
         review = client.post(
@@ -47,7 +42,7 @@ def test_ops_dispatch_and_code_review() -> None:
         assert review.status_code == 200
         assert "risk_level" in review.json()
 
-        tick = client.post("/api/ops/tick", headers=mgr_headers)
+        tick = client.post("/api/ops/tick", headers=_MGR)
         assert tick.status_code == 200
         tick_body = tick.json()
         assert "ran_at" in tick_body

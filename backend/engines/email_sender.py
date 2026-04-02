@@ -372,20 +372,3 @@ def process_pending_employee_invite_reminders() -> int:
         )
         sent += 1
     return sent
-
-
-def send_otp_email(to_email: str, code: str, role: str) -> None:
-    sender = EmailSender()
-    subject = "Sentinel Verification Code"
-    html = f"""<p>Your Sentinel verification code is:</p>
-<h2 style="font-family: monospace; font-size: 32px; letter-spacing: 4px; color: #c3f400; background: #111316; padding: 16px 24px; border-radius: 4px; display: inline-block;">{code}</h2>
-<p>Enter this code to register your {role} account.</p>"""
-    sender.send_email(to_email, subject, html)
-    sender._queue_to_db(
-        recipient_type="employee",
-        recipient_id=None,
-        message_type="otp_code",
-        subject=subject,
-        body=f"code: {code}",
-        related_entity="otp",
-    )

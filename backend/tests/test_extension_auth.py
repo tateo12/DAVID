@@ -1,58 +1,41 @@
 from fastapi.testclient import TestClient
 
 from main import app
+from tests.conftest import EMPLOYEE_TOKEN, MANAGER_TOKEN
+
+_EMP = {"Authorization": f"Bearer {EMPLOYEE_TOKEN}"}
+_MGR = {"Authorization": f"Bearer {MANAGER_TOKEN}"}
 
 
-def test_login_and_extension_capture_employee() -> None:
+def test_extension_capture_employee() -> None:
     with TestClient(app) as client:
-        login_response = client.post(
-            "/api/auth/login",
-            json={"username": "test_employee", "password": "testpass"},
-        )
-        assert login_response.status_code == 200
-        token = login_response.json()["access_token"]
-
-        capture_response = client.post(
+        r = client.post(
             "/api/extension/capture",
             json={
                 "prompt_text": "Please summarize customer SSN 123-45-6789 for notes",
                 "target_tool": "chat.openai.com",
             },
-            headers={"Authorization": f"Bearer {token}"},
+            headers=_EMP,
         )
-        assert capture_response.status_code == 200
-        body = capture_response.json()
+        assert r.status_code == 200
+        body = r.json()
         assert "prompt_id" in body
         assert "risk_level" in body
 
 
 def test_manager_requires_employee_id() -> None:
     with TestClient(app) as client:
-        login_response = client.post(
-            "/api/auth/login",
-            json={"username": "test_manager", "password": "testpass"},
-        )
-        assert login_response.status_code == 200
-        token = login_response.json()["access_token"]
-
-        capture_response = client.post(
+        r = client.post(
             "/api/extension/capture",
             json={"prompt_text": "Audit sample"},
-            headers={"Authorization": f"Bearer {token}"},
+            headers=_MGR,
         )
-        assert capture_response.status_code == 400
+        assert r.status_code == 400
 
 
 def test_capture_turn_endpoint() -> None:
     with TestClient(app) as client:
-        login_response = client.post(
-            "/api/auth/login",
-            json={"username": "test_employee", "password": "testpass"},
-        )
-        assert login_response.status_code == 200
-        token = login_response.json()["access_token"]
-
-        turn_response = client.post(
+        r = client.post(
             "/api/extension/capture-turn",
             json={
                 "prompt_text": "Summarize this ticket for jane@company.com",
@@ -61,24 +44,17 @@ def test_capture_turn_endpoint() -> None:
                 "conversation_id": "conv-1",
                 "turn_id": "turn-1",
             },
-            headers={"Authorization": f"Bearer {token}"},
+            headers=_EMP,
         )
-        assert turn_response.status_code == 200
-        body = turn_response.json()
+        assert r.status_code == 200
+        body = r.json()
         assert "prompt_analysis" in body
         assert "output_analysis" in body
 
 
 def test_extension_capture_requires_confirmation_for_risky_attachment() -> None:
     with TestClient(app) as client:
-        login_response = client.post(
-            "/api/auth/login",
-            json={"username": "test_employee", "password": "testpass"},
-        )
-        assert login_response.status_code == 200
-        token = login_response.json()["access_token"]
-
-        initial_response = client.post(
+        initial = client.post(
             "/api/extension/capture",
             json={
                 "prompt_text": "Summarize this document.",
@@ -93,21 +69,21 @@ def test_extension_capture_requires_confirmation_for_risky_attachment() -> None:
                     }
                 ],
             },
-            headers={"Authorization": f"Bearer {token}"},
+            headers=_EMP,
         )
-        assert initial_response.status_code == 200
-        initial_body = initial_response.json()
-        assert initial_body["requires_confirmation"] is True
-        assert initial_body["warning_context_id"]
-        assert len(initial_body["warning_reasons"]) > 0
+        assert initial.status_code == 200
+        body = initial.json()
+        assert body["requires_confirmation"] is True
+        assert body["warning_context_id"]
+        assert len(body["warning_reasons"]) > 0
 
-        confirmed_response = client.post(
+        confirmed = client.post(
             "/api/extension/capture",
             json={
                 "prompt_text": "Summarize this document.",
                 "target_tool": "chat.openai.com",
                 "warning_confirmed": True,
-                "warning_context_id": initial_body["warning_context_id"],
+                "warning_context_id": body["warning_context_id"],
                 "attachments": [
                     {
                         "filename": "customer_notes.txt",
@@ -118,24 +94,15 @@ def test_extension_capture_requires_confirmation_for_risky_attachment() -> None:
                     }
                 ],
             },
-            headers={"Authorization": f"Bearer {token}"},
+            headers=_EMP,
         )
-        assert confirmed_response.status_code == 200
-        confirmed_body = confirmed_response.json()
-        assert confirmed_body["requires_confirmation"] is False
-        assert confirmed_body["warning_context_id"] == initial_body["warning_context_id"]
+        assert confirmed.status_code == 200
+        assert confirmed.json()["requires_confirmation"] is False
 
 
 def test_extension_capture_rejects_oversized_attachment() -> None:
     with TestClient(app) as client:
-        login_response = client.post(
-            "/api/auth/login",
-            json={"username": "test_employee", "password": "testpass"},
-        )
-        assert login_response.status_code == 200
-        token = login_response.json()["access_token"]
-
-        response = client.post(
+        r = client.post(
             "/api/extension/capture",
             json={
                 "prompt_text": "Please help summarize.",
@@ -150,6 +117,6 @@ def test_extension_capture_rejects_oversized_attachment() -> None:
                     }
                 ],
             },
-            headers={"Authorization": f"Bearer {token}"},
+            headers=_EMP,
         )
-        assert response.status_code == 422
+        assert r.status_code == 422

@@ -290,7 +290,6 @@ def reset_all_data(_current_user: dict = Depends(require_ops_manager)) -> dict:
             "alerts",
             "shadow_ai_events",
             "weekly_reports",
-            "auth_sessions",
             "system_messages",
         ]:
             conn.execute(f"DELETE FROM {table}")
