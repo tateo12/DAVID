@@ -21,7 +21,8 @@
       "Bash(grep -v -iE \"\\(your-key|example|changeme|placeholder|#|=\\\\s*$|=\\\\\"\\\\\"$|=''$|your-openrouter\\)\")",
       "Bash(pip install:*)",
       "Bash(grep:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)"
     ]
   }
 }
