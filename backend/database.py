@@ -240,6 +240,76 @@ def _ensure_employee_directory_columns_sqlite(conn: Any) -> None:
             conn.execute(f"ALTER TABLE employees ADD COLUMN {name} {decl}")
 
 
+def _ensure_organizations_table_postgres() -> None:
+    """Create organizations table and add org_id columns to existing tables."""
+    stmts = [
+        """CREATE TABLE IF NOT EXISTS organizations (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            slug TEXT NOT NULL UNIQUE,
+            owner_user_id INTEGER,
+            plan TEXT NOT NULL DEFAULT 'pilot',
+            max_seats INTEGER NOT NULL DEFAULT 10,
+            settings_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+        """INSERT INTO organizations (id, name, slug, plan, max_seats, settings_json, created_at, updated_at)
+           VALUES (1, 'Default Organization', 'default', 'business', 9999, '{}', NOW()::text, NOW()::text)
+           ON CONFLICT (slug) DO NOTHING""",
+        "ALTER TABLE employees ADD COLUMN IF NOT EXISTS org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id)",
+        "ALTER TABLE policies ADD COLUMN IF NOT EXISTS org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id)",
+        "ALTER TABLE alerts ADD COLUMN IF NOT EXISTS org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id)",
+        "ALTER TABLE weekly_reports ADD COLUMN IF NOT EXISTS org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id)",
+        "ALTER TABLE agent_budgets ADD COLUMN IF NOT EXISTS org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id)",
+        "ALTER TABLE system_messages ADD COLUMN IF NOT EXISTS org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id)",
+        "CREATE INDEX IF NOT EXISTS idx_employees_org ON employees(org_id)",
+        "CREATE INDEX IF NOT EXISTS idx_users_org ON users(org_id)",
+        "CREATE INDEX IF NOT EXISTS idx_policies_org ON policies(org_id)",
+        "CREATE INDEX IF NOT EXISTS idx_alerts_org ON alerts(org_id)",
+    ]
+    try:
+        with psycopg.connect(_pg_dsn(), autocommit=True) as conn:
+            with conn.cursor() as cur:
+                for s in stmts:
+                    try:
+                        cur.execute(s)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+
+def _ensure_organizations_table_sqlite(conn: Any) -> None:
+    """Create organizations table and add org_id columns for SQLite."""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS organizations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            slug TEXT NOT NULL UNIQUE,
+            owner_user_id INTEGER,
+            plan TEXT NOT NULL DEFAULT 'pilot',
+            max_seats INTEGER NOT NULL DEFAULT 10,
+            settings_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
+    conn.execute("""
+        INSERT OR IGNORE INTO organizations (id, name, slug, plan, max_seats, settings_json, created_at, updated_at)
+        VALUES (1, 'Default Organization', 'default', 'business', 9999, '{}', datetime('now'), datetime('now'))
+    """)
+    for table in ("employees", "users", "policies", "alerts", "weekly_reports", "agent_budgets", "system_messages"):
+        try:
+            cur = conn.execute(f"PRAGMA table_info({table})")
+            cols = {row[1] for row in cur.fetchall()}
+            if "org_id" not in cols:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id)")
+        except Exception:
+            pass
+
+
 def _ensure_employee_directory_columns_postgres() -> None:
     stmts = [
         "ALTER TABLE employees ADD COLUMN IF NOT EXISTS email TEXT NOT NULL DEFAULT ''",
@@ -332,22 +402,40 @@ def init_db() -> None:
             conn.commit()
         finally:
             conn.close()
+        _ensure_organizations_table_postgres()
         _ensure_skill_lesson_columns_postgres()
         _ensure_employee_skill_profile_columns_postgres()
         _ensure_employee_weekly_study_focus_postgres()
         _ensure_supabase_uid_column_postgres()
+        _ensure_employee_directory_columns_postgres()
         _seed_defaults()
         return
 
     with get_conn() as conn:
         conn.executescript(
             """
+            CREATE TABLE IF NOT EXISTS organizations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                slug TEXT NOT NULL UNIQUE,
+                owner_user_id INTEGER,
+                plan TEXT NOT NULL DEFAULT 'pilot',
+                max_seats INTEGER NOT NULL DEFAULT 10,
+                settings_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            INSERT OR IGNORE INTO organizations (id, name, slug, plan, max_seats, settings_json, created_at, updated_at)
+            VALUES (1, 'Default Organization', 'default', 'business', 9999, '{}', datetime('now'), datetime('now'));
+
             CREATE TABLE IF NOT EXISTS employees (
                 id INTEGER PRIMARY KEY,
                 name TEXT NOT NULL,
                 department TEXT NOT NULL,
                 role TEXT NOT NULL DEFAULT 'employee',
                 risk_score REAL NOT NULL DEFAULT 0,
+                org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id),
                 company_name TEXT NOT NULL DEFAULT ''
             );
 
@@ -387,16 +475,19 @@ def init_db() -> None:
                 name TEXT NOT NULL,
                 role TEXT NOT NULL,
                 rule_json TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id)
             );
 
             CREATE TABLE IF NOT EXISTS agent_budgets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
                 budget_usd REAL NOT NULL,
                 spend_usd REAL NOT NULL DEFAULT 0,
                 quality_score REAL NOT NULL DEFAULT 0.8,
-                success_rate REAL NOT NULL DEFAULT 0.8
+                success_rate REAL NOT NULL DEFAULT 0.8,
+                org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id),
+                UNIQUE(name, org_id)
             );
 
             CREATE TABLE IF NOT EXISTS alerts (
@@ -405,7 +496,8 @@ def init_db() -> None:
                 severity TEXT NOT NULL,
                 detail TEXT NOT NULL,
                 is_active INTEGER NOT NULL DEFAULT 1,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id)
             );
 
             CREATE TABLE IF NOT EXISTS weekly_reports (
@@ -413,7 +505,8 @@ def init_db() -> None:
                 week_start TEXT NOT NULL,
                 week_end TEXT NOT NULL,
                 summary TEXT NOT NULL,
-                kpis_json TEXT NOT NULL
+                kpis_json TEXT NOT NULL,
+                org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id)
             );
 
             CREATE TABLE IF NOT EXISTS shadow_ai_events (
@@ -432,6 +525,7 @@ def init_db() -> None:
                 password TEXT NOT NULL DEFAULT '',
                 role TEXT NOT NULL,
                 employee_id INTEGER,
+                org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id),
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (employee_id) REFERENCES employees (id)
             );
@@ -579,7 +673,8 @@ def init_db() -> None:
                 subject TEXT NOT NULL,
                 body TEXT NOT NULL,
                 related_entity TEXT,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id)
             );
 
             CREATE TABLE IF NOT EXISTS system_jobs (
@@ -598,6 +693,7 @@ def init_db() -> None:
             );
             """
         )
+        _ensure_organizations_table_sqlite(conn)
         _ensure_skill_lesson_columns_sqlite(conn)
         _ensure_employee_skill_profile_extra_columns_sqlite(conn)
         _ensure_employee_directory_columns_sqlite(conn)
@@ -615,7 +711,7 @@ def _seed_defaults() -> None:
                 "allow_code_paste_roles": ["engineer"],
             }
             conn.execute(
-                "INSERT INTO policies (name, role, rule_json, updated_at) VALUES (?, ?, ?, ?)",
+                "INSERT INTO policies (name, role, rule_json, updated_at, org_id) VALUES (?, ?, ?, ?, 1)",
                 ("global_default", "all", json.dumps(default_rule), _utc_now()),
             )
 
@@ -726,10 +822,10 @@ def delete_employee_cascade(employee_id: int) -> None:
     execute("DELETE FROM employees WHERE id = ?", (employee_id,))
 
 
-def create_alert(alert_type: str, severity: RiskLevel, detail: str) -> None:
+def create_alert(alert_type: str, severity: RiskLevel, detail: str, org_id: int = 1) -> None:
     execute(
-        "INSERT INTO alerts (alert_type, severity, detail, is_active, created_at) VALUES (?, ?, ?, ?, ?)",
-        (alert_type, severity.value, detail, 1, _utc_now()),
+        "INSERT INTO alerts (alert_type, severity, detail, is_active, created_at, org_id) VALUES (?, ?, ?, ?, ?, ?)",
+        (alert_type, severity.value, detail, 1, _utc_now(), org_id),
     )
 
 

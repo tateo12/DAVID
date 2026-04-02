@@ -3,12 +3,26 @@
 # Order respects foreign keys. Types chosen for compatibility with existing app code.
 INIT_STATEMENTS: list[str] = [
     """
+    CREATE TABLE IF NOT EXISTS organizations (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        slug TEXT NOT NULL UNIQUE,
+        owner_user_id INTEGER,
+        plan TEXT NOT NULL DEFAULT 'pilot',
+        max_seats INTEGER NOT NULL DEFAULT 10,
+        settings_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS employees (
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
         department TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'employee',
         risk_score DOUBLE PRECISION NOT NULL DEFAULT 0,
+        org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id),
         company_name TEXT NOT NULL DEFAULT ''
     )
     """,
@@ -49,17 +63,20 @@ INIT_STATEMENTS: list[str] = [
         name TEXT NOT NULL,
         role TEXT NOT NULL,
         rule_json TEXT NOT NULL,
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL,
+        org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id)
     )
     """,
     """
     CREATE TABLE IF NOT EXISTS agent_budgets (
         id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
         budget_usd DOUBLE PRECISION NOT NULL,
         spend_usd DOUBLE PRECISION NOT NULL DEFAULT 0,
         quality_score DOUBLE PRECISION NOT NULL DEFAULT 0.8,
-        success_rate DOUBLE PRECISION NOT NULL DEFAULT 0.8
+        success_rate DOUBLE PRECISION NOT NULL DEFAULT 0.8,
+        org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id),
+        UNIQUE(name, org_id)
     )
     """,
     """
@@ -69,7 +86,8 @@ INIT_STATEMENTS: list[str] = [
         severity TEXT NOT NULL,
         detail TEXT NOT NULL,
         is_active INTEGER NOT NULL DEFAULT 1,
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id)
     )
     """,
     """
@@ -78,7 +96,8 @@ INIT_STATEMENTS: list[str] = [
         week_start TEXT NOT NULL,
         week_end TEXT NOT NULL,
         summary TEXT NOT NULL,
-        kpis_json TEXT NOT NULL
+        kpis_json TEXT NOT NULL,
+        org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id)
     )
     """,
     """
@@ -98,6 +117,7 @@ INIT_STATEMENTS: list[str] = [
         password TEXT NOT NULL DEFAULT '',
         role TEXT NOT NULL,
         employee_id INTEGER REFERENCES employees (id),
+        org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id),
         created_at TEXT NOT NULL
     )
     """,
@@ -240,7 +260,8 @@ INIT_STATEMENTS: list[str] = [
         subject TEXT NOT NULL,
         body TEXT NOT NULL,
         related_entity TEXT,
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id)
     )
     """,
     """

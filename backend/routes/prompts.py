@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from auth import get_current_user, get_current_user_optional
+from auth import get_current_user, get_current_user_optional, get_org_id
 from database import fetch_one, fetch_rows
 from models import Detection, PromptDetail, PromptSummary
 
@@ -19,6 +19,7 @@ def list_prompts(
     limit: int = Query(default=50, ge=1, le=500),
     current_user: dict | None = Depends(get_current_user_optional),
 ) -> list[PromptSummary]:
+    org_id = get_org_id(current_user) if current_user else 1
     if current_user and current_user.get("role") == "employee":
         eid = current_user.get("employee_id")
         if eid is None:
@@ -26,27 +27,32 @@ def list_prompts(
         rows = fetch_rows(
             f"""
             {_LIST_SQL}
-            WHERE p.employee_id = ?
+            WHERE p.employee_id = ? AND e.org_id = ?
             ORDER BY p.id DESC
             LIMIT ?
             """,
-            (eid, limit),
+            (eid, org_id, limit),
         )
     else:
         rows = fetch_rows(
             f"""
             {_LIST_SQL}
+            WHERE e.org_id = ?
             ORDER BY p.id DESC
             LIMIT ?
             """,
-            (limit,),
+            (org_id, limit),
         )
     return [PromptSummary(**dict(row)) for row in rows]
 
 
 @router.get("/{prompt_id}", response_model=PromptDetail)
 def get_prompt(prompt_id: int, current_user: dict = Depends(get_current_user)) -> PromptDetail:
-    row = fetch_one("SELECT * FROM prompts WHERE id = ?", (prompt_id,))
+    org_id = get_org_id(current_user)
+    row = fetch_one(
+        "SELECT p.* FROM prompts p JOIN employees e ON e.id = p.employee_id WHERE p.id = ? AND e.org_id = ?",
+        (prompt_id, org_id),
+    )
     if not row:
         raise HTTPException(status_code=404, detail="Prompt not found")
 

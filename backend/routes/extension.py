@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
-from auth import get_current_user
+from auth import get_current_user, get_org_id
 from database import (
     create_captured_turn_record,
     create_extension_warning_event,

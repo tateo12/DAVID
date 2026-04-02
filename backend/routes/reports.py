@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from auth import require_ops_manager
+from auth import get_org_id, require_ops_manager
 from database import fetch_rows
 from engines.reporting_engine import latest_weekly_report
 from models import AutomationAnalysisResponse, AutomationOpportunity, WeeklyReportResponse
@@ -9,8 +9,9 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 
 
 @router.get("/weekly", response_model=WeeklyReportResponse)
-def weekly_report(_current_user: dict = Depends(require_ops_manager)) -> WeeklyReportResponse:
-    return latest_weekly_report()
+def weekly_report(current_user: dict = Depends(require_ops_manager)) -> WeeklyReportResponse:
+    org_id = get_org_id(current_user)
+    return latest_weekly_report(org_id=org_id)
 
 
 HUMAN_BASELINES = {
@@ -42,16 +43,19 @@ HUMAN_BASELINES = {
 }
 
 @router.get("/automation-analysis", response_model=AutomationAnalysisResponse)
-def automation_analysis(_current_user: dict = Depends(require_ops_manager)) -> AutomationAnalysisResponse:
+def automation_analysis(current_user: dict = Depends(require_ops_manager)) -> AutomationAnalysisResponse:
+    org_id = get_org_id(current_user)
     rows = fetch_rows(
         """
-        SELECT 
-            task_type,
-            COALESCE(AVG(cost_usd), 0.0) as avg_ai_cost,
-            COALESCE(AVG(latency_ms), 0) as avg_latency_ms
-        FROM agent_runs
-        GROUP BY task_type
-        """
+        SELECT
+            ar.task_type,
+            COALESCE(AVG(ar.cost_usd), 0.0) as avg_ai_cost,
+            COALESCE(AVG(ar.latency_ms), 0) as avg_latency_ms
+        FROM agent_runs ar
+        JOIN agent_budgets ab ON ab.id = ar.agent_id AND ab.org_id = ?
+        GROUP BY ar.task_type
+        """,
+        (org_id,),
     )
     
     opportunities: list[AutomationOpportunity] = []

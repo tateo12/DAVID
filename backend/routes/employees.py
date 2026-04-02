@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from auth import get_current_user, get_current_user_optional, require_ops_manager
+from auth import get_current_user, get_current_user_optional, get_org_id, require_ops_manager
 from config import frontend_base_url
 from curriculum_assign import (
     assign_next_curriculum_lesson,
@@ -75,6 +75,7 @@ def _next_employee_id() -> int:
 
 @router.get("", response_model=list[EmployeeSummary])
 def list_employees(current_user: dict = Depends(get_current_user)) -> list[EmployeeSummary]:
+    org_id = get_org_id(current_user)
     if current_user.get("role") == "employee":
         eid = current_user.get("employee_id")
         if eid is None:
@@ -87,11 +88,11 @@ def list_employees(current_user: dict = Depends(get_current_user)) -> list[Emplo
             FROM employees e
             LEFT JOIN prompts p ON p.employee_id = e.id
             LEFT JOIN employee_skill_profiles esp ON esp.employee_id = e.id
-            WHERE e.id = ?
+            WHERE e.id = ? AND e.org_id = ?
             GROUP BY e.id
             ORDER BY e.risk_score DESC
             """,
-            (eid,),
+            (eid, org_id),
         )
     else:
         rows = fetch_rows(
@@ -102,9 +103,11 @@ def list_employees(current_user: dict = Depends(get_current_user)) -> list[Emplo
             FROM employees e
             LEFT JOIN prompts p ON p.employee_id = e.id
             LEFT JOIN employee_skill_profiles esp ON esp.employee_id = e.id
+            WHERE e.org_id = ?
             GROUP BY e.id
             ORDER BY e.risk_score DESC
-            """
+            """,
+            (org_id,),
         )
     return [EmployeeSummary(**dict(row)) for row in rows]
 
@@ -114,6 +117,7 @@ def list_team_directory(current_user: dict | None = Depends(get_current_user_opt
     if not current_user:
         raise HTTPException(status_code=401, detail="Authentication required")
     _require_manager(current_user)
+    org_id = get_org_id(current_user)
     process_pending_employee_invite_reminders()
     rows = fetch_rows(
         """
@@ -127,8 +131,10 @@ def list_team_directory(current_user: dict | None = Depends(get_current_user_opt
                e.invite_sent_at, e.invite_reminder_sent_at, e.account_claimed_at, e.extension_first_seen_at,
                (SELECT u.username FROM users u WHERE u.employee_id = e.id LIMIT 1) AS linked_username
         FROM employees e
+        WHERE e.org_id = ?
         ORDER BY e.name ASC
-        """
+        """,
+        (org_id,),
     )
     return [EmployeeTeamMember(**dict(r)) for r in rows]
 
@@ -144,9 +150,10 @@ def create_employee_invite(
     email = (payload.email or "").strip().lower()
     if not email or "@" not in email:
         raise HTTPException(status_code=400, detail="Valid work email is required")
+    org_id = get_org_id(current_user)
     if fetch_one(
-        "SELECT id FROM employees WHERE lower(trim(email)) = ? AND COALESCE(trim(email), '') != ''",
-        (email,),
+        "SELECT id FROM employees WHERE lower(trim(email)) = ? AND org_id = ? AND COALESCE(trim(email), '') != ''",
+        (email, org_id),
     ):
         raise HTTPException(status_code=400, detail="An employee with this email already exists")
     eid = _next_employee_id()
@@ -159,13 +166,13 @@ def create_employee_invite(
         """
         INSERT INTO employees (
             id, name, department, role, risk_score, email, invite_token, invite_sent_at,
-            invite_reminder_sent_at, account_claimed_at, extension_first_seen_at
-        ) VALUES (?, ?, ?, ?, 0, ?, ?, ?, NULL, NULL, NULL)
+            invite_reminder_sent_at, account_claimed_at, extension_first_seen_at, org_id
+        ) VALUES (?, ?, ?, ?, 0, ?, ?, ?, NULL, NULL, NULL, ?)
         """,
-        (eid, nm, dept, role, email, token, now),
+        (eid, nm, dept, role, email, token, now, org_id),
     )
     base = frontend_base_url().rstrip("/")
-    invite_url = f"{base}/register-invite?token={token}"
+    invite_url = f"{base}/register-invite?token={token}&org_id={org_id}"
     send_employee_invite_email(email, invite_url, nm, reminder=False)
     ensure_employee_skill_profile(eid)
     return EmployeeInviteCreated(employee_id=eid, invite_url=invite_url)
@@ -180,7 +187,8 @@ def patch_employee(
     if not current_user:
         raise HTTPException(status_code=401, detail="Authentication required")
     _require_manager(current_user)
-    if not fetch_one("SELECT id FROM employees WHERE id = ?", (employee_id,)):
+    org_id = get_org_id(current_user)
+    if not fetch_one("SELECT id FROM employees WHERE id = ? AND org_id = ?", (employee_id, org_id)):
         raise HTTPException(status_code=404, detail="Employee not found")
     sets: list[str] = []
     vals: list[Any] = []
@@ -227,7 +235,8 @@ def delete_employee(
     if not current_user:
         raise HTTPException(status_code=401, detail="Authentication required")
     _require_manager(current_user)
-    if not fetch_one("SELECT id FROM employees WHERE id = ?", (employee_id,)):
+    org_id = get_org_id(current_user)
+    if not fetch_one("SELECT id FROM employees WHERE id = ? AND org_id = ?", (employee_id, org_id)):
         raise HTTPException(status_code=404, detail="Employee not found")
     delete_employee_cascade(employee_id)
     return {"status": "deleted"}
@@ -300,16 +309,19 @@ def get_employee_skill(
 
 
 @router.get("/skills/company", response_model=CompanySkillSnapshot)
-def get_company_skill_snapshot() -> CompanySkillSnapshot:
+def get_company_skill_snapshot(current_user: dict = Depends(get_current_user)) -> CompanySkillSnapshot:
+    org_id = get_org_id(current_user)
     row = fetch_one(
         """
         SELECT
-            COALESCE(AVG(ai_skill_score), 0.0) AS avg_skill,
+            COALESCE(AVG(esp.ai_skill_score), 0.0) AS avg_skill,
             COUNT(*) AS employee_count,
-            SUM(CASE WHEN ai_skill_score < 0.45 THEN 1 ELSE 0 END) AS low_skill_count,
-            SUM(CASE WHEN ai_skill_score >= 0.75 THEN 1 ELSE 0 END) AS high_skill_count
-        FROM employee_skill_profiles
-        """
+            SUM(CASE WHEN esp.ai_skill_score < 0.45 THEN 1 ELSE 0 END) AS low_skill_count,
+            SUM(CASE WHEN esp.ai_skill_score >= 0.75 THEN 1 ELSE 0 END) AS high_skill_count
+        FROM employee_skill_profiles esp
+        JOIN employees e ON e.id = esp.employee_id AND e.org_id = ?
+        """,
+        (org_id,),
     )
     return CompanySkillSnapshot(
         average_skill_score=round(float(row["avg_skill"] or 0.0), 3),

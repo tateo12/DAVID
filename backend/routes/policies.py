@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from auth import get_current_user
+from auth import get_current_user, get_org_id
 from database import execute, fetch_one, fetch_rows
 from json_utils import loads_json
 from engines.policy_assistant_engine import list_policy_presets, run_policy_assistant
@@ -46,8 +46,9 @@ def policy_assistant_chat(
 
 
 @router.get("", response_model=list[PolicyRecord])
-def list_policies() -> list[PolicyRecord]:
-    rows = fetch_rows("SELECT id, name, role, rule_json, updated_at FROM policies ORDER BY id")
+def list_policies(current_user: dict = Depends(get_current_user)) -> list[PolicyRecord]:
+    org_id = get_org_id(current_user)
+    rows = fetch_rows("SELECT id, name, role, rule_json, updated_at FROM policies WHERE org_id = ? ORDER BY id", (org_id,))
     return [
         PolicyRecord(
             id=row["id"],
@@ -61,11 +62,12 @@ def list_policies() -> list[PolicyRecord]:
 
 
 @router.post("", response_model=PolicyRecord)
-def create_policy(payload: CreatePolicyRequest, _: dict = Depends(require_policy_editor)) -> PolicyRecord:
+def create_policy(payload: CreatePolicyRequest, current_user: dict = Depends(require_policy_editor)) -> PolicyRecord:
+    org_id = get_org_id(current_user)
     updated_at = datetime.now(timezone.utc).isoformat()
     new_id = execute(
-        "INSERT INTO policies (name, role, rule_json, updated_at) VALUES (?, ?, ?, ?)",
-        (payload.name.strip(), payload.role.strip(), json.dumps(payload.rule_json), updated_at),
+        "INSERT INTO policies (name, role, rule_json, updated_at, org_id) VALUES (?, ?, ?, ?, ?)",
+        (payload.name.strip(), payload.role.strip(), json.dumps(payload.rule_json), updated_at, org_id),
     )
     if not new_id:
         raise HTTPException(status_code=500, detail="Failed to create policy")
@@ -88,9 +90,10 @@ def create_policy(payload: CreatePolicyRequest, _: dict = Depends(require_policy
 def update_policy(
     policy_id: int,
     payload: UpdatePolicyRequest,
-    _: dict = Depends(require_policy_editor),
+    current_user: dict = Depends(require_policy_editor),
 ) -> PolicyRecord:
-    existing = fetch_one("SELECT id, name, role FROM policies WHERE id = ?", (policy_id,))
+    org_id = get_org_id(current_user)
+    existing = fetch_one("SELECT id, name, role FROM policies WHERE id = ? AND org_id = ?", (policy_id, org_id))
     if not existing:
         raise HTTPException(status_code=404, detail="Policy not found")
     updated_at = datetime.now(timezone.utc).isoformat()

@@ -2,12 +2,12 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { sendLoginOtp, verifyLoginOtp } from "@/lib/api";
+import { sendLoginOtp, verifyLoginOtp, setUserPassword, signInWithPassword } from "@/lib/api";
 import { getSession, setSession } from "@/lib/session";
 import { ShieldMark } from "@/components/shield-mark";
 import { MaterialIcon } from "@/components/stitch/material-icon";
 
-type Step = "email" | "code";
+type Step = "email" | "code" | "set-password" | "password-login";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,6 +19,12 @@ export default function LoginPage() {
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [pendingSession, setPendingSession] = useState<{
+    access_token: string;
+    expires_at: string;
+    user: Parameters<typeof setSession>[0]["user"];
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -42,11 +48,51 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await verifyLoginOtp(email.trim(), code.trim());
+      if (res.isNewUser) {
+        // New user — prompt to set a password before proceeding
+        setPendingSession({ access_token: res.access_token, expires_at: res.expires_at, user: res.user });
+        setStep("set-password");
+      } else {
+        setSession({ access_token: res.access_token, expires_at: res.expires_at, user: res.user });
+        router.push("/");
+        router.refresh();
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Invalid or expired code.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      await setUserPassword(password);
+      if (pendingSession) {
+        setSession(pendingSession);
+      }
+      router.push("/");
+      router.refresh();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to set password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await signInWithPassword(email.trim(), password);
       setSession({ access_token: res.access_token, expires_at: res.expires_at, user: res.user });
       router.push("/");
       router.refresh();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Invalid or expired code.");
+      setError(err instanceof Error ? err.message : "Invalid email or password.");
     } finally {
       setLoading(false);
     }
@@ -116,7 +162,7 @@ export default function LoginPage() {
           </div>
           <div className="border-l border-outline-variant/30 bg-surface-container-low/50 p-4 backdrop-blur-sm">
             <div className="mb-2 font-mono text-[10px] uppercase text-on-surface-variant">Identity_Provider</div>
-            <div className="font-mono text-[9px] text-on-surface">SUPABASE_OTP_ACTIVE</div>
+            <div className="font-mono text-[9px] text-on-surface">SUPABASE_AUTH_ACTIVE</div>
           </div>
         </footer>
       </main>
@@ -133,16 +179,20 @@ export default function LoginPage() {
 
           <div className="mb-10 border-b border-outline-variant/30 pb-4">
             <h3 className="mb-2 font-headline text-3xl font-bold tracking-tight">
-              {step === "email" ? "Authorize Access" : "Enter Code"}
+              {step === "email" && "Authorize Access"}
+              {step === "code" && "Enter Code"}
+              {step === "set-password" && "Set Your Password"}
+              {step === "password-login" && "Sign In"}
             </h3>
             <p className="text-sm text-on-surface-variant">
-              {step === "email"
-                ? "Enter your work email to receive a one-time access code."
-                : `A 6-digit code was sent to ${email}.`}
+              {step === "email" && "Enter your work email to receive a one-time access code."}
+              {step === "code" && `A 6-digit code was sent to ${email}.`}
+              {step === "set-password" && "Create a password for future sign-ins."}
+              {step === "password-login" && "Enter your email and password."}
             </p>
           </div>
 
-          {step === "email" ? (
+          {step === "email" && (
             <form className="space-y-6" onSubmit={handleSendCode}>
               <div>
                 <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">
@@ -173,8 +223,17 @@ export default function LoginPage() {
                 {loading ? "Sending…" : "Send Code"}
                 <MaterialIcon name="send" className="text-lg" />
               </button>
+              <button
+                type="button"
+                onClick={() => { setStep("password-login"); setError(null); }}
+                className="w-full text-center font-mono text-[10px] text-on-surface-variant hover:text-on-surface"
+              >
+                Sign in with password instead
+              </button>
             </form>
-          ) : (
+          )}
+
+          {step === "code" && (
             <form className="space-y-6" onSubmit={handleVerifyCode}>
               <div>
                 <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">
@@ -216,11 +275,109 @@ export default function LoginPage() {
             </form>
           )}
 
+          {step === "set-password" && (
+            <form className="space-y-6" onSubmit={handleSetPassword}>
+              <div>
+                <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">
+                  Create Password
+                </label>
+                <div className="group relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
+                    <MaterialIcon name="lock" className="text-lg" />
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    autoFocus
+                    minLength={8}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 font-mono text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-0"
+                    placeholder="Minimum 8 characters"
+                  />
+                  <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
+                </div>
+              </div>
+              {error && <p className="text-center text-xs text-error">{error}</p>}
+              <button
+                type="submit"
+                disabled={loading || password.length < 8}
+                className="flex w-full items-center justify-center gap-3 rounded-sm bg-secondary-container py-4 font-headline text-sm font-bold uppercase tracking-widest text-black transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+              >
+                {loading ? "Saving…" : "Set Password & Continue"}
+                <MaterialIcon name="check" className="text-lg" />
+              </button>
+              <p className="text-center font-mono text-[9px] text-on-surface-variant">
+                Your password is securely stored by Supabase (bcrypt hashed). You can use it for future sign-ins.
+              </p>
+            </form>
+          )}
+
+          {step === "password-login" && (
+            <form className="space-y-6" onSubmit={handlePasswordLogin}>
+              <div>
+                <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">
+                  Work Email
+                </label>
+                <div className="group relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
+                    <MaterialIcon name="email" className="text-lg" />
+                  </div>
+                  <input
+                    type="email"
+                    required
+                    autoFocus
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 font-mono text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-0"
+                    placeholder="you@company.com"
+                  />
+                  <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
+                </div>
+              </div>
+              <div>
+                <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">
+                  Password
+                </label>
+                <div className="group relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
+                    <MaterialIcon name="lock" className="text-lg" />
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 font-mono text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-0"
+                    placeholder="Your password"
+                  />
+                  <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
+                </div>
+              </div>
+              {error && <p className="text-center text-xs text-error">{error}</p>}
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex w-full items-center justify-center gap-3 rounded-sm bg-secondary-container py-4 font-headline text-sm font-bold uppercase tracking-widest text-black transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+              >
+                {loading ? "Signing in…" : "Sign In"}
+                <MaterialIcon name="login" className="text-lg" />
+              </button>
+              <button
+                type="button"
+                onClick={() => { setStep("email"); setPassword(""); setError(null); }}
+                className="w-full text-center font-mono text-[10px] text-on-surface-variant hover:text-on-surface"
+              >
+                Sign in with email code instead
+              </button>
+            </form>
+          )}
+
           <footer className="mt-12 rounded-sm border border-outline-variant/10 bg-surface-container-lowest p-4">
             <div className="flex items-start gap-3">
               <MaterialIcon name="verified_user" className="text-lg text-secondary-fixed" />
               <p className="font-mono text-[9px] leading-relaxed text-on-surface-variant">
-                Passwordless login. Your first sign-in automatically creates your account and assigns your role.
+                Passwordless login via OTP. Your first sign-in creates your account and sets your role. You can also set a password for faster future sign-ins.
               </p>
             </div>
           </footer>

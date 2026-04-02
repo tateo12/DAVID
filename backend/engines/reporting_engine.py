@@ -12,17 +12,22 @@ from models import (
 )
 
 
-def build_metrics() -> MetricSnapshot:
+def build_metrics(org_id: int = 1) -> MetricSnapshot:
     totals = fetch_one(
         """
         SELECT
             COUNT(*) AS prompts_analyzed,
             SUM(CASE WHEN action = 'block' THEN 1 ELSE 0 END) AS threats_blocked
-        FROM prompts
-        """
+        FROM prompts p
+        JOIN employees e ON e.id = p.employee_id AND e.org_id = ?
+        """,
+        (org_id,),
     )
-    active = fetch_one("SELECT COUNT(*) AS c FROM employees")
-    shadow = fetch_one("SELECT COUNT(*) AS c FROM shadow_ai_events")
+    active = fetch_one("SELECT COUNT(*) AS c FROM employees WHERE org_id = ?", (org_id,))
+    shadow = fetch_one(
+        "SELECT COUNT(*) AS c FROM shadow_ai_events s JOIN employees e ON e.id = s.employee_id AND e.org_id = ?",
+        (org_id,),
+    )
     prompts_analyzed = int(totals["prompts_analyzed"] or 0)
     threats_blocked = int(totals["threats_blocked"] or 0)
     return MetricSnapshot(
@@ -44,19 +49,27 @@ def _pct_delta(cur: int, prev: int) -> float | None:
 def _emp_filter_sql(employee_id: int | None) -> str:
     if employee_id is None:
         return ""
-    return f" AND employee_id = {int(employee_id)}"
+    return f" AND p.employee_id = {int(employee_id)}"
 
 
-def _prompt_window_row(where_clause: str, employee_id: int | None = None) -> dict:
+def _org_filter_sql(org_id: int | None) -> str:
+    if org_id is None:
+        return ""
+    return f" AND e.org_id = {int(org_id)}"
+
+
+def _prompt_window_row(where_clause: str, employee_id: int | None = None, org_id: int | None = None) -> dict:
     ef = _emp_filter_sql(employee_id)
+    of = _org_filter_sql(org_id)
     row = fetch_one(
         f"""
         SELECT
             COUNT(*) AS prompts_analyzed,
-            COALESCE(SUM(CASE WHEN action = 'block' THEN 1 ELSE 0 END), 0) AS threats_blocked,
-            COUNT(DISTINCT employee_id) AS active_employees
-        FROM prompts
-        WHERE {where_clause}{ef}
+            COALESCE(SUM(CASE WHEN p.action = 'block' THEN 1 ELSE 0 END), 0) AS threats_blocked,
+            COUNT(DISTINCT p.employee_id) AS active_employees
+        FROM prompts p
+        JOIN employees e ON e.id = p.employee_id
+        WHERE {where_clause}{ef}{of}
         """
     )
     return dict(row) if row else {}
@@ -84,30 +97,32 @@ def empty_employee_dashboard_metrics() -> DashboardMetrics:
     )
 
 
-def build_dashboard_metrics(employee_id: int | None = None) -> DashboardMetrics:
+def build_dashboard_metrics(employee_id: int | None = None, org_id: int | None = None) -> DashboardMetrics:
     """Rolling 7-day KPIs vs prior 7 days + chart series for the web dashboard.
     When employee_id is set, all series are limited to that employee (employee session)."""
-    cur = _prompt_window_row("created_at >= datetime('now', '-7 day')", employee_id)
+    cur = _prompt_window_row("p.created_at >= datetime('now', '-7 day')", employee_id, org_id)
     prev = _prompt_window_row(
-        "created_at >= datetime('now', '-14 day') AND created_at < datetime('now', '-7 day')",
+        "p.created_at >= datetime('now', '-14 day') AND p.created_at < datetime('now', '-7 day')",
         employee_id,
+        org_id,
     )
 
     ef = _emp_filter_sql(employee_id)
+    of = "" if org_id is None else f" AND e.org_id = {int(org_id)}"
     sh_cur = fetch_one(
-        f"SELECT COUNT(*) AS c FROM shadow_ai_events WHERE created_at >= datetime('now', '-7 day'){ef}"
+        f"SELECT COUNT(*) AS c FROM shadow_ai_events s JOIN employees e ON e.id = s.employee_id WHERE s.created_at >= datetime('now', '-7 day'){ef}{of}"
     )
     sh_prev = fetch_one(
         f"""
-        SELECT COUNT(*) AS c FROM shadow_ai_events
-        WHERE created_at >= datetime('now', '-14 day') AND created_at < datetime('now', '-7 day'){ef}
+        SELECT COUNT(*) AS c FROM shadow_ai_events s JOIN employees e ON e.id = s.employee_id
+        WHERE s.created_at >= datetime('now', '-14 day') AND s.created_at < datetime('now', '-7 day'){ef}{of}
         """
     )
     shadow_cur = int(sh_cur["c"] or 0) if sh_cur else 0
     shadow_prev = int(sh_prev["c"] or 0) if sh_prev else 0
 
-    threat_trend = _dashboard_threat_series()
-    risk_dist = _dashboard_risk_distribution(employee_id)
+    threat_trend = _dashboard_threat_series(org_id)
+    risk_dist = _dashboard_risk_distribution(employee_id, org_id)
 
     return DashboardMetrics(
         threats_blocked=int(cur.get("threats_blocked") or 0),
@@ -125,15 +140,17 @@ def build_dashboard_metrics(employee_id: int | None = None) -> DashboardMetrics:
     )
 
 
-def _dashboard_threat_series() -> list[ThreatTrendPoint]:
+def _dashboard_threat_series(org_id: int | None = None) -> list[ThreatTrendPoint]:
+    of = "" if org_id is None else f" AND e.org_id = {int(org_id)}"
     rows = fetch_rows(
-        """
-        SELECT date(created_at) AS d,
-               SUM(CASE WHEN risk_level IN ('high', 'critical') THEN 1 ELSE 0 END) AS threats,
-               SUM(CASE WHEN action = 'block' THEN 1 ELSE 0 END) AS blocked
-        FROM prompts
-        WHERE created_at >= datetime('now', '-7 day')
-        GROUP BY date(created_at)
+        f"""
+        SELECT date(p.created_at) AS d,
+               SUM(CASE WHEN p.risk_level IN ('high', 'critical') THEN 1 ELSE 0 END) AS threats,
+               SUM(CASE WHEN p.action = 'block' THEN 1 ELSE 0 END) AS blocked
+        FROM prompts p
+        JOIN employees e ON e.id = p.employee_id
+        WHERE p.created_at >= datetime('now', '-7 day'){of}
+        GROUP BY date(p.created_at)
         """
     )
     by_date = {str(r["d"]): (int(r["threats"] or 0), int(r["blocked"] or 0)) for r in rows}
@@ -148,14 +165,16 @@ def _dashboard_threat_series() -> list[ThreatTrendPoint]:
     return out
 
 
-def _dashboard_risk_distribution(employee_id: int | None = None) -> list[RiskDistributionSlice]:
+def _dashboard_risk_distribution(employee_id: int | None = None, org_id: int | None = None) -> list[RiskDistributionSlice]:
     ef = _emp_filter_sql(employee_id)
+    of = _org_filter_sql(org_id)
     rows = fetch_rows(
         f"""
-        SELECT risk_level, COUNT(*) AS c
-        FROM prompts
-        WHERE created_at >= datetime('now', '-30 day'){ef}
-        GROUP BY risk_level
+        SELECT p.risk_level, COUNT(*) AS c
+        FROM prompts p
+        JOIN employees e ON e.id = p.employee_id
+        WHERE p.created_at >= datetime('now', '-30 day'){ef}{of}
+        GROUP BY p.risk_level
         """
     )
     order = ["low", "medium", "high", "critical"]
@@ -163,15 +182,17 @@ def _dashboard_risk_distribution(employee_id: int | None = None) -> list[RiskDis
     return [RiskDistributionSlice(level=lv, count=counts.get(lv, 0)) for lv in order]
 
 
-def _weekly_threat_trend() -> list[dict]:
+def _weekly_threat_trend(org_id: int | None = None) -> list[dict]:
+    of = "" if org_id is None else f" AND e.org_id = {int(org_id)}"
     rows = fetch_rows(
-        """
-        SELECT date(created_at) AS d,
-               SUM(CASE WHEN risk_level IN ('high', 'critical') THEN 1 ELSE 0 END) AS threats,
-               SUM(CASE WHEN risk_level IN ('low', 'medium') THEN 1 ELSE 0 END) AS safe_count
-        FROM prompts
-        WHERE created_at >= datetime('now', '-7 day')
-        GROUP BY date(created_at)
+        f"""
+        SELECT date(p.created_at) AS d,
+               SUM(CASE WHEN p.risk_level IN ('high', 'critical') THEN 1 ELSE 0 END) AS threats,
+               SUM(CASE WHEN p.risk_level IN ('low', 'medium') THEN 1 ELSE 0 END) AS safe_count
+        FROM prompts p
+        JOIN employees e ON e.id = p.employee_id
+        WHERE p.created_at >= datetime('now', '-7 day'){of}
+        GROUP BY date(p.created_at)
         ORDER BY d ASC
         """
     )
@@ -185,25 +206,28 @@ def _weekly_threat_trend() -> list[dict]:
     ]
 
 
-def _weekly_live_kpis() -> dict[str, Any]:
+def _weekly_live_kpis(org_id: int | None = None) -> dict[str, Any]:
     """Rolling 7-day KPIs from prompts + employee risk scores (always fresh for the API)."""
+    of = "" if org_id is None else f" AND e.org_id = {int(org_id)}"
     row = fetch_one(
-        """
+        f"""
         SELECT
             COUNT(*) AS total_prompts,
-            COALESCE(SUM(CASE WHEN action = 'block' THEN 1 ELSE 0 END), 0) AS threats_blocked,
+            COALESCE(SUM(CASE WHEN p.action = 'block' THEN 1 ELSE 0 END), 0) AS threats_blocked,
             COUNT(DISTINCT CASE
-                WHEN risk_level IN ('high', 'critical') THEN employee_id
+                WHEN p.risk_level IN ('high', 'critical') THEN p.employee_id
             END) AS high_risk_users
-        FROM prompts
-        WHERE created_at >= datetime('now', '-7 day')
+        FROM prompts p
+        JOIN employees e ON e.id = p.employee_id
+        WHERE p.created_at >= datetime('now', '-7 day'){of}
         """
     )
     avg_row = fetch_one(
-        """
+        f"""
         SELECT COALESCE(AVG(e.risk_score), 0) * 100 AS avg_risk_score
         FROM employees e
-        WHERE EXISTS (
+        WHERE e.org_id IS NOT NULL{of}
+        AND EXISTS (
             SELECT 1 FROM prompts p
             WHERE p.employee_id = e.id AND p.created_at >= datetime('now', '-7 day')
         )
@@ -222,14 +246,16 @@ def _weekly_live_kpis() -> dict[str, Any]:
     }
 
 
-def _top_risk_employees() -> list[dict]:
+def _top_risk_employees(org_id: int | None = None) -> list[dict]:
+    of = "" if org_id is None else f" AND e.org_id = {int(org_id)}"
     rows = fetch_rows(
-        """
+        f"""
         SELECT e.name AS employee, e.department,
                COALESCE(SUM(CASE WHEN p.risk_level IN ('high', 'critical') THEN 1 ELSE 0 END), 0) AS flagged_prompts,
                COALESCE(e.risk_score, 0) AS risk_score
         FROM employees e
         LEFT JOIN prompts p ON p.employee_id = e.id
+        WHERE 1=1{of}
         GROUP BY e.id
         HAVING flagged_prompts > 0 OR e.risk_score > 0.15
         ORDER BY flagged_prompts DESC, e.risk_score DESC
@@ -250,11 +276,12 @@ def _top_risk_employees() -> list[dict]:
     return out
 
 
-def latest_weekly_report() -> WeeklyReportResponse:
-    threat_trend = _weekly_threat_trend()
-    top_risks = _top_risk_employees()
-    live = _weekly_live_kpis()
-    row = fetch_one("SELECT week_start, week_end, summary, kpis_json FROM weekly_reports ORDER BY id DESC LIMIT 1")
+def latest_weekly_report(org_id: int | None = None) -> WeeklyReportResponse:
+    threat_trend = _weekly_threat_trend(org_id)
+    top_risks = _top_risk_employees(org_id)
+    live = _weekly_live_kpis(org_id)
+    of = "" if org_id is None else f" WHERE org_id = {int(org_id)}"
+    row = fetch_one(f"SELECT week_start, week_end, summary, kpis_json FROM weekly_reports{of} ORDER BY id DESC LIMIT 1")
     if not row:
         return WeeklyReportResponse(
             week_start="",
@@ -276,9 +303,10 @@ def latest_weekly_report() -> WeeklyReportResponse:
     )
 
 
-def list_shadow_ai(employee_id: int | None = None) -> list[dict]:
-    ef = _emp_filter_sql(employee_id)
+def list_shadow_ai(employee_id: int | None = None, org_id: int | None = None) -> list[dict]:
+    ef = "" if employee_id is None else f" AND s.employee_id = {int(employee_id)}"
+    of = "" if org_id is None else f" AND e.org_id = {int(org_id)}"
     rows = fetch_rows(
-        f"SELECT id, employee_id, tool_domain, risk_level, created_at FROM shadow_ai_events WHERE 1=1{ef} ORDER BY id DESC LIMIT 100"
+        f"SELECT s.id, s.employee_id, s.tool_domain, s.risk_level, s.created_at FROM shadow_ai_events s JOIN employees e ON e.id = s.employee_id WHERE 1=1{ef}{of} ORDER BY s.id DESC LIMIT 100"
     )
     return [dict(row) for row in rows]

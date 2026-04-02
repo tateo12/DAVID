@@ -5,6 +5,8 @@ export type AuthUser = {
   username: string;
   role: string;
   employee_id: number | null;
+  org_id: number;
+  org_name?: string;
 };
 
 export type StoredSession = {

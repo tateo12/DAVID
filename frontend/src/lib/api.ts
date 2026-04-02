@@ -511,10 +511,49 @@ export async function sendLoginOtp(email: string): Promise<void> {
 
 export async function verifyLoginOtp(
   email: string,
-  token: string
-): Promise<{ access_token: string; expires_at: string; user: AuthUser }> {
+  token: string,
+  orgId?: number,
+): Promise<{ access_token: string; expires_at: string; user: AuthUser; isNewUser: boolean }> {
   const { data, error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
   if (error || !data.session) throw new Error(error?.message ?? "Invalid or expired code");
+
+  const provisionUrl = orgId
+    ? `${API_BASE}/api/auth/provision?org_id=${orgId}`
+    : `${API_BASE}/api/auth/provision`;
+  const r = await fetch(provisionUrl, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${data.session.access_token}` },
+  });
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({})) as { detail?: string };
+    throw new Error(body.detail ?? "Failed to provision user");
+  }
+  const prov = (await r.json()) as { access_token: string; expires_at: string; user: AuthUser };
+
+  // Detect new user: Supabase sets created_at ~= last_sign_in_at for brand new accounts
+  const createdAt = data.user?.created_at ? new Date(data.user.created_at).getTime() : 0;
+  const lastSignIn = data.user?.last_sign_in_at ? new Date(data.user.last_sign_in_at).getTime() : 0;
+  const isNewUser = Math.abs(createdAt - lastSignIn) < 5000; // within 5 seconds = first login
+
+  return {
+    access_token: data.session.access_token,
+    expires_at: prov.expires_at,
+    user: prov.user,
+    isNewUser,
+  };
+}
+
+export async function setUserPassword(password: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw new Error(error.message);
+}
+
+export async function signInWithPassword(
+  email: string,
+  password: string,
+): Promise<{ access_token: string; expires_at: string; user: AuthUser }> {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !data.session) throw new Error(error?.message ?? "Sign-in failed");
 
   const r = await fetch(`${API_BASE}/api/auth/provision`, {
     method: "POST",

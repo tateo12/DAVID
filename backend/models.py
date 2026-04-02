@@ -430,6 +430,8 @@ class AuthUser(BaseModel):
     username: str
     role: str
     employee_id: int | None = None
+    org_id: int = 1
+    org_name: str = ""
 
 
 class LoginResponse(BaseModel):
