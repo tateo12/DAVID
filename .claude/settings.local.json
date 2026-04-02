@@ -22,7 +22,8 @@
       "Bash(pip install:*)",
       "Bash(grep:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "WebFetch(domain:jvkeayfkmlatccpqapiz.supabase.co)"
     ]
   }
 }
