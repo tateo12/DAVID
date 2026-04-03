@@ -381,7 +381,7 @@ def preview_weekly_report(_current_user: dict = Depends(require_ops_manager)) ->
 
     # Risk breakdown by detection type
     type_counts = fetch_rows(
-        """
+        f"""
         SELECT d.type, COUNT(*) AS cnt
         FROM detections d
         INNER JOIN prompts p ON p.id = d.prompt_id
@@ -407,7 +407,7 @@ def preview_weekly_report(_current_user: dict = Depends(require_ops_manager)) ->
 
     # Top risk employees
     top_risk_rows = fetch_rows(
-        """
+        f"""
         SELECT e.id, e.name, e.department, e.risk_score,
                COUNT(p.id) AS incidents
         FROM employees e
@@ -430,7 +430,7 @@ def preview_weekly_report(_current_user: dict = Depends(require_ops_manager)) ->
 
     # Department stats
     dept_rows = fetch_rows(
-        """
+        f"""
         SELECT e.department AS name,
                COUNT(p.id) AS total_prompts,
                SUM(CASE WHEN p.risk_level IN ('medium', 'high', 'critical') THEN 1 ELSE 0 END) AS flagged

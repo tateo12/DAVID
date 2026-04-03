@@ -16,7 +16,7 @@ from typing import Any
 import requests
 
 from config import frontend_base_url, get_settings, openrouter_chat_completions_url
-from database import _utc_now, execute, fetch_one, fetch_rows, get_conn
+from database import _utc_now, execute, fetch_one, fetch_rows, get_conn, sql_ago
 from json_utils import loads_json
 
 log = logging.getLogger(__name__)
@@ -72,10 +72,10 @@ def get_employee_skill_trajectory(employee_id: int) -> dict[str, Any]:
         return {"available": False}
 
     events = fetch_rows(
-        """
+        f"""
         SELECT overall_score, dimension_scores_json, strengths_json, improvements_json, created_at
         FROM employee_skill_events
-        WHERE employee_id = ? AND created_at >= datetime('now', '-7 day')
+        WHERE employee_id = ? AND created_at >= {sql_ago(7)}
         ORDER BY created_at ASC
         """,
         (employee_id,),
@@ -146,9 +146,9 @@ def get_employee_skill_trajectory(employee_id: int) -> dict[str, Any]:
 
 def fetch_recent_prompt_samples(employee_id: int, limit: int = 12) -> list[str]:
     rows = fetch_rows(
-        """
+        f"""
         SELECT prompt_text, redacted_prompt FROM prompts
-        WHERE employee_id = ? AND created_at >= datetime('now', '-7 day')
+        WHERE employee_id = ? AND created_at >= {sql_ago(7)}
         ORDER BY id DESC LIMIT ?
         """,
         (employee_id, limit),

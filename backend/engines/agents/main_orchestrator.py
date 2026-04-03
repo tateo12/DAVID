@@ -12,6 +12,7 @@ from database import (
     fetch_rows,
     record_employee_interaction_memory,
     record_skill_evaluation,
+    sql_ago,
 )
 from detectors.pii_detector import detect_pii
 from detectors.policy_detector import detect_policy_violations
@@ -101,10 +102,10 @@ class MainOrchestrator:
         role = role_row["role"] if role_row else "employee"
 
         memory_rows = fetch_rows(
-            """
+            f"""
             SELECT risk_level, action, skill_score, skill_class
             FROM employee_interaction_memory
-            WHERE employee_id = ? AND created_at >= datetime('now', '-30 day')
+            WHERE employee_id = ? AND created_at >= {sql_ago(30)}
             ORDER BY created_at DESC LIMIT 20
             """,
             (employee_id,),
@@ -457,7 +458,7 @@ class MainOrchestrator:
             # 8. Shadow AI tracking
             if tool_domain and any(d.type.value == "shadow_ai" for d in detections):
                 execute(
-                    "INSERT INTO shadow_ai_events (employee_id, tool_domain, risk_level, created_at) VALUES (?, ?, ?, datetime('now'))",
+                    "INSERT INTO shadow_ai_events (employee_id, tool_domain, risk_level, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
                     (payload.employee_id, tool_domain, RiskLevel.high.value),
                 )
 

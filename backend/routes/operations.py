@@ -86,7 +86,7 @@ def trigger_agent_assessment(payload: AgentActionEventRequest) -> DispatchResult
         ),
     )
     stats = fetch_one(
-        """
+        f"""
         SELECT COALESCE(SUM(cost_usd), 0) AS spend_usd,
                COALESCE(AVG(quality_score), 0.8) AS quality_score,
                COALESCE(AVG(CASE WHEN success = 1 THEN 1.0 ELSE 0.0 END), 0.8) AS success_rate
@@ -110,7 +110,7 @@ def trigger_employee_evaluation(payload: AnalyzeRequest) -> AnalyzeResponse:
 @router.post("/dispatch/daily-coaching", response_model=DispatchResult)
 def dispatch_daily_coaching() -> DispatchResult:
     rows = fetch_rows(
-        """
+        f"""
         SELECT e.id AS employee_id, e.name, esp.ai_skill_score, esp.skill_class, esp.last_improvements_json
         FROM employees e
         INNER JOIN employee_skill_profiles esp ON esp.employee_id = e.id
@@ -146,7 +146,7 @@ def dispatch_weekly_manager_report(_: dict = Depends(require_ops_manager)) -> Di
     week_start = (now - timedelta(days=7)).date().isoformat()
     week_end = now.date().isoformat()
     risk = fetch_one(
-        """
+        f"""
         SELECT
             COUNT(*) AS prompt_count,
             SUM(CASE WHEN risk_level IN ('high', 'critical') THEN 1 ELSE 0 END) AS high_risk_count
@@ -202,7 +202,7 @@ def dispatch_weekly_learning_emails(_: dict = Depends(require_ops_manager)) -> D
     sender = EmailSender()
 
     rows = fetch_rows(
-        """
+        f"""
         SELECT DISTINCT e.id AS employee_id
         FROM employees e
         INNER JOIN prompts p ON p.employee_id = e.id
@@ -228,11 +228,11 @@ def dispatch_weekly_learning_emails(_: dict = Depends(require_ops_manager)) -> D
 @router.post("/dispatch/security-notices", response_model=DispatchResult)
 def dispatch_security_notices(_: dict = Depends(require_ops_manager)) -> DispatchResult:
     rows = fetch_rows(
-        """
+        f"""
         SELECT id, severity, detail, created_at
         FROM alerts
         WHERE is_active = 1
-          AND created_at >= datetime('now', '-1 day')
+          AND created_at >= {sql_ago(1)}
           AND id NOT IN (SELECT alert_id FROM alert_notifications)
         ORDER BY id DESC
         """

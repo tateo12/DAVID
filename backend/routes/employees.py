@@ -570,7 +570,7 @@ def get_employee_memory_snapshot(
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
     stats = fetch_one(
-        """
+        f"""
         SELECT
             COUNT(*) AS interactions_30d,
             COALESCE(AVG(CASE risk_level

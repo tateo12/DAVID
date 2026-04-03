@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
-from database import execute, fetch_one, fetch_rows
+from database import execute, fetch_one, fetch_rows, sql_ago
 
 log = logging.getLogger(__name__)
 
@@ -86,11 +86,11 @@ def _compute_score(employee_id: int) -> float:
 
     # ── 1. Recency-weighted prompt risk penalties (30-day window) ──────────
     prompt_rows = fetch_rows(
-        """
+        f"""
         SELECT risk_level, created_at
         FROM prompts
         WHERE employee_id = ?
-          AND created_at >= datetime('now', '-30 day')
+          AND created_at >= {sql_ago(30)}
         ORDER BY created_at DESC
         LIMIT 60
         """,
@@ -105,12 +105,12 @@ def _compute_score(employee_id: int) -> float:
 
     # ── 2. Detection-type penalties (7-day window) ─────────────────────────
     detection_rows = fetch_rows(
-        """
+        f"""
         SELECT d.type, d.subtype, COUNT(1) AS c
         FROM detections d
         INNER JOIN prompts p ON p.id = d.prompt_id
         WHERE p.employee_id = ?
-          AND p.created_at >= datetime('now', '-7 day')
+          AND p.created_at >= {sql_ago(7)}
         GROUP BY d.type, d.subtype
         """,
         (employee_id,),
@@ -159,9 +159,9 @@ def _compute_score(employee_id: int) -> float:
             return None
         return float(row["avg_r"])
 
-    cur_avg = _avg_risk("created_at >= datetime('now', '-7 day')")
+    cur_avg = _avg_risk(f"created_at >= {sql_ago(7)}")
     prev_avg = _avg_risk(
-        "created_at >= datetime('now', '-14 day') AND created_at < datetime('now', '-7 day')"
+        f"created_at >= {sql_ago(14)} AND created_at < {sql_ago(7)}"
     )
     if cur_avg is not None and prev_avg is not None:
         if cur_avg < prev_avg - 0.05:
