@@ -130,7 +130,7 @@ INIT_STATEMENTS: list[str] = [
         password TEXT NOT NULL DEFAULT '',
         role TEXT NOT NULL,
         employee_id INTEGER REFERENCES employees (id),
-        org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id),
+        org_id INTEGER REFERENCES organizations (id),
         created_at TEXT NOT NULL
     )
     """,

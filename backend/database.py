@@ -254,6 +254,16 @@ def _ensure_employee_directory_columns_sqlite(conn: Any) -> None:
             conn.execute(f"ALTER TABLE employees ADD COLUMN {name} {decl}")
 
 
+def _ensure_users_org_id_nullable_postgres() -> None:
+    """Pending signups use role='pending' with org_id NULL; allow NULL on users.org_id."""
+    try:
+        with psycopg.connect(_pg_dsn(), autocommit=True) as conn:
+            with conn.cursor() as cur:
+                cur.execute("ALTER TABLE users ALTER COLUMN org_id DROP NOT NULL")
+    except Exception:
+        pass
+
+
 def _ensure_organizations_table_postgres() -> None:
     """Create organizations table and add org_id columns to existing tables."""
     stmts = [
@@ -417,6 +427,7 @@ def init_db() -> None:
         finally:
             conn.close()
         _ensure_organizations_table_postgres()
+        _ensure_users_org_id_nullable_postgres()
         _ensure_skill_lesson_columns_postgres()
         _ensure_employee_skill_profile_columns_postgres()
         _ensure_employee_weekly_study_focus_postgres()
@@ -551,7 +562,7 @@ def init_db() -> None:
                 password TEXT NOT NULL DEFAULT '',
                 role TEXT NOT NULL,
                 employee_id INTEGER,
-                org_id INTEGER NOT NULL DEFAULT 1 REFERENCES organizations (id),
+                org_id INTEGER REFERENCES organizations (id),
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (employee_id) REFERENCES employees (id)
             );
