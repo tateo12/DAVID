@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 
 from config import cors_allowed_origins, get_settings
 from database import init_db
-from routes import alerts, analyze, auth, emails, employees, extension, metrics, operations, policies, prompts, reports, scout, shadow_ai
+from routes import alerts, analyze, auth, emails, employees, extension, metrics, operations, orgs, policies, prompts, reports, scout, shadow_ai
 
 settings = get_settings()
 
@@ -62,5 +62,6 @@ app.include_router(reports.router, prefix=settings.api_prefix)
 app.include_router(shadow_ai.router, prefix=settings.api_prefix)
 app.include_router(alerts.router, prefix=settings.api_prefix)
 app.include_router(operations.router, prefix=settings.api_prefix)
+app.include_router(orgs.router, prefix=settings.api_prefix)
 app.include_router(emails.router, prefix=settings.api_prefix)
 app.include_router(scout.router, prefix=settings.api_prefix)

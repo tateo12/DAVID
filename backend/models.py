@@ -430,7 +430,7 @@ class AuthUser(BaseModel):
     username: str
     role: str
     employee_id: int | None = None
-    org_id: int = 1
+    org_id: int | None = None
     org_name: str = ""
 
 
@@ -440,6 +440,10 @@ class LoginResponse(BaseModel):
     expires_at: str
     user: AuthUser
     is_new_user: bool = False
+    # Tells the frontend what screen to show after login
+    # "dashboard" = normal, "setup_org" = new user needs to request/create org,
+    # "pending_approval" = user requested an org, waiting for admin approval
+    onboarding_status: str = "dashboard"
 
 
 class ExtensionCaptureRequest(BaseModel):

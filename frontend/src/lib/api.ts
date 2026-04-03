@@ -513,7 +513,7 @@ export async function verifyLoginOtp(
   email: string,
   token: string,
   orgId?: number,
-): Promise<{ access_token: string; expires_at: string; user: AuthUser; isNewUser: boolean }> {
+): Promise<{ access_token: string; expires_at: string; user: AuthUser; isNewUser: boolean; onboardingStatus: string }> {
   const { data, error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
   if (error || !data.session) throw new Error(error?.message ?? "Invalid or expired code");
 
@@ -528,14 +528,35 @@ export async function verifyLoginOtp(
     const body = await r.json().catch(() => ({})) as { detail?: string };
     throw new Error(body.detail ?? "Failed to provision user");
   }
-  const prov = (await r.json()) as { access_token: string; expires_at: string; user: AuthUser; is_new_user: boolean };
+  const prov = (await r.json()) as { access_token: string; expires_at: string; user: AuthUser; is_new_user: boolean; onboarding_status: string };
 
   return {
     access_token: data.session.access_token,
     expires_at: prov.expires_at,
     user: prov.user,
     isNewUser: prov.is_new_user,
+    onboardingStatus: prov.onboarding_status,
   };
+}
+
+export async function requestOrganization(companyName: string, token?: string): Promise<{ id: number; status: string; message: string }> {
+  if (token) {
+    // During onboarding the session isn't stored yet — pass the token directly
+    const res = await fetch(`${API_BASE}/api/orgs/request`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ company_name: companyName }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ detail: "Request failed" }));
+      throw new Error(body.detail || `HTTP ${res.status}`);
+    }
+    return res.json();
+  }
+  return apiFetch("/api/orgs/request", {
+    method: "POST",
+    body: JSON.stringify({ company_name: companyName }),
+  });
 }
 
 export async function setUserPassword(password: string): Promise<void> {

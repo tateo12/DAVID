@@ -5,7 +5,7 @@ export type AuthUser = {
   username: string;
   role: string;
   employee_id: number | null;
-  org_id: number;
+  org_id: number | null;
   org_name?: string;
 };
 

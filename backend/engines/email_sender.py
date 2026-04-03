@@ -347,7 +347,7 @@ def process_pending_employee_invite_reminders() -> int:
     cutoff = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
     rows = fetch_rows(
         """
-        SELECT id, name, email, invite_token FROM employees
+        SELECT id, name, email, invite_token, org_id FROM employees
         WHERE invite_token IS NOT NULL
           AND COALESCE(email, '') != ''
           AND account_claimed_at IS NULL
@@ -364,7 +364,7 @@ def process_pending_employee_invite_reminders() -> int:
         em = (r["email"] or "").strip()
         if not token or not em:
             continue
-        url = f"{base}/register-invite?token={token}"
+        url = f"{base}/register-invite?token={token}&org_id={r['org_id']}"
         send_employee_invite_email(em, url, str(r["name"] or "there"), reminder=True)
         execute(
             "UPDATE employees SET invite_reminder_sent_at = ? WHERE id = ?",

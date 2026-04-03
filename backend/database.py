@@ -443,6 +443,18 @@ def init_db() -> None:
             INSERT OR IGNORE INTO organizations (id, name, slug, plan, max_seats, settings_json, created_at, updated_at)
             VALUES (1, 'Default Organization', 'default', 'business', 9999, '{}', datetime('now'), datetime('now'));
 
+            CREATE TABLE IF NOT EXISTS org_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_name TEXT NOT NULL,
+                email TEXT NOT NULL,
+                supabase_uid TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                reviewed_by TEXT,
+                deny_reason TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS employees (
                 id INTEGER PRIMARY KEY,
                 name TEXT NOT NULL,

@@ -2,12 +2,12 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { sendLoginOtp, verifyLoginOtp, setUserPassword, signInWithPassword } from "@/lib/api";
+import { sendLoginOtp, verifyLoginOtp, setUserPassword, signInWithPassword, requestOrganization } from "@/lib/api";
 import { getSession, setSession } from "@/lib/session";
 import { ShieldMark } from "@/components/shield-mark";
 import { MaterialIcon } from "@/components/stitch/material-icon";
 
-type Step = "email" | "code" | "set-password" | "password-login";
+type Step = "email" | "code" | "set-password" | "password-login" | "setup-org" | "pending-approval";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,6 +20,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [pendingSession, setPendingSession] = useState<{
     access_token: string;
     expires_at: string;
@@ -48,17 +49,38 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await verifyLoginOtp(email.trim(), code.trim());
-      if (res.isNewUser) {
-        // New user — prompt to set a password before proceeding
-        setPendingSession({ access_token: res.access_token, expires_at: res.expires_at, user: res.user });
+      setPendingSession({ access_token: res.access_token, expires_at: res.expires_at, user: res.user });
+
+      if (res.onboardingStatus === "setup_org") {
+        // New user without org — show company request form
+        setStep("setup-org");
+      } else if (res.onboardingStatus === "pending_approval") {
+        setStep("pending-approval");
+      } else if (res.isNewUser) {
+        // New user with org (invite flow) — prompt to set password
         setStep("set-password");
       } else {
+        // Existing user with org — go to dashboard
         setSession({ access_token: res.access_token, expires_at: res.expires_at, user: res.user });
         router.push("/");
         router.refresh();
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Invalid or expired code.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRequestOrg = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      await requestOrganization(companyName.trim(), pendingSession?.access_token);
+      setStep("pending-approval");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to submit request.");
     } finally {
       setLoading(false);
     }
@@ -183,12 +205,16 @@ export default function LoginPage() {
               {step === "code" && "Enter Code"}
               {step === "set-password" && "Set Your Password"}
               {step === "password-login" && "Sign In"}
+              {step === "setup-org" && "Register Your Company"}
+              {step === "pending-approval" && "Request Pending"}
             </h3>
             <p className="text-sm text-on-surface-variant">
               {step === "email" && "Enter your work email to receive a one-time access code."}
               {step === "code" && `A verification code was sent to ${email}.`}
               {step === "set-password" && "Create a password for future sign-ins."}
               {step === "password-login" && "Enter your email and password."}
+              {step === "setup-org" && "Enter your company name to request access to Sentinel."}
+              {step === "pending-approval" && "Your request is being reviewed by the Sentinel team."}
             </p>
           </div>
 
@@ -371,6 +397,66 @@ export default function LoginPage() {
                 Sign in with email code instead
               </button>
             </form>
+          )}
+
+          {step === "setup-org" && (
+            <form className="space-y-6" onSubmit={handleRequestOrg}>
+              <div>
+                <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">
+                  Company Name
+                </label>
+                <div className="group relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
+                    <MaterialIcon name="business" className="text-lg" />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 font-mono text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-0"
+                    placeholder="Acme Corp"
+                  />
+                  <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
+                </div>
+              </div>
+              {error && <p className="text-center text-xs text-error">{error}</p>}
+              <button
+                type="submit"
+                disabled={loading || !companyName.trim()}
+                className="flex w-full items-center justify-center gap-3 rounded-sm bg-secondary-container py-4 font-headline text-sm font-bold uppercase tracking-widest text-black transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+              >
+                {loading ? "Submitting…" : "Request Access"}
+                <MaterialIcon name="send" className="text-lg" />
+              </button>
+              <p className="text-center font-mono text-[9px] text-on-surface-variant">
+                Your request will be reviewed by the Sentinel team. You&apos;ll receive an email once approved.
+              </p>
+            </form>
+          )}
+
+          {step === "pending-approval" && (
+            <div className="space-y-6 text-center">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-secondary-fixed/20 bg-secondary-fixed/10">
+                <MaterialIcon name="hourglass_top" className="text-4xl text-secondary-fixed" />
+              </div>
+              <div>
+                <p className="text-sm leading-relaxed text-on-surface-variant">
+                  Your company registration request has been submitted. The Sentinel admin team will review it and send you an email when you&apos;re approved.
+                </p>
+                <p className="mt-4 font-mono text-[10px] text-on-surface-variant/60">
+                  This usually takes less than 24 hours.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setStep("email"); setError(null); }}
+                className="w-full text-center font-mono text-[10px] text-on-surface-variant hover:text-on-surface"
+              >
+                Sign in with a different account
+              </button>
+            </div>
           )}
 
           <footer className="mt-12 rounded-sm border border-outline-variant/10 bg-surface-container-lowest p-4">

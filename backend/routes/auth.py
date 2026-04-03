@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 
 from auth import _parse_bearer, _verify_supabase_jwt, get_current_user, provision_user
+from database import fetch_one
 from models import AuthUser, LoginResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -34,11 +35,29 @@ def provision(
     )
 
     user, is_new = provision_user(supabase_uid, email, org_id=org_id)
+
+    # Determine onboarding status
+    if user.get("org_id"):
+        onboarding_status = "dashboard"
+    else:
+        # Check if they have a pending org request
+        pending = fetch_one(
+            "SELECT status FROM org_requests WHERE supabase_uid = ? ORDER BY id DESC LIMIT 1",
+            (supabase_uid,),
+        )
+        if pending and pending["status"] == "pending":
+            onboarding_status = "pending_approval"
+        elif pending and pending["status"] == "denied":
+            onboarding_status = "denied"
+        else:
+            onboarding_status = "setup_org"
+
     return LoginResponse(
         access_token=token,
         expires_at=expires_at,
         user=AuthUser(**user),
         is_new_user=is_new,
+        onboarding_status=onboarding_status,
     )
 
 
@@ -47,37 +66,3 @@ def me(current_user: dict = Depends(get_current_user)) -> AuthUser:
     return AuthUser(**current_user)
 
 
-@router.post("/debug-jwt")
-def debug_jwt(authorization: str | None = Header(default=None)) -> dict:
-    """Temporary diagnostic endpoint — decode JWT header without verifying.
-    Shows what algorithm the token uses and whether the secret is configured.
-    Remove this endpoint before going to production with real customers."""
-    import jwt as pyjwt
-    from config import get_settings
-
-    token = _parse_bearer(authorization)
-    try:
-        header = pyjwt.get_unverified_header(token)
-    except Exception as exc:
-        return {"error": f"Could not decode JWT header: {exc}"}
-
-    secret = get_settings().supabase_jwt_secret
-    secret_preview = f"{secret[:4]}...{secret[-4:]}" if secret and len(secret) > 8 else "(not set or too short)"
-
-    try:
-        payload = pyjwt.decode(token, options={"verify_signature": False})
-        sub = payload.get("sub", "?")
-        email = payload.get("email", "?")
-        exp = payload.get("exp", "?")
-    except Exception:
-        sub = email = exp = "decode_failed"
-
-    return {
-        "jwt_header": header,
-        "token_algorithm": header.get("alg", "unknown"),
-        "jwt_secret_configured": bool(secret),
-        "jwt_secret_preview": secret_preview,
-        "jwt_sub": sub,
-        "jwt_email": email,
-        "jwt_exp": exp,
-    }

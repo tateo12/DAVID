@@ -180,9 +180,9 @@ def _slug_from_email(email: str) -> str:
 def provision_user(supabase_uid: str, email: str, org_id: int | None = None) -> tuple[dict, bool]:
     """
     Get or create a local DB user mapped to the given Supabase UID.
-    If org_id is provided, the user joins that org.
-    Otherwise, a new org is created and the user becomes its manager.
-    First user of an org is auto-assigned 'manager', subsequent users get 'employee'.
+    If org_id is provided (invite flow), user joins that org.
+    If org_id is None (new signup), user is created without an org — they must
+    request a company account which requires Sentinel admin approval.
     Returns (user_dict, is_new_user).
     """
     init_db()
@@ -192,28 +192,42 @@ def provision_user(supabase_uid: str, email: str, org_id: int | None = None) -> 
 
     username = email or supabase_uid
 
-    # Determine or create the org
-    if org_id is None:
-        # New signup without invite — create a new org
-        domain = email.split("@")[-1] if "@" in email else "Organization"
-        org_name = domain.split(".")[0].capitalize() if "." in domain else domain
-        slug = _slug_from_email(email)
-        org_id = _create_organization(org_name, slug)
+    if org_id is not None:
+        # Invite flow — join the specified org as employee (or manager if first)
+        count_row = fetch_one("SELECT COUNT(*) as cnt FROM users WHERE org_id = ?", (org_id,))
+        role = "manager" if (count_row and count_row["cnt"] == 0) else "employee"
 
-    # First user of this org becomes manager
-    count_row = fetch_one("SELECT COUNT(*) as cnt FROM users WHERE org_id = ?", (org_id,))
-    role = "manager" if (count_row and count_row["cnt"] == 0) else "employee"
+        # Try to match this user to an existing employee record by email
+        employee_row = fetch_one(
+            "SELECT id FROM employees WHERE lower(trim(email)) = ? AND org_id = ?",
+            ((email or "").strip().lower(), org_id),
+        )
+        employee_id = employee_row["id"] if employee_row else None
 
-    execute(
-        "INSERT INTO users (supabase_uid, username, password, role, employee_id, org_id, created_at) VALUES (?, ?, '', ?, NULL, ?, ?)",
-        (supabase_uid, username, role, org_id, _utc_now()),
-    )
+        execute(
+            "INSERT INTO users (supabase_uid, username, password, role, employee_id, org_id, created_at) VALUES (?, ?, '', ?, ?, ?, ?)",
+            (supabase_uid, username, role, employee_id, org_id, _utc_now()),
+        )
 
-    # Set owner_user_id on the org if this is the first user (manager)
-    if role == "manager":
-        user_row = fetch_one("SELECT id FROM users WHERE supabase_uid = ?", (supabase_uid,))
-        if user_row:
-            execute("UPDATE organizations SET owner_user_id = ? WHERE id = ?", (user_row["id"], org_id))
+        # Mark the employee record as claimed
+        if employee_id:
+            execute(
+                "UPDATE employees SET account_claimed_at = ? WHERE id = ?",
+                (_utc_now(), employee_id),
+            )
+
+        # Set owner_user_id on the org if this is the first user (manager)
+        if role == "manager":
+            user_row = fetch_one("SELECT id FROM users WHERE supabase_uid = ?", (supabase_uid,))
+            if user_row:
+                execute("UPDATE organizations SET owner_user_id = ? WHERE id = ?", (user_row["id"], org_id))
+    else:
+        # New signup without invite — create user with no org
+        # They'll need to request a company account (requires admin approval)
+        execute(
+            "INSERT INTO users (supabase_uid, username, password, role, employee_id, org_id, created_at) VALUES (?, ?, '', 'pending', NULL, NULL, ?)",
+            (supabase_uid, username, _utc_now()),
+        )
 
     row = _get_db_user(supabase_uid)
     if not row:

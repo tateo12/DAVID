@@ -3,12 +3,12 @@
 import React, { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { sendLoginOtp, verifyLoginOtp } from "@/lib/api";
+import { sendLoginOtp, verifyLoginOtp, setUserPassword } from "@/lib/api";
 import { setSession } from "@/lib/session";
 import { ShieldMark } from "@/components/shield-mark";
 import { MaterialIcon } from "@/components/stitch/material-icon";
 
-type Step = "email" | "code";
+type Step = "email" | "code" | "set-password";
 
 function RegisterInviteForm() {
   const router = useRouter();
@@ -19,6 +19,12 @@ function RegisterInviteForm() {
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [pendingSession, setPendingSession] = useState<{
+    access_token: string;
+    expires_at: string;
+    user: Parameters<typeof setSession>[0]["user"];
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,11 +48,35 @@ function RegisterInviteForm() {
     setError(null);
     try {
       const res = await verifyLoginOtp(email.trim(), code.trim(), orgIdParam ? parseInt(orgIdParam, 10) : undefined);
-      setSession({ access_token: res.access_token, expires_at: res.expires_at, user: res.user });
+      if (res.isNewUser) {
+        // New employee — let them set a password before entering
+        setPendingSession({ access_token: res.access_token, expires_at: res.expires_at, user: res.user });
+        setStep("set-password");
+      } else {
+        setSession({ access_token: res.access_token, expires_at: res.expires_at, user: res.user });
+        router.push("/");
+        router.refresh();
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Invalid or expired code.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSetPassword = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await setUserPassword(password);
+      if (pendingSession) {
+        setSession(pendingSession);
+      }
       router.push("/");
       router.refresh();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Invalid or expired code.");
+      setError(e instanceof Error ? e.message : "Failed to set password.");
     } finally {
       setBusy(false);
     }
@@ -62,7 +92,7 @@ function RegisterInviteForm() {
         </div>
       </div>
       <div className="w-full max-w-md border border-outline-variant/15 bg-surface-container-low p-8">
-        {step === "email" ? (
+        {step === "email" && (
           <>
             <p className="mb-6 font-mono text-xs text-on-surface-variant">
               {token ? "You have been invited to Sentinel. " : ""}
@@ -99,7 +129,8 @@ function RegisterInviteForm() {
               </button>
             </div>
           </>
-        ) : (
+        )}
+        {step === "code" && (
           <>
             <p className="mb-6 font-mono text-xs text-on-surface-variant">
               A verification code was sent to {email}.
@@ -139,6 +170,54 @@ function RegisterInviteForm() {
                 className="w-full text-center font-mono text-[10px] text-on-surface-variant hover:text-on-surface"
               >
                 Use a different email
+              </button>
+            </div>
+          </>
+        )}
+        {step === "set-password" && (
+          <>
+            <p className="mb-6 font-mono text-xs text-on-surface-variant">
+              Create a password for faster future sign-ins.
+            </p>
+            <div className="space-y-4 font-mono text-sm">
+              <label className="block">
+                <span className="text-[10px] uppercase text-outline">Create Password</span>
+                <div className="group relative mt-1">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
+                    <MaterialIcon name="lock" className="text-lg" />
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    autoFocus
+                    minLength={8}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full border border-outline-variant/25 bg-surface-container-high py-3 pl-12 pr-4 text-white placeholder:text-on-surface-variant/30 focus:outline-none"
+                    placeholder="Minimum 8 characters"
+                  />
+                </div>
+              </label>
+              {error && <p className="text-xs text-error">{error}</p>}
+              <button
+                type="button"
+                disabled={busy || password.length < 8}
+                onClick={() => void handleSetPassword()}
+                className="flex w-full items-center justify-center gap-3 bg-secondary-container py-3 font-headline text-xs font-bold uppercase text-black disabled:opacity-40"
+              >
+                {busy ? "Saving…" : "Set Password & Continue"}
+                <MaterialIcon name="check" className="text-lg" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (pendingSession) setSession(pendingSession);
+                  router.push("/");
+                  router.refresh();
+                }}
+                className="w-full text-center font-mono text-[10px] text-on-surface-variant hover:text-on-surface"
+              >
+                Skip for now
               </button>
             </div>
           </>
