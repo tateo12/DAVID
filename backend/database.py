@@ -254,6 +254,35 @@ def _ensure_employee_directory_columns_sqlite(conn: Any) -> None:
             conn.execute(f"ALTER TABLE employees ADD COLUMN {name} {decl}")
 
 
+def _ensure_onboard_tables_postgres() -> None:
+    """Create onboard_tokens and verification_codes tables if they don't exist."""
+    stmts = [
+        """CREATE TABLE IF NOT EXISTS onboard_tokens (
+            id SERIAL PRIMARY KEY,
+            token TEXT NOT NULL UNIQUE,
+            email TEXT NOT NULL DEFAULT '',
+            company_hint TEXT,
+            used_at TEXT,
+            created_at TEXT NOT NULL
+        )""",
+        """CREATE TABLE IF NOT EXISTS verification_codes (
+            id SERIAL PRIMARY KEY,
+            email TEXT NOT NULL,
+            code TEXT NOT NULL,
+            verified INTEGER NOT NULL DEFAULT 0,
+            expires_at TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )""",
+    ]
+    try:
+        with psycopg.connect(_pg_dsn(), autocommit=True) as conn:
+            with conn.cursor() as cur:
+                for stmt in stmts:
+                    cur.execute(stmt)
+    except Exception:
+        pass
+
+
 def _ensure_users_org_id_nullable_postgres() -> None:
     """Pending signups use role='pending' with org_id NULL; allow NULL on users.org_id."""
     try:
@@ -428,6 +457,7 @@ def init_db() -> None:
             conn.close()
         _ensure_organizations_table_postgres()
         _ensure_users_org_id_nullable_postgres()
+        _ensure_onboard_tables_postgres()
         _ensure_skill_lesson_columns_postgres()
         _ensure_employee_skill_profile_columns_postgres()
         _ensure_employee_weekly_study_focus_postgres()
