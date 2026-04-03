@@ -21,6 +21,10 @@ services:
         value: "true"
       - key: ENABLE_L3
         value: "true"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
       - key: SENTINEL_INITIAL_ADMIN_USERNAME
         sync: false
       - key: SENTINEL_INITIAL_ADMIN_PASSWORD
