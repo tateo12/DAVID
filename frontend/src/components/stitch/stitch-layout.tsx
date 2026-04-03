@@ -74,9 +74,14 @@ function StitchChrome({ children }: { children: React.ReactNode }) {
   const isMdUp = useMediaQuery("(min-width: 768px)");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showTeamHub, setShowTeamHub] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   useEffect(() => {
-    const sync = () => setShowTeamHub(isTeamManager(getSession()?.user?.role ?? ""));
+    const sync = () => {
+      const role = getSession()?.user?.role ?? "";
+      setShowTeamHub(isTeamManager(role));
+      setShowAdmin(role === "admin");
+    };
     sync();
     window.addEventListener("sentinel-auth", sync);
     return () => window.removeEventListener("sentinel-auth", sync);
@@ -168,6 +173,38 @@ function StitchChrome({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+
+          {showTeamHub ? (
+            <Link
+              href="/team"
+              onClick={() => !isMdUp && setMobileNavOpen(false)}
+              className={cn(
+                "flex items-center gap-3 px-6 py-3 font-label text-[10px] font-medium uppercase tracking-widest transition-all",
+                pathname === "/team"
+                  ? "border-r-2 border-secondary-fixed bg-secondary-fixed/10 text-secondary-fixed"
+                  : "text-on-surface-variant hover:bg-surface-container-low hover:text-white"
+              )}
+            >
+              <MaterialIcon name="hub" className="text-lg" />
+              Team
+            </Link>
+          ) : null}
+
+          {showAdmin ? (
+            <Link
+              href="/admin"
+              onClick={() => !isMdUp && setMobileNavOpen(false)}
+              className={cn(
+                "flex items-center gap-3 px-6 py-3 font-label text-[10px] font-medium uppercase tracking-widest transition-all",
+                pathname === "/admin"
+                  ? "border-r-2 border-secondary-fixed bg-secondary-fixed/10 text-secondary-fixed"
+                  : "text-on-surface-variant hover:bg-surface-container-low hover:text-white"
+              )}
+            >
+              <MaterialIcon name="admin_panel_settings" className="text-lg" />
+              Send Invite
+            </Link>
+          ) : null}
         </nav>
         <SidebarSessionFooter />
       </aside>
