@@ -2,12 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { sendLoginOtp, verifyLoginOtp, setUserPassword, signInWithPassword, requestOrganization } from "@/lib/api";
+import { signInWithPassword } from "@/lib/api";
 import { getSession, setSession } from "@/lib/session";
 import { ShieldMark } from "@/components/shield-mark";
 import { MaterialIcon } from "@/components/stitch/material-icon";
-
-type Step = "email" | "code" | "set-password" | "password-login" | "setup-org" | "pending-approval";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,95 +14,12 @@ export default function LoginPage() {
     if (getSession()) router.replace("/");
   }, [router]);
 
-  const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [pendingSession, setPendingSession] = useState<{
-    access_token: string;
-    expires_at: string;
-    user: Parameters<typeof setSession>[0]["user"];
-  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleSendCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      await sendLoginOtp(email.trim());
-      setStep("code");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to send code.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await verifyLoginOtp(email.trim(), code.trim());
-      setPendingSession({ access_token: res.access_token, expires_at: res.expires_at, user: res.user });
-
-      if (res.onboardingStatus === "setup_org") {
-        // New user without org — show company request form
-        setStep("setup-org");
-      } else if (res.onboardingStatus === "pending_approval") {
-        setStep("pending-approval");
-      } else if (res.isNewUser) {
-        // New user with org (invite flow) — prompt to set password
-        setStep("set-password");
-      } else {
-        // Existing user with org — go to dashboard
-        setSession({ access_token: res.access_token, expires_at: res.expires_at, user: res.user });
-        router.push("/");
-        router.refresh();
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Invalid or expired code.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRequestOrg = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      await requestOrganization(companyName.trim(), pendingSession?.access_token);
-      setStep("pending-approval");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to submit request.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      await setUserPassword(password);
-      if (pendingSession) {
-        setSession(pendingSession);
-      }
-      router.push("/");
-      router.refresh();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to set password.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePasswordLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -122,7 +37,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-surface text-on-surface">
-      {/* ── left panel ── */}
+      {/* -- left panel -- */}
       <main className="relative hidden flex-1 flex-col justify-between border-r border-outline-variant/10 bg-[#0a0c10] p-12 md:flex">
         <div
           className="pointer-events-none absolute inset-0 opacity-40"
@@ -189,7 +104,7 @@ export default function LoginPage() {
         </footer>
       </main>
 
-      {/* ── right panel ── */}
+      {/* -- right panel -- */}
       <aside className="relative z-20 flex w-full flex-col overflow-y-auto bg-surface-container-low md:w-[40%]">
         <div className="h-1 w-full shrink-0 bg-gradient-to-r from-primary-container via-secondary-container to-primary-container" />
         <div className="flex flex-1 flex-col justify-center px-8 py-12 lg:px-16">
@@ -200,270 +115,70 @@ export default function LoginPage() {
           </header>
 
           <div className="mb-10 border-b border-outline-variant/30 pb-4">
-            <h3 className="mb-2 font-headline text-3xl font-bold tracking-tight">
-              {step === "email" && "Authorize Access"}
-              {step === "code" && "Enter Code"}
-              {step === "set-password" && "Set Your Password"}
-              {step === "password-login" && "Sign In"}
-              {step === "setup-org" && "Register Your Company"}
-              {step === "pending-approval" && "Request Pending"}
-            </h3>
+            <h3 className="mb-2 font-headline text-3xl font-bold tracking-tight">Sign In</h3>
             <p className="text-sm text-on-surface-variant">
-              {step === "email" && "Enter your work email to receive a one-time access code."}
-              {step === "code" && `A verification code was sent to ${email}.`}
-              {step === "set-password" && "Create a password for future sign-ins."}
-              {step === "password-login" && "Enter your email and password."}
-              {step === "setup-org" && "Enter your company name to request access to Sentinel."}
-              {step === "pending-approval" && "Your request is being reviewed by the Sentinel team."}
+              Enter your work email and password.
             </p>
           </div>
 
-          {step === "email" && (
-            <form className="space-y-6" onSubmit={handleSendCode}>
-              <div>
-                <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">
-                  Work Email
-                </label>
-                <div className="group relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
-                    <MaterialIcon name="email" className="text-lg" />
-                  </div>
-                  <input
-                    type="email"
-                    required
-                    autoFocus
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 font-mono text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-0"
-                    placeholder="you@company.com"
-                  />
-                  <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
+          <form className="space-y-6" onSubmit={handleLogin}>
+            <div>
+              <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">
+                Work Email
+              </label>
+              <div className="group relative">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
+                  <MaterialIcon name="email" className="text-lg" />
                 </div>
+                <input
+                  type="email"
+                  required
+                  autoFocus
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 font-mono text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-0"
+                  placeholder="you@company.com"
+                />
+                <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
               </div>
-              {error && <p className="text-center text-xs text-error">{error}</p>}
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex w-full items-center justify-center gap-3 rounded-sm bg-secondary-container py-4 font-headline text-sm font-bold uppercase tracking-widest text-black transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
-              >
-                {loading ? "Sending…" : "Send Code"}
-                <MaterialIcon name="send" className="text-lg" />
-              </button>
-              <button
-                type="button"
-                onClick={() => { setStep("password-login"); setError(null); }}
-                className="w-full text-center font-mono text-[10px] text-on-surface-variant hover:text-on-surface"
-              >
-                Sign in with password instead
-              </button>
-            </form>
-          )}
-
-          {step === "code" && (
-            <form className="space-y-6" onSubmit={handleVerifyCode}>
-              <div>
-                <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">
-                  Verification Code
-                </label>
-                <div className="group relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
-                    <MaterialIcon name="pin" className="text-lg" />
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    autoFocus
-                    maxLength={8}
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                    className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 text-center font-mono text-2xl tracking-[0.5em] text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-0"
-                    placeholder="00000000"
-                  />
-                  <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
-                </div>
-              </div>
-              {error && <p className="text-center text-xs text-error">{error}</p>}
-              <button
-                type="submit"
-                disabled={loading || code.length < 6 || code.length > 8}
-                className="flex w-full items-center justify-center gap-3 rounded-sm bg-secondary-container py-4 font-headline text-sm font-bold uppercase tracking-widest text-black transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
-              >
-                {loading ? "Verifying…" : "Authorize"}
-                <MaterialIcon name="arrow_forward" className="text-lg" />
-              </button>
-              <button
-                type="button"
-                onClick={() => { setStep("email"); setCode(""); setError(null); }}
-                className="w-full text-center font-mono text-[10px] text-on-surface-variant hover:text-on-surface"
-              >
-                Use a different email
-              </button>
-            </form>
-          )}
-
-          {step === "set-password" && (
-            <form className="space-y-6" onSubmit={handleSetPassword}>
-              <div>
-                <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">
-                  Create Password
-                </label>
-                <div className="group relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
-                    <MaterialIcon name="lock" className="text-lg" />
-                  </div>
-                  <input
-                    type="password"
-                    required
-                    autoFocus
-                    minLength={8}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 font-mono text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-0"
-                    placeholder="Minimum 8 characters"
-                  />
-                  <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
-                </div>
-              </div>
-              {error && <p className="text-center text-xs text-error">{error}</p>}
-              <button
-                type="submit"
-                disabled={loading || password.length < 8}
-                className="flex w-full items-center justify-center gap-3 rounded-sm bg-secondary-container py-4 font-headline text-sm font-bold uppercase tracking-widest text-black transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
-              >
-                {loading ? "Saving…" : "Set Password & Continue"}
-                <MaterialIcon name="check" className="text-lg" />
-              </button>
-              <p className="text-center font-mono text-[9px] text-on-surface-variant">
-                Your password is securely stored by Supabase (bcrypt hashed). You can use it for future sign-ins.
-              </p>
-            </form>
-          )}
-
-          {step === "password-login" && (
-            <form className="space-y-6" onSubmit={handlePasswordLogin}>
-              <div>
-                <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">
-                  Work Email
-                </label>
-                <div className="group relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
-                    <MaterialIcon name="email" className="text-lg" />
-                  </div>
-                  <input
-                    type="email"
-                    required
-                    autoFocus
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 font-mono text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-0"
-                    placeholder="you@company.com"
-                  />
-                  <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
-                </div>
-              </div>
-              <div>
-                <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">
-                  Password
-                </label>
-                <div className="group relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
-                    <MaterialIcon name="lock" className="text-lg" />
-                  </div>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 font-mono text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-0"
-                    placeholder="Your password"
-                  />
-                  <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
-                </div>
-              </div>
-              {error && <p className="text-center text-xs text-error">{error}</p>}
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex w-full items-center justify-center gap-3 rounded-sm bg-secondary-container py-4 font-headline text-sm font-bold uppercase tracking-widest text-black transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
-              >
-                {loading ? "Signing in…" : "Sign In"}
-                <MaterialIcon name="login" className="text-lg" />
-              </button>
-              <button
-                type="button"
-                onClick={() => { setStep("email"); setPassword(""); setError(null); }}
-                className="w-full text-center font-mono text-[10px] text-on-surface-variant hover:text-on-surface"
-              >
-                Sign in with email code instead
-              </button>
-            </form>
-          )}
-
-          {step === "setup-org" && (
-            <form className="space-y-6" onSubmit={handleRequestOrg}>
-              <div>
-                <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">
-                  Company Name
-                </label>
-                <div className="group relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
-                    <MaterialIcon name="business" className="text-lg" />
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    autoFocus
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 font-mono text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-0"
-                    placeholder="Acme Corp"
-                  />
-                  <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
-                </div>
-              </div>
-              {error && <p className="text-center text-xs text-error">{error}</p>}
-              <button
-                type="submit"
-                disabled={loading || !companyName.trim()}
-                className="flex w-full items-center justify-center gap-3 rounded-sm bg-secondary-container py-4 font-headline text-sm font-bold uppercase tracking-widest text-black transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
-              >
-                {loading ? "Submitting…" : "Request Access"}
-                <MaterialIcon name="send" className="text-lg" />
-              </button>
-              <p className="text-center font-mono text-[9px] text-on-surface-variant">
-                Your request will be reviewed by the Sentinel team. You&apos;ll receive an email once approved.
-              </p>
-            </form>
-          )}
-
-          {step === "pending-approval" && (
-            <div className="space-y-6 text-center">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-secondary-fixed/20 bg-secondary-fixed/10">
-                <MaterialIcon name="hourglass_top" className="text-4xl text-secondary-fixed" />
-              </div>
-              <div>
-                <p className="text-sm leading-relaxed text-on-surface-variant">
-                  Your company registration request has been submitted. The Sentinel admin team will review it and send you an email when you&apos;re approved.
-                </p>
-                <p className="mt-4 font-mono text-[10px] text-on-surface-variant/60">
-                  This usually takes less than 24 hours.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setStep("email"); setError(null); }}
-                className="w-full text-center font-mono text-[10px] text-on-surface-variant hover:text-on-surface"
-              >
-                Sign in with a different account
-              </button>
             </div>
-          )}
+            <div>
+              <label className="mb-2 block font-mono text-[11px] uppercase tracking-wider text-on-surface-variant">
+                Password
+              </label>
+              <div className="group relative">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-outline-variant group-focus-within:text-secondary-fixed">
+                  <MaterialIcon name="lock" className="text-lg" />
+                </div>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full border-none bg-surface-container-highest py-4 pl-12 pr-4 font-mono text-sm text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-0"
+                  placeholder="Your password"
+                />
+                <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-secondary-fixed transition-all duration-300 group-focus-within:w-full" />
+              </div>
+            </div>
+
+            {error && <p className="text-center text-xs text-error">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex w-full items-center justify-center gap-3 rounded-sm bg-secondary-container py-4 font-headline text-sm font-bold uppercase tracking-widest text-black transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+            >
+              {loading ? "Signing in..." : "Sign In"}
+              <MaterialIcon name="login" className="text-lg" />
+            </button>
+          </form>
 
           <footer className="mt-12 rounded-sm border border-outline-variant/10 bg-surface-container-lowest p-4">
             <div className="flex items-start gap-3">
               <MaterialIcon name="verified_user" className="text-lg text-secondary-fixed" />
               <p className="font-mono text-[9px] leading-relaxed text-on-surface-variant">
-                Passwordless login via OTP. Your first sign-in creates your account and sets your role. You can also set a password for faster future sign-ins.
+                Sign in with the email and password you set during account setup. New users: check your email for an invite link from your manager.
               </p>
             </div>
           </footer>

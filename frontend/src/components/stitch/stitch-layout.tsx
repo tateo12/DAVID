@@ -293,7 +293,7 @@ function StitchChrome({ children }: { children: React.ReactNode }) {
 
 export function StitchLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  if (pathname === "/login" || pathname === "/register-invite") {
+  if (pathname === "/login" || pathname === "/register-invite" || pathname === "/setup-account" || pathname === "/onboard") {
     return <>{children}</>;
   }
   return <StitchChrome>{children}</StitchChrome>;

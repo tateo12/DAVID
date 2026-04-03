@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     # Supabase Auth
     supabase_url: str = Field(default="", validation_alias=AliasChoices("SUPABASE_URL"))
     supabase_jwt_secret: str = Field(default="", validation_alias=AliasChoices("SUPABASE_JWT_SECRET"))
+    supabase_service_role_key: str = Field(default="", validation_alias=AliasChoices("SUPABASE_SERVICE_ROLE_KEY"))
+    supabase_anon_key: str = Field(default="", validation_alias=AliasChoices("SUPABASE_ANON_KEY"))
 
     # First-time setup: when the users table is empty, create one manager account (no fake employees).
     initial_admin_username: str = Field(

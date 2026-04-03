@@ -173,7 +173,7 @@ def create_employee_invite(
         (eid, nm, dept, role, email, token, now, org_id),
     )
     base = frontend_base_url().rstrip("/")
-    invite_url = f"{base}/register-invite?token={token}&org_id={org_id}"
+    invite_url = f"{base}/setup-account?token={token}"
     send_employee_invite_email(email, invite_url, nm, reminder=False)
     ensure_employee_skill_profile(eid)
     return EmployeeInviteCreated(employee_id=eid, invite_url=invite_url)

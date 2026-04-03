@@ -315,6 +315,46 @@ class EmailSender:
         )
 
 
+def send_onboard_email(to_email: str, onboard_url: str, company_hint: str = "") -> None:
+    """Send the B2B onboarding email to a new customer so they can create their company account."""
+    sender = EmailSender()
+    subject = "Welcome to Sentinel — Set up your company account"
+    company_line = f" for <strong>{company_hint}</strong>" if company_hint else ""
+    html = f"""
+    <div style="font-family: monospace; max-width: 600px; margin: 0 auto; background: #0a0c10; color: #e0e0e0; padding: 32px;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+            <h1 style="color: #c3f400; margin: 0; font-size: 20px; letter-spacing: -0.5px;">SENTINEL</h1>
+            <span style="color: #666; font-size: 10px;">AI SECURITY</span>
+        </div>
+        <h2 style="color: #fff; font-size: 18px; margin-bottom: 8px;">You&rsquo;re in.</h2>
+        <p style="color: #999; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
+            Your company has been approved for Sentinel{company_line}. Click below to set up your account
+            and start managing your team&rsquo;s AI security.
+        </p>
+        <a href="{onboard_url}" style="display: inline-block; padding: 14px 36px; background: #c3f400; color: #000; text-decoration: none; font-weight: bold; font-size: 14px; letter-spacing: 1px;">
+            CREATE YOUR ACCOUNT
+        </a>
+        <p style="color: #666; font-size: 12px; line-height: 1.6; margin-top: 24px;">
+            You&rsquo;ll set up your company name, create your manager login, and then you can
+            invite your team right from the dashboard.
+        </p>
+        <hr style="border: none; border-top: 1px solid #222; margin: 24px 0;" />
+        <p style="color: #444; font-size: 10px;">
+            This link is one-time use. If you have questions, reply to this email or contact sentinel support.
+        </p>
+    </div>
+    """
+    sender.send_email(to_email, subject, html)
+    sender._queue_to_db(
+        recipient_type="external",
+        recipient_id=None,
+        message_type="onboard_invite",
+        subject=subject,
+        body=f"Onboard link sent to {to_email}: {onboard_url}",
+        related_entity="onboard_invite",
+    )
+
+
 def send_employee_invite_email(to_email: str, invite_url: str, employee_name: str, *, reminder: bool = False) -> None:
     sender = EmailSender()
     subject = (
@@ -364,7 +404,7 @@ def process_pending_employee_invite_reminders() -> int:
         em = (r["email"] or "").strip()
         if not token or not em:
             continue
-        url = f"{base}/register-invite?token={token}&org_id={r['org_id']}"
+        url = f"{base}/setup-account?token={token}"
         send_employee_invite_email(em, url, str(r["name"] or "there"), reminder=True)
         execute(
             "UPDATE employees SET invite_reminder_sent_at = ? WHERE id = ?",

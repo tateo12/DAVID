@@ -564,6 +564,65 @@ export async function setUserPassword(password: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+export async function sendVerificationCode(email: string): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(
+    "/api/auth/send-code",
+    {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    },
+    false,
+  );
+}
+
+export async function fetchInviteInfo(token: string): Promise<{ email: string; name: string; org_name: string }> {
+  return apiFetch<{ email: string; name: string; org_name: string }>(
+    `/api/auth/invite-info?token=${encodeURIComponent(token)}`,
+    undefined,
+    false,
+  );
+}
+
+export async function setupAccount(
+  token: string,
+  password: string,
+  verificationCode: string,
+): Promise<{ access_token: string; expires_at: string; user: AuthUser; is_new_user: boolean }> {
+  return apiFetch<{ access_token: string; expires_at: string; user: AuthUser; is_new_user: boolean }>(
+    "/api/auth/setup-account",
+    {
+      method: "POST",
+      body: JSON.stringify({ token, password, verification_code: verificationCode }),
+    },
+    false,
+  );
+}
+
+export async function fetchOnboardInfo(token: string): Promise<{ valid: boolean; company_hint: string }> {
+  return apiFetch<{ valid: boolean; company_hint: string }>(
+    `/api/auth/onboard-info?token=${encodeURIComponent(token)}`,
+    undefined,
+    false,
+  );
+}
+
+export async function onboardCompany(
+  token: string,
+  companyName: string,
+  email: string,
+  password: string,
+  verificationCode: string,
+): Promise<{ access_token: string; expires_at: string; user: AuthUser; is_new_user: boolean }> {
+  return apiFetch<{ access_token: string; expires_at: string; user: AuthUser; is_new_user: boolean }>(
+    "/api/auth/onboard",
+    {
+      method: "POST",
+      body: JSON.stringify({ token, company_name: companyName, email, password, verification_code: verificationCode }),
+    },
+    false,
+  );
+}
+
 export async function signInWithPassword(
   email: string,
   password: string,
@@ -585,6 +644,31 @@ export async function signInWithPassword(
     expires_at: prov.expires_at,
     user: prov.user,
   };
+}
+
+// ── Admin endpoints ──
+
+export async function sendOnboardEmail(
+  email: string,
+  companyHint?: string,
+): Promise<{ status: string; email: string; onboard_url: string; message: string }> {
+  return apiFetch("/api/orgs/send-onboard-email", {
+    method: "POST",
+    body: JSON.stringify({ email, company_hint: companyHint || "" }),
+  });
+}
+
+export interface OnboardLinkItem {
+  id: number;
+  token: string;
+  email: string;
+  company_hint: string;
+  used: boolean;
+  created_at: string;
+}
+
+export async function fetchOnboardLinks(): Promise<OnboardLinkItem[]> {
+  return apiFetch<OnboardLinkItem[]>("/api/orgs/onboard-links");
 }
 
 export async function postPolicyAssistantChat(payload: {

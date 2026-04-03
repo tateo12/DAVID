@@ -29,6 +29,26 @@ INIT_STATEMENTS: list[str] = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS onboard_tokens (
+        id SERIAL PRIMARY KEY,
+        token TEXT NOT NULL UNIQUE,
+        email TEXT NOT NULL DEFAULT '',
+        company_hint TEXT,
+        used_at TEXT,
+        created_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS verification_codes (
+        id SERIAL PRIMARY KEY,
+        email TEXT NOT NULL,
+        code TEXT NOT NULL,
+        verified INTEGER NOT NULL DEFAULT 0,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS employees (
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,

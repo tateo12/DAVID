@@ -446,6 +446,39 @@ class LoginResponse(BaseModel):
     onboarding_status: str = "dashboard"
 
 
+class InviteInfoResponse(BaseModel):
+    email: str
+    name: str
+    org_name: str = ""
+
+
+class SetupAccountRequest(BaseModel):
+    token: str
+    password: str = Field(min_length=8)
+    verification_code: str = Field(min_length=6, max_length=8)
+
+
+class OnboardInfoResponse(BaseModel):
+    valid: bool = True
+    company_hint: str = ""
+
+
+class OnboardRequest(BaseModel):
+    token: str
+    company_name: str = Field(min_length=1)
+    email: str
+    password: str = Field(min_length=8)
+    verification_code: str = Field(min_length=6, max_length=8)
+
+
+class SendCodeRequest(BaseModel):
+    email: str
+
+
+class SendCodeResponse(BaseModel):
+    message: str
+
+
 class ExtensionCaptureRequest(BaseModel):
     prompt_text: str
     target_tool: str | None = None

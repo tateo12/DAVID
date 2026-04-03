@@ -1,12 +1,14 @@
 """Organization request & approval endpoints."""
 
+import secrets
+
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from auth import _parse_bearer, _verify_supabase_jwt, get_current_user
 from config import frontend_base_url
 from database import _utc_now, execute, fetch_one, fetch_rows
-from engines.email_sender import EmailSender
+from engines.email_sender import EmailSender, send_employee_invite_email, send_onboard_email
 
 router = APIRouter(prefix="/orgs", tags=["orgs"])
 
@@ -29,6 +31,30 @@ class OrgRequestListItem(BaseModel):
     company_name: str
     email: str
     status: str
+    created_at: str
+
+
+class CreateOrgWithInviteBody(BaseModel):
+    company_name: str
+    manager_email: str
+    manager_name: str = ""
+
+
+class GenerateOnboardLinkBody(BaseModel):
+    company_hint: str = ""
+
+
+class SendOnboardEmailBody(BaseModel):
+    email: str
+    company_hint: str = ""
+
+
+class OnboardLinkListItem(BaseModel):
+    id: int
+    token: str
+    email: str
+    company_hint: str
+    used: bool
     created_at: str
 
 
@@ -217,6 +243,165 @@ def _send_admin_notification(request_id: int, company_name: str, requester_email
         sender.send_email(SENTINEL_ADMIN_EMAIL, f"[Sentinel] New Company Request: {company_name}", html)
     except Exception:
         pass  # Don't fail the request if email fails
+
+
+# ── Admin: generate onboard link for B2B sales ──────────────────────────────
+
+@router.post("/generate-onboard-link")
+def generate_onboard_link(
+    body: GenerateOnboardLinkBody,
+    secret: str | None = None,
+) -> dict:
+    """
+    Admin-only. Generates a one-time onboard link to send to a new B2B customer.
+    The customer clicks the link, fills out company info, creates their manager
+    account, and is immediately logged in.
+    """
+    _verify_admin_action(secret)
+
+    token = secrets.token_urlsafe(32)
+    now = _utc_now()
+    execute(
+        "INSERT INTO onboard_tokens (token, company_hint, created_at) VALUES (?, ?, ?)",
+        (token, body.company_hint.strip() or None, now),
+    )
+
+    base = frontend_base_url().rstrip("/")
+    onboard_url = f"{base}/onboard?token={token}"
+
+    return {
+        "token": token,
+        "onboard_url": onboard_url,
+        "message": "Send this link to the new customer.",
+    }
+
+
+# ── Admin: create org + first manager invite in one step ─────────────────────
+
+@router.post("/create-with-invite")
+def create_org_with_invite(
+    body: CreateOrgWithInviteBody,
+    secret: str | None = None,
+) -> dict:
+    """
+    Admin-only. Creates a new organization and sends an invite to the first
+    manager. This is how Sentinel gives access to a new company:
+    company emails us → we verify → call this endpoint → they get an invite.
+    """
+    _verify_admin_action(secret)
+
+    from auth import _create_organization, _slug_from_email
+
+    company = body.company_name.strip()
+    email = body.manager_email.strip().lower()
+    name = body.manager_name.strip() or email.split("@")[0]
+
+    if not company:
+        raise HTTPException(status_code=422, detail="Company name is required")
+    if not email or "@" not in email:
+        raise HTTPException(status_code=422, detail="Valid manager email is required")
+
+    # Check for existing org with same name
+    if fetch_one("SELECT id FROM organizations WHERE lower(name) = ?", (company.lower(),)):
+        raise HTTPException(status_code=400, detail="An organization with this name already exists")
+
+    # Create org
+    slug = _slug_from_email(email)
+    org_id = _create_organization(company, slug)
+
+    # Create employee record with invite token
+    from database import ensure_employee_skill_profile
+
+    eid_row = fetch_one("SELECT COALESCE(MAX(id), 0) + 1 AS n FROM employees")
+    eid = int(eid_row["n"] if eid_row else 1)
+    token = secrets.token_urlsafe(32)
+    now = _utc_now()
+
+    execute(
+        """INSERT INTO employees (
+            id, name, department, role, risk_score, email, invite_token, invite_sent_at,
+            invite_reminder_sent_at, account_claimed_at, extension_first_seen_at, org_id
+        ) VALUES (?, ?, 'Management', 'manager', 0, ?, ?, ?, NULL, NULL, NULL, ?)""",
+        (eid, name, email, token, now, org_id),
+    )
+    ensure_employee_skill_profile(eid)
+
+    # Send invite email
+    base = frontend_base_url().rstrip("/")
+    invite_url = f"{base}/setup-account?token={token}"
+    send_employee_invite_email(email, invite_url, name, reminder=False)
+
+    return {
+        "status": "created",
+        "org_id": org_id,
+        "employee_id": eid,
+        "invite_url": invite_url,
+        "message": f"Organization '{company}' created. Invite sent to {email}.",
+    }
+
+
+# ── Admin (authenticated): send onboard email + list sent links ──────────────
+
+def _require_admin(current_user: dict) -> None:
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+
+@router.post("/send-onboard-email")
+def send_onboard_email_endpoint(
+    body: SendOnboardEmailBody,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    """
+    Admin-only (authenticated). Type an email, click send — the customer gets
+    an email with a one-time onboard link to create their company account.
+    """
+    _require_admin(current_user)
+
+    email = body.email.strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=422, detail="Valid email is required")
+
+    token = secrets.token_urlsafe(32)
+    now = _utc_now()
+    execute(
+        "INSERT INTO onboard_tokens (token, email, company_hint, created_at) VALUES (?, ?, ?, ?)",
+        (token, email, body.company_hint.strip() or None, now),
+    )
+
+    base = frontend_base_url().rstrip("/")
+    onboard_url = f"{base}/onboard?token={token}"
+    send_onboard_email(email, onboard_url, body.company_hint.strip())
+
+    return {
+        "status": "sent",
+        "email": email,
+        "onboard_url": onboard_url,
+        "message": f"Onboard email sent to {email}.",
+    }
+
+
+@router.get("/onboard-links", response_model=list[OnboardLinkListItem])
+def list_onboard_links(
+    current_user: dict = Depends(get_current_user),
+) -> list[OnboardLinkListItem]:
+    """Admin-only. List all generated onboard links and their status."""
+    _require_admin(current_user)
+
+    rows = fetch_rows(
+        "SELECT id, token, email, COALESCE(company_hint, '') AS company_hint, used_at, created_at FROM onboard_tokens ORDER BY id DESC"
+    )
+    return [
+        OnboardLinkListItem(
+            id=r["id"],
+            token=r["token"],
+            email=r["email"],
+            company_hint=r["company_hint"],
+            used=r["used_at"] is not None,
+            created_at=r["created_at"],
+        )
+        for r in rows
+    ]
 
 
 def _send_approval_email(to_email: str, company_name: str) -> None:
