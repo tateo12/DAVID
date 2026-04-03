@@ -185,7 +185,7 @@ function StitchChrome({ children }: { children: React.ReactNode }) {
                   : "text-on-surface-variant hover:bg-surface-container-low hover:text-white"
               )}
             >
-              <MaterialIcon name="hub" className="text-lg" />
+              <MaterialIcon name="groups" className="text-lg" />
               Team
             </Link>
           ) : null}
@@ -315,7 +315,7 @@ function StitchChrome({ children }: { children: React.ReactNode }) {
                   pathname === "/team" ? "border-secondary-fixed ring-1 ring-secondary-fixed/40" : ""
                 )}
               >
-                <MaterialIcon name="hub" className="text-xl text-secondary-fixed" />
+                <MaterialIcon name="groups" className="text-xl text-secondary-fixed" />
               </Link>
             ) : null}
             <StitchHeaderRibbon />

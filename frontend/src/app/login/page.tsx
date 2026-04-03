@@ -70,10 +70,11 @@ export default function LoginPage() {
           <div className="relative flex h-96 w-96 items-center justify-center">
             <div className="absolute inset-0 animate-[spin_20s_linear_infinite] rounded-full border border-secondary-fixed/10" />
             <div className="absolute inset-8 animate-[spin_10s_linear_infinite_reverse] rounded-full border-b-2 border-t-2 border-secondary-fixed/30" />
-            <div className="relative flex h-64 w-64 items-center justify-center overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-high">
-              <div className="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-transparent to-transparent" />
-              <MaterialIcon name="security" className="relative z-10 text-6xl text-secondary-container/40" />
-            </div>
+            <img
+              src="/sentinel-logo.png"
+              alt="Sentinel"
+              className="relative z-10 h-72 w-72 object-contain drop-shadow-[0_0_40px_rgba(195,244,0,0.25)]"
+            />
           </div>
           <article className="mt-8 max-w-sm text-center">
             <h2 className="font-headline text-3xl font-bold tracking-tight text-on-surface">
