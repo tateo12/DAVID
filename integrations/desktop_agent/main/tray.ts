@@ -7,12 +7,12 @@
  *   warning — proxy running, threats detected
  */
 
-import { Tray, Menu, nativeImage, app, BrowserWindow, shell } from "electron";
+import { Tray, Menu, nativeImage, app } from "electron";
 import path from "path";
 import { getStatus, getThreatCount, getProxyPort, startProxy, stopProxy } from "./proxy-manager";
+import { openAppWindow } from "./window-manager";
 
 let tray: Tray | null = null;
-let settingsWindow: BrowserWindow | null = null;
 
 const _assetsDir = path.join(__dirname, "..", "assets");
 
@@ -31,6 +31,7 @@ function _icon(variant: "idle" | "active" | "warning"): Electron.NativeImage {
 export function createTray(): void {
   tray = new Tray(_icon("idle"));
   tray.setToolTip("Sentinel Desktop Agent");
+  tray.on("click", () => openAppWindow());
   _updateContextMenu();
 }
 
@@ -90,15 +91,8 @@ function _updateContextMenu(): void {
     },
     { type: "separator" },
     {
-      label: "Open Dashboard",
-      click: () => {
-        // Open the Sentinel web dashboard in the default browser
-        shell.openExternal("http://localhost:3000").catch(() => {});
-      },
-    },
-    {
-      label: "Settings",
-      click: () => _openSettingsWindow(),
+      label: "Open Sentinel",
+      click: () => openAppWindow(),
     },
     { type: "separator" },
     {
@@ -108,26 +102,4 @@ function _updateContextMenu(): void {
   ]);
 
   tray.setContextMenu(menu);
-}
-
-function _openSettingsWindow(): void {
-  if (settingsWindow && !settingsWindow.isDestroyed()) {
-    settingsWindow.focus();
-    return;
-  }
-
-  settingsWindow = new BrowserWindow({
-    width: 520,
-    height: 480,
-    title: "Sentinel Settings",
-    resizable: false,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, "preload.js"),
-    },
-  });
-
-  settingsWindow.loadFile(path.join(__dirname, "..", "renderer", "settings.html"));
-  settingsWindow.on("closed", () => { settingsWindow = null; });
 }

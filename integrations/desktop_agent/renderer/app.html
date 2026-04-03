@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com;" />
+  <title>Sentinel Desktop</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+
+<!-- ─── LOGIN VIEW ──────────────────────────────────────────────────── -->
+<div id="view-login" class="login-shell" style="display:none">
+  <div class="login-left">
+    <div class="login-logo-area">
+      <div class="login-logo-ring">
+        <div class="ring"></div>
+        <div class="ring-inner"></div>
+        <img src="../assets/sentinel-logo.png" alt="Sentinel" />
+      </div>
+      <div class="login-tagline">
+        <h2>Desktop Agent</h2>
+        <p>System-level AI monitoring for every browser and desktop app. Powered by Sentinel.</p>
+      </div>
+    </div>
+  </div>
+  <div class="login-right">
+    <div class="login-form-header">
+      <h3>Sign In</h3>
+      <p>Use your Sentinel account credentials.</p>
+    </div>
+
+    <div id="login-error" class="status-msg error" style="display:none"></div>
+
+    <div class="form-group">
+      <label>Backend URL</label>
+      <div class="input-wrap">
+        <input id="login-url" type="url" value="http://localhost:8000" placeholder="https://sentinel.yourcompany.com" />
+        <span class="material-symbols-rounded">dns</span>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Email</label>
+      <div class="input-wrap">
+        <input id="login-email" type="email" placeholder="you@company.com" autofocus />
+        <span class="material-symbols-rounded">email</span>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <div class="input-wrap">
+        <input id="login-password" type="password" placeholder="Your password" />
+        <span class="material-symbols-rounded">lock</span>
+      </div>
+    </div>
+    <button id="btn-login" class="btn btn-primary">
+      Sign In
+      <span class="material-symbols-rounded" style="font-size:16px">login</span>
+    </button>
+  </div>
+</div>
+
+<!-- ─── APP SHELL (sidebar + content) ───────────────────────────────── -->
+<div id="view-app" class="app-shell" style="display:none">
+
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <img src="../assets/sentinel-logo.png" alt="Sentinel" />
+      <div class="sidebar-brand-text">
+        <h1>SENTINEL</h1>
+        <span>v2.4.0 Desktop</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-view="dashboard">
+        <span class="material-symbols-rounded">grid_view</span>
+        Dashboard
+      </button>
+      <button class="nav-item" data-view="activity">
+        <span class="material-symbols-rounded">history</span>
+        Activity
+      </button>
+      <button class="nav-item" data-view="setup">
+        <span class="material-symbols-rounded">build</span>
+        Setup
+      </button>
+      <button class="nav-item" data-view="settings">
+        <span class="material-symbols-rounded">settings</span>
+        Settings
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user" id="sidebar-user">—</div>
+      <button class="sidebar-signout" id="btn-signout">
+        <span class="material-symbols-rounded" style="font-size:16px">logout</span>
+        Sign out
+      </button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="main-header">
+      <h2 id="main-title">Dashboard</h2>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="material-symbols-rounded" style="color:var(--accent);font-size:18px">shield</span>
+        <span style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:#fff">Sentinel</span>
+      </div>
+    </header>
+
+    <div class="main-body">
+
+      <!-- ── Dashboard ──────────────────────────────────────────── -->
+      <div id="page-dashboard" class="view active">
+        <div id="monitoring-banner" class="monitoring-banner active">
+          <div class="dot"></div>
+          <div class="text" id="monitor-text">Monitoring active — proxy running on port 9876</div>
+          <button class="btn btn-sm btn-secondary" id="btn-toggle-proxy">Pause</button>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-card-label">Threats Blocked</div>
+            <div class="stat-card-value" id="stat-threats">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">Prompts Analyzed</div>
+            <div class="stat-card-value" id="stat-prompts">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">Active Employees</div>
+            <div class="stat-card-value" id="stat-employees">—</div>
+          </div>
+        </div>
+
+        <div class="section-title">Recent Activity</div>
+        <div id="dash-activity"></div>
+      </div>
+
+      <!-- ── Activity ───────────────────────────────────────────── -->
+      <div id="page-activity" class="view">
+        <div class="section-title">Prompt Activity Log</div>
+        <div id="activity-list"></div>
+      </div>
+
+      <!-- ── Setup ──────────────────────────────────────────────── -->
+      <div id="page-setup" class="view">
+        <div class="setup-steps">
+          <!-- Step 1: Certificate -->
+          <div class="setup-step visible" id="setup-step-cert">
+            <h3>Install Security Certificate</h3>
+            <p>Sentinel needs a trusted CA certificate to inspect encrypted AI traffic. This is the same technique used by corporate VPNs and security tools.</p>
+            <div id="cert-status" class="status-msg info">Checking certificate status...</div>
+            <div class="btn-row">
+              <button class="btn btn-secondary btn-sm" id="btn-skip-cert">Skip</button>
+              <button class="btn btn-primary btn-sm" id="btn-install-cert">Install Certificate</button>
+            </div>
+          </div>
+
+          <!-- Step 2: Proxy -->
+          <div class="setup-step" id="setup-step-proxy">
+            <h3>Activate Monitoring</h3>
+            <p>Sentinel will set your system proxy to route AI traffic through the monitor. Other internet traffic passes through unaffected.</p>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="check-row"><span class="check-icon" id="chk-proxy">○</span> Configure system proxy</div>
+              <div class="check-row"><span class="check-icon" id="chk-mitm">○</span> Start traffic monitor</div>
+              <div class="check-row"><span class="check-icon" id="chk-verify">○</span> Verify backend connection</div>
+            </div>
+            <div id="proxy-status" class="status-msg info" style="display:none"></div>
+            <div class="btn-row">
+              <button class="btn btn-primary btn-sm" id="btn-activate">Activate</button>
+            </div>
+          </div>
+
+          <!-- Step 3: Done -->
+          <div class="setup-step" id="setup-step-done">
+            <h3>Setup Complete</h3>
+            <div class="status-msg ok">Sentinel is monitoring AI traffic</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div class="check-row"><span class="check-icon ok">✓</span> Browser AI (Chrome, Edge, Arc...)</div>
+              <div class="check-row"><span class="check-icon ok">✓</span> Desktop apps (Claude Desktop, Cursor, ChatGPT...)</div>
+              <div class="check-row"><span class="check-icon ok">✓</span> CLI AI tools (claude, openai, cursor...)</div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary btn-sm" id="btn-setup-done" onclick="showView('dashboard')">Go to Dashboard</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Settings ───────────────────────────────────────────── -->
+      <div id="page-settings" class="view">
+        <div class="settings-section">
+          <h4>Connection</h4>
+          <div class="settings-row">
+            <span class="label">Backend URL</span>
+            <span class="value" id="settings-url">—</span>
+          </div>
+          <div class="settings-row">
+            <span class="label">Proxy Status</span>
+            <span class="value" id="settings-proxy-status">—</span>
+          </div>
+          <div class="settings-row">
+            <span class="label">Proxy Port</span>
+            <span class="value">9876</span>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>Account</h4>
+          <div class="settings-row">
+            <span class="label">Email</span>
+            <span class="value" id="settings-email">—</span>
+          </div>
+          <div class="settings-row">
+            <span class="label">Role</span>
+            <span class="value" id="settings-role">—</span>
+          </div>
+          <div class="settings-row">
+            <span class="label">Organization</span>
+            <span class="value" id="settings-org">—</span>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>Certificate</h4>
+          <div class="settings-row">
+            <span class="label">CA Certificate</span>
+            <span class="value" id="settings-cert">—</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

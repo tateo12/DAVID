@@ -1,6 +1,8 @@
 /**
- * IPC handlers — bridge between the renderer (wizard / settings UI)
+ * IPC handlers — bridge between the renderer (app UI)
  * and the main process (proxy, keychain, cert install, OS proxy settings).
+ *
+ * Auth flow: Supabase signInWithPassword → /api/auth/provision → keychain
  */
 
 import { ipcMain } from "electron";
@@ -12,11 +14,13 @@ import { enableSystemProxy, disableSystemProxy } from "./proxy-settings";
 
 export type LoginPayload = {
   apiBaseUrl: string;
-  username: string;
+  email: string;
   password: string;
 };
 
-export type LoginResult = { ok: true; employeeId: string } | { ok: false; error: string };
+export type LoginResult =
+  | { ok: true; user: { id: number; username: string; role: string; employee_id: number | null; org_id: number | null } }
+  | { ok: false; error: string };
 
 /** Validate that the given string is a safe https URL (http allowed only for localhost). */
 function _validateApiBaseUrl(raw: string): string {
@@ -37,34 +41,79 @@ function _validateApiBaseUrl(raw: string): string {
 }
 
 export function registerIpcHandlers(): void {
-  // ---- Auth ----------------------------------------------------------------
+  // ---- Auth (Supabase) ----------------------------------------------------
 
   ipcMain.handle("sentinel:login", async (_e, payload: LoginPayload): Promise<LoginResult> => {
     try {
       const safeBase = _validateApiBaseUrl(payload.apiBaseUrl);
-      const url = `${safeBase}/api/auth/login`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: payload.username, password: payload.password }),
-      });
 
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        return { ok: false, error: body || `HTTP ${res.status}` };
+      // 1. Fetch Supabase config from backend
+      const configRes = await fetch(`${safeBase}/api/auth/config`);
+      if (!configRes.ok) {
+        return { ok: false, error: "Could not reach backend — check the URL" };
+      }
+      const { supabase_url, supabase_anon_key } = (await configRes.json()) as {
+        supabase_url: string;
+        supabase_anon_key: string;
+      };
+      if (!supabase_url || !supabase_anon_key) {
+        return { ok: false, error: "Backend returned invalid Supabase config" };
       }
 
-      const data = (await res.json()) as { access_token: string; user: { employee_id: number | null } };
-      const employeeId = String(data.user?.employee_id ?? "");
+      // 2. Sign in with Supabase REST API (no SDK dependency needed)
+      const supabaseAuthRes = await fetch(
+        `${supabase_url}/auth/v1/token?grant_type=password`,
+        {
+          method: "POST",
+          headers: {
+            apikey: supabase_anon_key,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email: payload.email, password: payload.password }),
+        }
+      );
 
-      await saveCredentials({
-        accessToken: data.access_token,
-        apiBaseUrl: safeBase,
-        employeeId,
-        password: payload.password,
+      if (!supabaseAuthRes.ok) {
+        const errBody = await supabaseAuthRes.json().catch(() => ({})) as { error_description?: string; msg?: string };
+        return { ok: false, error: errBody.error_description || errBody.msg || "Invalid email or password" };
+      }
+
+      const supabaseData = (await supabaseAuthRes.json()) as {
+        access_token: string;
+        expires_in: number;
+        refresh_token: string;
+      };
+
+      // 3. Provision with backend to get local user mapping
+      const provisionRes = await fetch(`${safeBase}/api/auth/provision`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${supabaseData.access_token}` },
       });
 
-      return { ok: true, employeeId };
+      if (!provisionRes.ok) {
+        const body = (await provisionRes.json().catch(() => ({}))) as { detail?: string };
+        return { ok: false, error: body.detail ?? "Failed to provision user" };
+      }
+
+      const prov = (await provisionRes.json()) as {
+        access_token: string;
+        expires_at: string;
+        user: { id: number; username: string; role: string; employee_id: number | null; org_id: number | null; email?: string };
+      };
+
+      // 4. Save to keychain
+      await saveCredentials({
+        accessToken: supabaseData.access_token,
+        apiBaseUrl: safeBase,
+        employeeId: String(prov.user.employee_id ?? ""),
+        userId: String(prov.user.id),
+        username: prov.user.username,
+        email: payload.email,
+        role: prov.user.role,
+        orgId: String(prov.user.org_id ?? ""),
+      });
+
+      return { ok: true, user: prov.user };
     } catch (err) {
       return { ok: false, error: String(err) };
     }
@@ -77,8 +126,24 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("sentinel:get-credentials", async () => {
-    const { accessToken, apiBaseUrl, employeeId } = await loadCredentials();
-    return { hasToken: Boolean(accessToken), apiBaseUrl, employeeId };
+    const creds = await loadCredentials();
+    return {
+      hasToken: Boolean(creds.accessToken),
+      apiBaseUrl: creds.apiBaseUrl,
+      employeeId: creds.employeeId,
+    };
+  });
+
+  ipcMain.handle("sentinel:get-user", async () => {
+    const creds = await loadCredentials();
+    if (!creds.accessToken) return null;
+    return {
+      username: creds.username ?? "",
+      email: creds.email ?? "",
+      role: creds.role ?? "",
+      employeeId: creds.employeeId ?? "",
+      orgId: creds.orgId ?? "",
+    };
   });
 
   // ---- Status --------------------------------------------------------------
@@ -87,6 +152,42 @@ export function registerIpcHandlers(): void {
     status: getStatus(),
     threatCount: getThreatCount(),
   }));
+
+  // ---- Data fetching -------------------------------------------------------
+
+  ipcMain.handle("sentinel:fetch-activity", async (_e, limit: number = 20) => {
+    try {
+      const creds = await loadCredentials();
+      if (!creds.accessToken || !creds.apiBaseUrl) return { ok: false, error: "Not logged in" };
+
+      const res = await fetch(`${creds.apiBaseUrl}/api/prompts?limit=${limit}`, {
+        headers: { Authorization: `Bearer ${creds.accessToken}` },
+      });
+      if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+
+      const data = await res.json();
+      return { ok: true, prompts: data };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  });
+
+  ipcMain.handle("sentinel:fetch-metrics", async () => {
+    try {
+      const creds = await loadCredentials();
+      if (!creds.accessToken || !creds.apiBaseUrl) return { ok: false, error: "Not logged in" };
+
+      const res = await fetch(`${creds.apiBaseUrl}/api/metrics/dashboard`, {
+        headers: { Authorization: `Bearer ${creds.accessToken}` },
+      });
+      if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+
+      const data = await res.json();
+      return { ok: true, metrics: data };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  });
 
   // ---- Proxy ---------------------------------------------------------------
 

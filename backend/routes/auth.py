@@ -13,6 +13,16 @@ from models import AuthUser, InviteInfoResponse, LoginResponse, OnboardInfoRespo
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+@router.get("/config")
+def auth_config():
+    """Public endpoint returning Supabase URL and anon key for desktop/extension clients."""
+    settings = get_settings()
+    return {
+        "supabase_url": settings.supabase_url,
+        "supabase_anon_key": settings.supabase_anon_key,
+    }
+
+
 @router.post("/provision", response_model=LoginResponse)
 def provision(
     authorization: str | None = Header(default=None),

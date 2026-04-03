@@ -15,8 +15,24 @@ export type StoredCredentials = {
   accessToken: string;
   apiBaseUrl: string;
   employeeId: string;
-  password: string;
+  // User profile fields (from /api/auth/provision)
+  userId: string;
+  username: string;
+  email: string;
+  role: string;
+  orgId: string;
 };
+
+const CREDENTIAL_KEYS: (keyof StoredCredentials)[] = [
+  "accessToken",
+  "apiBaseUrl",
+  "employeeId",
+  "userId",
+  "username",
+  "email",
+  "role",
+  "orgId",
+];
 
 export async function saveCredentials(creds: Partial<StoredCredentials>): Promise<void> {
   const entries = Object.entries(creds) as [keyof StoredCredentials, string][];
@@ -26,10 +42,9 @@ export async function saveCredentials(creds: Partial<StoredCredentials>): Promis
 }
 
 export async function loadCredentials(): Promise<Partial<StoredCredentials>> {
-  const keys: (keyof StoredCredentials)[] = ["accessToken", "apiBaseUrl", "employeeId", "password"];
   const results: Partial<StoredCredentials> = {};
   await Promise.all(
-    keys.map(async (key) => {
+    CREDENTIAL_KEYS.map(async (key) => {
       const value = await keytar.getPassword(SERVICE, key);
       if (value !== null) results[key] = value;
     })
@@ -38,8 +53,7 @@ export async function loadCredentials(): Promise<Partial<StoredCredentials>> {
 }
 
 export async function clearCredentials(): Promise<void> {
-  const keys: (keyof StoredCredentials)[] = ["accessToken", "apiBaseUrl", "employeeId", "password"];
-  await Promise.all(keys.map((key) => keytar.deletePassword(SERVICE, key)));
+  await Promise.all(CREDENTIAL_KEYS.map((key) => keytar.deletePassword(SERVICE, key)));
 }
 
 export async function hasValidSession(): Promise<boolean> {

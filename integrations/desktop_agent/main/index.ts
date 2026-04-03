@@ -3,22 +3,19 @@
  *
  * Lifecycle:
  *  1. Enforce single instance
- *  2. If no stored credentials → open setup wizard
- *  3. Otherwise → silent tray start + start proxy
+ *  2. If no stored credentials → show app (login view)
+ *  3. Otherwise → show app (dashboard view) + start proxy
  *  4. On quit → stop proxy + disable OS proxy
  */
 
-import { app, BrowserWindow, protocol } from "electron";
-import path from "path";
+import { app } from "electron";
 import { hasValidSession } from "./keychain";
 import { startProxy, stopProxy, onProxyEvent } from "./proxy-manager";
 import { disableSystemProxy, enableSystemProxy } from "./proxy-settings";
 import { createTray, updateTrayStatus } from "./tray";
 import { registerIpcHandlers } from "./ipc-handlers";
 import { getProxyPort } from "./proxy-manager";
-
-// Keep a reference so the wizard window doesn't get GC'd
-let wizardWindow: BrowserWindow | null = null;
+import { openAppWindow, getAppWindow } from "./window-manager";
 
 // ---------------------------------------------------------------------------
 // Single-instance lock
@@ -31,10 +28,10 @@ if (!gotLock) {
 }
 
 app.on("second-instance", () => {
-  // If user tries to open a second instance, focus the wizard if open
-  if (wizardWindow && !wizardWindow.isDestroyed()) {
-    if (wizardWindow.isMinimized()) wizardWindow.restore();
-    wizardWindow.focus();
+  const win = getAppWindow();
+  if (win && !win.isDestroyed()) {
+    if (win.isMinimized()) win.restore();
+    win.focus();
   }
 });
 
@@ -53,13 +50,14 @@ app.whenReady().then(async () => {
   createTray();
 
   const hasSession = await hasValidSession();
-  if (!hasSession) {
-    openWizard();
-    return;
-  }
 
-  // Existing session — start monitoring silently
-  await _startMonitoring();
+  // Always open the app window — it handles login vs dashboard internally
+  openAppWindow();
+
+  if (hasSession) {
+    // Existing session — start monitoring silently
+    await _startMonitoring();
+  }
 });
 
 app.on("window-all-closed", () => {
@@ -72,44 +70,14 @@ app.on("before-quit", async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Monitoring
 // ---------------------------------------------------------------------------
-
-export function openWizard(): void {
-  if (wizardWindow && !wizardWindow.isDestroyed()) {
-    wizardWindow.focus();
-    return;
-  }
-
-  wizardWindow = new BrowserWindow({
-    width: 860,
-    height: 620,
-    title: "Sentinel Setup",
-    resizable: false,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, "preload.js"),
-    },
-  });
-
-  wizardWindow.loadFile(path.join(__dirname, "..", "renderer", "wizard.html"));
-
-  wizardWindow.on("closed", async () => {
-    wizardWindow = null;
-    // If wizard was closed after completing setup, start monitoring
-    const hasSession = await hasValidSession();
-    if (hasSession) {
-      await _startMonitoring();
-    }
-  });
-}
 
 async function _startMonitoring(): Promise<void> {
   try {
     await enableSystemProxy(getProxyPort());
   } catch {
-    // Non-fatal — proxy still works if OS proxy setting fails (e.g. HTTPS_PROXY env var)
+    // Non-fatal — proxy still works if OS proxy setting fails
   }
 
   await startProxy();
