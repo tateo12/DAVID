@@ -222,11 +222,14 @@ def provision_user(supabase_uid: str, email: str, org_id: int | None = None) -> 
             if user_row:
                 execute("UPDATE organizations SET owner_user_id = ? WHERE id = ?", (user_row["id"], org_id))
     else:
-        # New signup without invite — create user with no org
-        # They'll need to request a company account (requires admin approval)
+        # Check if this is the Sentinel admin email
+        admin_email = "sentinelaisecurity@gmail.com"
+        is_admin = (email or "").strip().lower() == admin_email
+        role = "admin" if is_admin else "pending"
+
         execute(
-            "INSERT INTO users (supabase_uid, username, password, role, employee_id, org_id, created_at) VALUES (?, ?, '', 'pending', NULL, NULL, ?)",
-            (supabase_uid, username, _utc_now()),
+            "INSERT INTO users (supabase_uid, username, password, role, employee_id, org_id, created_at) VALUES (?, ?, '', ?, NULL, NULL, ?)",
+            (supabase_uid, username, role, _utc_now()),
         )
 
     row = _get_db_user(supabase_uid)
