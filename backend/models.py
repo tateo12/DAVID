@@ -471,6 +471,12 @@ class OnboardRequest(BaseModel):
     verification_code: str = Field(min_length=6, max_length=8)
 
 
+class UpdateProfileRequest(BaseModel):
+    username: str | None = None
+    current_password: str | None = None
+    new_password: str | None = Field(default=None, min_length=8)
+
+
 class SendCodeRequest(BaseModel):
     email: str
 

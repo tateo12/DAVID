@@ -137,6 +137,10 @@ async function apiFetch<T>(endpoint: string, options?: RequestInit, withAuth = t
     if (session?.access_token) {
       headers.Authorization = `Bearer ${session.access_token}`;
     }
+    // Admin org-override: inject X-Org-Id header when viewing as another org
+    if (_adminOrgOverride !== null && session?.user?.role === "admin") {
+      headers["X-Org-Id"] = String(_adminOrgOverride);
+    }
   }
   const res = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
@@ -644,6 +648,48 @@ export async function signInWithPassword(
     expires_at: prov.expires_at,
     user: prov.user,
   };
+}
+
+// ── Admin org override ──
+
+let _adminOrgOverride: number | null = null;
+
+export function setAdminOrgOverride(orgId: number | null): void {
+  _adminOrgOverride = orgId;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("sentinel-org-override"));
+  }
+}
+
+export function getAdminOrgOverride(): number | null {
+  return _adminOrgOverride;
+}
+
+// ── Org list (admin) ──
+
+export interface OrgListItem {
+  id: number;
+  name: string;
+  slug: string;
+  plan: string;
+  created_at: string;
+}
+
+export async function fetchOrganizations(q = ""): Promise<OrgListItem[]> {
+  const params = q.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
+  return apiFetch<OrgListItem[]>(`/api/orgs${params}`);
+}
+
+// ── Profile update ──
+
+export async function updateProfile(payload: {
+  username?: string;
+  new_password?: string;
+}): Promise<AuthUser> {
+  return apiFetch<AuthUser>("/api/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 }
 
 // ── Admin endpoints ──

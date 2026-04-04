@@ -270,7 +270,25 @@ def get_current_user(authorization: str | None = Header(default=None)) -> dict:
 
 
 def get_org_id(current_user: dict) -> int:
-    """Extract org_id from the current user dict. Raises 403 if missing."""
+    """Extract org_id from the current user dict. Raises 403 if missing.
+    NOTE: For admin org-override, the route should use get_org_id_with_override instead,
+    or callers should check for the X-Org-Id header manually."""
+    org_id = current_user.get("org_id")
+    if not org_id:
+        raise HTTPException(status_code=403, detail="No organization context")
+    return int(org_id)
+
+
+def resolve_org_id(
+    current_user: dict,
+    x_org_id: str | None = Header(default=None, alias="X-Org-Id"),
+) -> int:
+    """Like get_org_id but lets admins override via X-Org-Id header."""
+    if current_user.get("role") == "admin" and x_org_id is not None:
+        try:
+            return int(x_org_id)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Invalid X-Org-Id header")
     org_id = current_user.get("org_id")
     if not org_id:
         raise HTTPException(status_code=403, detail="No organization context")

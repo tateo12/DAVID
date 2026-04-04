@@ -1,9 +1,11 @@
 import json
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
 
-from auth import get_current_user, get_org_id
+from fastapi import APIRouter, Depends, Header, HTTPException
+
+from auth import get_current_user, get_org_id, resolve_org_id
 from database import execute, fetch_one, fetch_rows
 from json_utils import loads_json
 from engines.policy_assistant_engine import list_policy_presets, run_policy_assistant
@@ -46,8 +48,11 @@ def policy_assistant_chat(
 
 
 @router.get("", response_model=list[PolicyRecord])
-def list_policies(current_user: dict = Depends(get_current_user)) -> list[PolicyRecord]:
-    org_id = get_org_id(current_user)
+def list_policies(
+    current_user: dict = Depends(get_current_user),
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+) -> list[PolicyRecord]:
+    org_id = resolve_org_id(current_user, x_org_id)
     rows = fetch_rows("SELECT id, name, role, rule_json, updated_at FROM policies WHERE org_id = ? ORDER BY id", (org_id,))
     return [
         PolicyRecord(

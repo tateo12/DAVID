@@ -10,6 +10,7 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { ShieldMark } from "@/components/shield-mark";
 import { MaterialIcon } from "./material-icon";
+import { AdminOrgSwitcher } from "./admin-org-switcher";
 import { StitchHeaderSearch } from "./stitch-header-search";
 import { StitchHeaderRibbon } from "./stitch-header-ribbon";
 
@@ -205,6 +206,20 @@ function StitchChrome({ children }: { children: React.ReactNode }) {
               Send Invite
             </Link>
           ) : null}
+
+          <Link
+            href="/settings"
+            onClick={() => !isMdUp && setMobileNavOpen(false)}
+            className={cn(
+              "flex items-center gap-3 px-6 py-3 font-label text-[10px] font-medium uppercase tracking-widest transition-all",
+              pathname === "/settings"
+                ? "border-r-2 border-secondary-fixed bg-secondary-fixed/10 text-secondary-fixed"
+                : "text-on-surface-variant hover:bg-surface-container-low hover:text-white"
+            )}
+          >
+            <MaterialIcon name="settings" className="text-lg" />
+            Settings
+          </Link>
         </nav>
         <SidebarSessionFooter />
       </aside>
@@ -299,6 +314,7 @@ function StitchChrome({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
           <div className="flex shrink-0 items-center gap-2 md:gap-4">
+            <AdminOrgSwitcher />
             <Suspense
               fallback={
                 <div className="hidden h-9 w-48 rounded-sm bg-surface-container-highest sm:block" />

@@ -15,6 +15,14 @@ router = APIRouter(prefix="/orgs", tags=["orgs"])
 SENTINEL_ADMIN_EMAIL = "sentinelaisecurity@gmail.com"
 
 
+class OrgListItem(BaseModel):
+    id: int
+    name: str
+    slug: str
+    plan: str
+    created_at: str
+
+
 class OrgRequestBody(BaseModel):
     company_name: str
 
@@ -56,6 +64,28 @@ class OnboardLinkListItem(BaseModel):
     company_hint: str
     used: bool
     created_at: str
+
+
+# ── Admin: list all organizations ────────────────────────────────────────────
+
+@router.get("", response_model=list[OrgListItem])
+def list_organizations(
+    q: str = "",
+    current_user: dict = Depends(get_current_user),
+) -> list[OrgListItem]:
+    """Admin-only. List all organizations, optionally filtered by search query."""
+    _require_admin(current_user)
+
+    if q.strip():
+        rows = fetch_rows(
+            "SELECT id, name, slug, plan, created_at FROM organizations WHERE lower(name) LIKE ? ORDER BY name",
+            (f"%{q.strip().lower()}%",),
+        )
+    else:
+        rows = fetch_rows(
+            "SELECT id, name, slug, plan, created_at FROM organizations ORDER BY name"
+        )
+    return [OrgListItem(**dict(r)) for r in rows]
 
 
 # ── Public: submit a company request ─────────────────────────────────────────

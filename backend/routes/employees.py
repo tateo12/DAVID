@@ -2,9 +2,11 @@ import json
 import secrets
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import Optional
 
-from auth import get_current_user, get_current_user_optional, get_org_id, require_ops_manager
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
+
+from auth import get_current_user, get_current_user_optional, get_org_id, require_ops_manager, resolve_org_id
 from config import frontend_base_url
 from curriculum_assign import (
     assign_next_curriculum_lesson,
@@ -75,8 +77,11 @@ def _next_employee_id() -> int:
 
 
 @router.get("", response_model=list[EmployeeSummary])
-def list_employees(current_user: dict = Depends(get_current_user)) -> list[EmployeeSummary]:
-    org_id = get_org_id(current_user)
+def list_employees(
+    current_user: dict = Depends(get_current_user),
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+) -> list[EmployeeSummary]:
+    org_id = resolve_org_id(current_user, x_org_id)
     if current_user.get("role") == "employee":
         eid = current_user.get("employee_id")
         if eid is None:
@@ -114,11 +119,14 @@ def list_employees(current_user: dict = Depends(get_current_user)) -> list[Emplo
 
 
 @router.get("/team", response_model=list[EmployeeTeamMember])
-def list_team_directory(current_user: dict | None = Depends(get_current_user_optional)) -> list[EmployeeTeamMember]:
+def list_team_directory(
+    current_user: dict | None = Depends(get_current_user_optional),
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+) -> list[EmployeeTeamMember]:
     if not current_user:
         raise HTTPException(status_code=401, detail="Authentication required")
     _require_manager(current_user)
-    org_id = get_org_id(current_user)
+    org_id = resolve_org_id(current_user, x_org_id)
     process_pending_employee_invite_reminders()
     rows = fetch_rows(
         """
@@ -310,8 +318,11 @@ def get_employee_skill(
 
 
 @router.get("/skills/company", response_model=CompanySkillSnapshot)
-def get_company_skill_snapshot(current_user: dict = Depends(get_current_user)) -> CompanySkillSnapshot:
-    org_id = get_org_id(current_user)
+def get_company_skill_snapshot(
+    current_user: dict = Depends(get_current_user),
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+) -> CompanySkillSnapshot:
+    org_id = resolve_org_id(current_user, x_org_id)
     row = fetch_one(
         """
         SELECT

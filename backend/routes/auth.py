@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from auth import _parse_bearer, _verify_supabase_jwt, get_current_user, provision_user
 from config import get_settings
 from database import _utc_now, execute, fetch_one
-from models import AuthUser, InviteInfoResponse, LoginResponse, OnboardInfoResponse, OnboardRequest, SendCodeRequest, SendCodeResponse, SetupAccountRequest
+from models import AuthUser, InviteInfoResponse, LoginResponse, OnboardInfoResponse, OnboardRequest, SendCodeRequest, SendCodeResponse, SetupAccountRequest, UpdateProfileRequest
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -77,6 +77,61 @@ def provision(
 @router.get("/me", response_model=AuthUser)
 def me(current_user: dict = Depends(get_current_user)) -> AuthUser:
     return AuthUser(**current_user)
+
+
+# ── Update profile ─────────────────────────────────────────────────────────
+
+@router.patch("/me", response_model=AuthUser)
+def update_profile(
+    body: UpdateProfileRequest,
+    current_user: dict = Depends(get_current_user),
+) -> AuthUser:
+    """Update the current user's profile (username, password)."""
+    settings = get_settings()
+    updated = False
+
+    if body.username is not None:
+        name = body.username.strip()
+        if not name:
+            raise HTTPException(status_code=422, detail="Username cannot be empty")
+        execute("UPDATE users SET username = ? WHERE id = ?", (name, current_user["id"]))
+        updated = True
+
+    if body.new_password is not None:
+        if not settings.supabase_url or not settings.supabase_service_role_key:
+            raise HTTPException(status_code=500, detail="Supabase not configured")
+        # Look up the Supabase UID for this user
+        user_row = fetch_one("SELECT supabase_uid FROM users WHERE id = ?", (current_user["id"],))
+        if not user_row:
+            raise HTTPException(status_code=404, detail="User not found")
+        supabase_url = settings.supabase_url.rstrip("/")
+        update_resp = http_requests.put(
+            f"{supabase_url}/auth/v1/admin/users/{user_row['supabase_uid']}",
+            headers={
+                "Authorization": f"Bearer {settings.supabase_service_role_key}",
+                "apikey": settings.supabase_service_role_key,
+                "Content-Type": "application/json",
+            },
+            json={"password": body.new_password},
+            timeout=10,
+        )
+        if not update_resp.ok:
+            raise HTTPException(status_code=500, detail="Failed to update password")
+        updated = True
+
+    if not updated:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    # Return refreshed user
+    user_row = fetch_one(
+        """SELECT u.id, u.username, u.role, u.employee_id, u.org_id,
+                  COALESCE(o.name, '') AS org_name
+           FROM users u
+           LEFT JOIN organizations o ON o.id = u.org_id
+           WHERE u.id = ?""",
+        (current_user["id"],),
+    )
+    return AuthUser(**dict(user_row))
 
 
 # ── Email verification codes ────────────────────────────────────────────────
@@ -429,10 +484,10 @@ def onboard(body: OnboardRequest) -> LoginResponse:
     # 5. Provision local user as manager of the new org
     user, _ = provision_user(supabase_uid, email, org_id=org_id)
 
-    # 6. Mark onboard token as used
+    # 6. Mark onboard token as used and store the actual company name
     execute(
-        "UPDATE onboard_tokens SET used_at = ? WHERE token = ?",
-        (_utc_now(), body.token),
+        "UPDATE onboard_tokens SET used_at = ?, company_hint = ? WHERE token = ?",
+        (_utc_now(), company, body.token),
     )
 
     return LoginResponse(

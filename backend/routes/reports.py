@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends
+from typing import Optional
 
-from auth import get_org_id, require_ops_manager
+from fastapi import APIRouter, Depends, Header
+
+from auth import get_org_id, require_ops_manager, resolve_org_id
 from database import fetch_rows
 from engines.reporting_engine import latest_weekly_report
 from models import AutomationAnalysisResponse, AutomationOpportunity, WeeklyReportResponse
@@ -9,8 +11,11 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 
 
 @router.get("/weekly", response_model=WeeklyReportResponse)
-def weekly_report(current_user: dict = Depends(require_ops_manager)) -> WeeklyReportResponse:
-    org_id = get_org_id(current_user)
+def weekly_report(
+    current_user: dict = Depends(require_ops_manager),
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+) -> WeeklyReportResponse:
+    org_id = resolve_org_id(current_user, x_org_id)
     return latest_weekly_report(org_id=org_id)
 
 
@@ -43,8 +48,11 @@ HUMAN_BASELINES = {
 }
 
 @router.get("/automation-analysis", response_model=AutomationAnalysisResponse)
-def automation_analysis(current_user: dict = Depends(require_ops_manager)) -> AutomationAnalysisResponse:
-    org_id = get_org_id(current_user)
+def automation_analysis(
+    current_user: dict = Depends(require_ops_manager),
+    x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
+) -> AutomationAnalysisResponse:
+    org_id = resolve_org_id(current_user, x_org_id)
     rows = fetch_rows(
         """
         SELECT
