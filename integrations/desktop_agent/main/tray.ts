@@ -14,7 +14,7 @@ import { openAppWindow } from "./window-manager";
 
 let tray: Tray | null = null;
 
-const _assetsDir = path.join(__dirname, "..", "assets");
+const _assetsDir = path.join(__dirname, "..", "..", "assets");
 
 function _icon(variant: "idle" | "active" | "warning"): Electron.NativeImage {
   const file = {

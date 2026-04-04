@@ -20,6 +20,7 @@ export function openAppWindow(): void {
     minWidth: 800,
     minHeight: 540,
     title: "Sentinel Desktop",
+    icon: path.join(__dirname, "..", "..", "assets", "icon.png"),
     backgroundColor: "#0d0f13",
     webPreferences: {
       nodeIntegration: false,
@@ -28,7 +29,7 @@ export function openAppWindow(): void {
     },
   });
 
-  appWindow.loadFile(path.join(__dirname, "..", "renderer", "app.html"));
+  appWindow.loadFile(path.join(__dirname, "..", "..", "renderer", "app.html"));
 
   appWindow.on("closed", () => {
     appWindow = null;

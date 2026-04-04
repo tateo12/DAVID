@@ -24,7 +24,8 @@
       "Bash(npx tsc:*)",
       "Bash(npm install:*)",
       "WebFetch(domain:jvkeayfkmlatccpqapiz.supabase.co)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npm run:*)"
     ]
   }
 }

@@ -12,7 +12,7 @@ import { app } from "electron";
 
 const execFileAsync = promisify(execFile);
 
-const _scriptsDir = path.join(__dirname, "..", "scripts");
+const _scriptsDir = path.join(__dirname, "..", "..", "scripts");
 
 /** Reject paths that contain shell metacharacters to prevent command injection. */
 function _assertSafePath(p: string): void {

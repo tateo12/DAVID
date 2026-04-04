@@ -16,7 +16,6 @@
     "dist:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
-    "keytar": "^7.9.0",
     "sudo-prompt": "^9.2.1"
   },
   "devDependencies": {

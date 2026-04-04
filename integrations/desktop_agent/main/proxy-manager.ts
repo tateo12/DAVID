@@ -54,7 +54,7 @@ export function getProxyPort(): number {
 /** Resolve the mitmdump binary — bundled binary first, then PATH fallback. */
 function getMitmdumpPath(): string {
   const bundled = path.join(
-    app.isPackaged ? process.resourcesPath : path.join(__dirname, ".."),
+    app.isPackaged ? process.resourcesPath : path.join(__dirname, "..", ".."),
     "resources",
     "python",
     process.platform === "win32" ? "mitmdump.exe" : "mitmdump"
@@ -71,7 +71,7 @@ function getMitmdumpPath(): string {
 function getAddonScriptPath(): string {
   const resourcesDir = app.isPackaged
     ? path.join(process.resourcesPath, "proxy")
-    : path.join(__dirname, "..", "proxy");
+    : path.join(__dirname, "..", "..", "proxy");
   return path.join(resourcesDir, "sentinel_proxy_desktop.py");
 }
 
