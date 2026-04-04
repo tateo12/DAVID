@@ -14,10 +14,20 @@ let pollTimer = null;
 // ─── Init ───────────────────────────────────────────────────────────────────
 
 async function init() {
-  const creds = await window.sentinel.getCredentials();
-  if (creds.hasToken) {
-    showApp();
-  } else {
+  try {
+    const creds = await window.sentinel.getCredentials();
+    if (creds.hasToken) {
+      try {
+        await showApp();
+      } catch (err) {
+        console.error("Dashboard load failed, falling back to login:", err);
+        showLogin();
+      }
+    } else {
+      showLogin();
+    }
+  } catch (err) {
+    console.error("Init failed, showing login:", err);
     showLogin();
   }
 }

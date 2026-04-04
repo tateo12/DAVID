@@ -1,8 +1,7 @@
 /* ─── Sentinel Desktop — Design System ──────────────────────────────────── */
 /* Matches the web frontend: dark bg, #c3f400 accent, monospace labels       */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;700;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+/* Fonts loaded async via link tags in HTML to avoid render-blocking */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
