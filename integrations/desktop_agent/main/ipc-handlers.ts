@@ -201,6 +201,36 @@ export function registerIpcHandlers(): void {
     return getStatus();
   });
 
+  // ---- Dependency check ----------------------------------------------------
+
+  ipcMain.handle("sentinel:check-mitmdump", async (): Promise<{ installed: boolean; version?: string }> => {
+    const { execSync } = require("child_process");
+    try {
+      const out = execSync("mitmdump --version", { timeout: 5000, encoding: "utf8" });
+      const match = out.match(/Mitmproxy:\s+([\d.]+)/);
+      return { installed: true, version: match ? match[1] : "unknown" };
+    } catch {
+      return { installed: false };
+    }
+  });
+
+  ipcMain.handle("sentinel:install-mitmdump", async (): Promise<{ ok: boolean; error?: string }> => {
+    const { execSync } = require("child_process");
+    try {
+      if (process.platform === "darwin") {
+        execSync("brew install mitmproxy", { timeout: 120000, encoding: "utf8" });
+      } else if (process.platform === "win32") {
+        // Windows: mitmdump.exe is bundled
+        return { ok: true };
+      } else {
+        execSync("pip3 install mitmproxy", { timeout: 120000, encoding: "utf8" });
+      }
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  });
+
   // ---- Certificate ---------------------------------------------------------
 
   ipcMain.handle("sentinel:generate-cert", async (): Promise<{ ok: boolean; certPath?: string; error?: string }> => {

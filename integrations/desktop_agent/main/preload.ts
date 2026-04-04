@@ -29,6 +29,11 @@ contextBridge.exposeInMainWorld("sentinel", {
 
   stopProxy: () => ipcRenderer.invoke("sentinel:stop-proxy"),
 
+  // Dependencies
+  checkMitmdump: () => ipcRenderer.invoke("sentinel:check-mitmdump"),
+
+  installMitmdump: () => ipcRenderer.invoke("sentinel:install-mitmdump"),
+
   // Certificate
   generateCert: () => ipcRenderer.invoke("sentinel:generate-cert"),
 

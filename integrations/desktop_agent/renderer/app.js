@@ -255,8 +255,30 @@ function _escapeHtml(str) {
 // ─── Setup ──────────────────────────────────────────────────────────────────
 
 async function initSetup() {
-  // Check cert status
+  // Step 0: Check for mitmdump dependency
   const certEl = document.getElementById("cert-status");
+  certEl.textContent = "Checking dependencies...";
+  certEl.className = "status-msg info";
+
+  try {
+    const dep = await window.sentinel.checkMitmdump();
+    if (!dep.installed) {
+      certEl.textContent = "Installing mitmproxy (required for monitoring)...";
+      certEl.className = "status-msg info";
+      const install = await window.sentinel.installMitmdump();
+      if (!install.ok) {
+        certEl.textContent = `Failed to install mitmproxy: ${install.error}. Install it manually: brew install mitmproxy`;
+        certEl.className = "status-msg error";
+        return;
+      }
+    }
+  } catch (err) {
+    certEl.textContent = `Dependency check failed: ${err}`;
+    certEl.className = "status-msg error";
+    return;
+  }
+
+  // Step 1: Generate CA certificate
   certEl.textContent = "Generating CA certificate...";
   certEl.className = "status-msg info";
 
