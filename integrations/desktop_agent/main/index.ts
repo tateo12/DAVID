@@ -40,8 +40,8 @@ app.on("second-instance", () => {
 // ---------------------------------------------------------------------------
 
 app.whenReady().then(async () => {
-  // Don't show a dock icon on macOS — tray only
-  if (process.platform === "darwin") app.dock.hide();
+  // Show dock icon in dev mode so the window is easily accessible
+  // if (process.platform === "darwin") app.dock.hide();
 
   // Register IPC handlers before any window opens
   registerIpcHandlers();
